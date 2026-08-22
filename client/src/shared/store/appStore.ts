@@ -10,7 +10,7 @@
  * فتعيد React رسم ما يعتمد عليه فقط.
  */
 import { useCallback, useSyncExternalStore } from "react";
-import { state } from "@domain/data.js";
+import { state } from "@services/data";
 
 type Listener = () => void;
 

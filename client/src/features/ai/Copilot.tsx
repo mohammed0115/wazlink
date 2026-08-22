@@ -1,5 +1,5 @@
 /** مساحة مساعد المبيعات — S8. لا ينشئ فتح المسار رسالة أو Task أو تعديلًا. */
-import { getConversation, state } from "@domain/data.js";
+import { getConversation, state } from "@services/data";
 import { go } from "../../shared/router/useHashRoute";
 import { PageHead } from "../../shared/components/PageHead";
 import { CopilotPanel } from "./CopilotPanel";

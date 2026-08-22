@@ -3,7 +3,7 @@
  * منقولة عن `renderIntelligenceProcessing()`: مراحل، دفعة، ثم كشف تدريجي.
  * تُفصح صراحة أنها محاكاة ولا تتصل بنموذج AI خارجي.
  */
-import { state } from "@domain/data.js";
+import { state } from "@services/data";
 import { getBusinessIntelligence, tierLabels as rawTierLabels } from "@domain/intelligence.js";
 import type { ProcessingState } from "./simulation";
 import { fmt } from "./shared";

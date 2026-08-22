@@ -15,7 +15,7 @@ import {
   previewPlanChange,
   setSubscriptionCancelAtPeriodEnd,
   state,
-} from "@domain/data.js";
+} from "@services/data";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { PageHead } from "../../shared/components/PageHead";

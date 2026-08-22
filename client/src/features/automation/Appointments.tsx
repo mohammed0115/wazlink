@@ -7,7 +7,7 @@ import {
   getLead,
   mockModel,
   state,
-} from "@domain/data.js";
+} from "@services/data";
 import { notifyStateChanged } from "../../shared/store/appStore";
 import { PageHead } from "../../shared/components/PageHead";
 

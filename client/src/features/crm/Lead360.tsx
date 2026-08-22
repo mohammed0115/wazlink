@@ -25,7 +25,7 @@ import {
   state,
   updateLeadPriority,
   updateLeadStatus,
-} from "@domain/data.js";
+} from "@services/data";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate } from "../../shared/store/appStore";

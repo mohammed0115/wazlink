@@ -23,7 +23,7 @@ import {
   getTaskAnalytics,
   normalizeAnalyticsContext,
 } from "@domain/analytics-engine.js";
-import { state } from "@domain/data.js";
+import { state } from "@services/data";
 import { go } from "../../shared/router/useHashRoute";
 import { notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";

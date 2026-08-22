@@ -5,7 +5,7 @@
  * `S4-MOCK-v1` ولا ينشئ Lead أو Deal أو CRM. النتائج تظهر فقط لعملية
  * حالتها `completed` وفق عقد S3.
  */
-import { getDiscoveryJob, getDiscoverySource, scraperCrmPackages, scraperExportColumns, state } from "@domain/data.js";
+import { getDiscoveryJob, getDiscoverySource, scraperCrmPackages, scraperExportColumns, state } from "@services/data";
 import { SCORING_VERSION, getBusinessIntelligence, getIntelligenceSummary } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { notifyStateChanged } from "../../shared/store/appStore";

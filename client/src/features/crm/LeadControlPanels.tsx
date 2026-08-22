@@ -15,7 +15,7 @@ import {
   getLeadContacts,
   getLeadConversations,
   mockModel,
-} from "@domain/data.js";
+} from "@services/data";
 import { getAiSalesInsights } from "@domain/sales-ai.js";
 import { go } from "../../shared/router/useHashRoute";
 import { fmt, formatIso } from "./shared";

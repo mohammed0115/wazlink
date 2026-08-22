@@ -1,53 +1,56 @@
 /**
  * جذر تطبيق «نمو».
  *
- * جدول التوجيه منقول حرفيًا عن `renderPage()` في `client/js/app.js`،
- * بما فيه الـaliases التاريخية (`leads`, `whatsapp`, `job`, `results`,
- * `integrations`, `billing`) كي لا ينكسر أي رابط موثق في `ROUTES.md`.
+ * التوجيه ما زال Hash Router واحدًا متوافقًا مع V1، بينما تُحمّل صفحات
+ * المناطق الثقيلة عند الحاجة لتقليل الحزمة الأولية. لا يوجد هنا Backend أو
+ * تكامل شبكة؛ مصدر البيانات الحالي يمر عبر adapter الخدمات.
  */
-import { useEffect } from "react";
-import { markConversationRead, state } from "@domain/data.js";
+import { lazy, Suspense, useEffect } from "react";
+import { markConversationRead, state } from "@services/data";
+import { appConfig } from "./config/env";
 import { isPublicRoute, useHashRoute } from "./shared/router/useHashRoute";
 import { useAppState } from "./shared/store/appStore";
 import { ToastProvider } from "./shared/store/toast";
 import { AppShell } from "./shared/shell/AppShell";
-import { routeLabel, settingsRouteLabels } from "./shared/shell/routeMeta";
+import { settingsRouteLabels } from "./shared/shell/routeMeta";
 import { Placeholder } from "./shared/components/Placeholder";
 import { ErrorBoundary } from "./shared/components/ErrorBoundary";
-import { Landing } from "./features/landing/Landing";
-import { Login } from "./features/auth/Login";
-import { Onboarding } from "./features/auth/Onboarding";
-import { Dashboard } from "./features/dashboard/Dashboard";
-import { UiKit } from "./features/ui-kit/UiKit";
-import { Discovery } from "./features/discovery/Discovery";
-import { DiscoveryJobs } from "./features/discovery/DiscoveryJobs";
-import { DiscoveryJob } from "./features/discovery/DiscoveryJob";
+import { LoadingState } from "./shared/components/States";
 import { DiscoveryModal } from "./features/discovery/DiscoveryModal";
-import { DiscoveryResults } from "./features/intelligence/DiscoveryResults";
-import { Intelligence } from "./features/intelligence/Intelligence";
 import { IntelligenceModal } from "./features/intelligence/IntelligenceModal";
 import { IntelligenceProcessing } from "./features/intelligence/IntelligenceProcessing";
-import { Crm } from "./features/crm/Crm";
-import { Lead360 } from "./features/crm/Lead360";
 import { CrmModal } from "./features/crm/CrmModal";
-import { Pipeline } from "./features/sales/Pipeline";
-import { Deals } from "./features/sales/Deals";
-import { Deal360 } from "./features/sales/Deal360";
 import { DealModal } from "./features/sales/DealModal";
-import { Inbox } from "./features/inbox/Inbox";
-import { Copilot } from "./features/ai/Copilot";
-import { Agent } from "./features/ai/Agent";
-import { Automation } from "./features/automation/Automation";
-import { Tasks } from "./features/automation/Tasks";
-import { Appointments } from "./features/automation/Appointments";
 import { AutomationModal } from "./features/automation/AutomationModal";
 import { AppointmentModal } from "./features/automation/AppointmentModal";
-import { Analytics } from "./features/analytics/Analytics";
 import { AnalyticsModal } from "./features/analytics/AnalyticsModal";
-import { Settings } from "./features/settings/Settings";
-import { Integrations } from "./features/settings/Integrations";
-import { Billing } from "./features/settings/Billing";
 import { Checkout } from "./features/settings/Checkout";
+
+const Landing = lazy(() => import("./features/landing/Landing").then(({ Landing: Component }) => ({ default: Component })));
+const Login = lazy(() => import("./features/auth/Login").then(({ Login: Component }) => ({ default: Component })));
+const Onboarding = lazy(() => import("./features/auth/Onboarding").then(({ Onboarding: Component }) => ({ default: Component })));
+const Dashboard = lazy(() => import("./features/dashboard/Dashboard").then(({ Dashboard: Component }) => ({ default: Component })));
+const UiKit = lazy(() => import("./features/ui-kit/UiKit").then(({ UiKit: Component }) => ({ default: Component })));
+const Discovery = lazy(() => import("./features/discovery/Discovery").then(({ Discovery: Component }) => ({ default: Component })));
+const DiscoveryJobs = lazy(() => import("./features/discovery/DiscoveryJobs").then(({ DiscoveryJobs: Component }) => ({ default: Component })));
+const DiscoveryJob = lazy(() => import("./features/discovery/DiscoveryJob").then(({ DiscoveryJob: Component }) => ({ default: Component })));
+const DiscoveryResults = lazy(() => import("./features/intelligence/DiscoveryResults").then(({ DiscoveryResults: Component }) => ({ default: Component })));
+const Intelligence = lazy(() => import("./features/intelligence/Intelligence").then(({ Intelligence: Component }) => ({ default: Component })));
+const Crm = lazy(() => import("./features/crm/Crm").then(({ Crm: Component }) => ({ default: Component })));
+const Lead360 = lazy(() => import("./features/crm/Lead360").then(({ Lead360: Component }) => ({ default: Component })));
+const Pipeline = lazy(() => import("./features/sales/Pipeline").then(({ Pipeline: Component }) => ({ default: Component })));
+const Deals = lazy(() => import("./features/sales/Deals").then(({ Deals: Component }) => ({ default: Component })));
+const Deal360 = lazy(() => import("./features/sales/Deal360").then(({ Deal360: Component }) => ({ default: Component })));
+const Inbox = lazy(() => import("./features/inbox/Inbox").then(({ Inbox: Component }) => ({ default: Component })));
+const Copilot = lazy(() => import("./features/ai/Copilot").then(({ Copilot: Component }) => ({ default: Component })));
+const Agent = lazy(() => import("./features/ai/Agent").then(({ Agent: Component }) => ({ default: Component })));
+const Automation = lazy(() => import("./features/automation/Automation").then(({ Automation: Component }) => ({ default: Component })));
+const Tasks = lazy(() => import("./features/automation/Tasks").then(({ Tasks: Component }) => ({ default: Component })));
+const Appointments = lazy(() => import("./features/automation/Appointments").then(({ Appointments: Component }) => ({ default: Component })));
+const Analytics = lazy(() => import("./features/analytics/Analytics").then(({ Analytics: Component }) => ({ default: Component })));
+const Settings = lazy(() => import("./features/settings/Settings").then(({ Settings: Component }) => ({ default: Component })));
+const Integrations = lazy(() => import("./features/settings/Integrations").then(({ Integrations: Component }) => ({ default: Component })));
+const Billing = lazy(() => import("./features/settings/Billing").then(({ Billing: Component }) => ({ default: Component })));
 
 /** المسارات المعروفة التي تعرض Placeholder المنتج (غير منفذة أصلًا في V1). */
 const productPlaceholders = new Set(["contacts", "companies", "calls"]);
@@ -104,11 +107,7 @@ function Page({ path, query }: { path: string; query: URLSearchParams }) {
   return <Placeholder route={path} />;
 }
 
-export default function App() {
-  const { path, query } = useHashRoute();
-  useAppState();
-
-  // مقابل `syncDiscoveryRouteContext()`: يثبّت السجل المختار من المسار قبل الرسم.
+function syncRouteContext(path: string, query: URLSearchParams) {
   const jobParam = query.get("job");
   const businessParam = query.get("business");
   if (jobParam) state.selectedJobId = jobParam;
@@ -126,31 +125,53 @@ export default function App() {
     state.selectedConversationId = path.split("/").pop() as string;
     markConversationRead(state.selectedConversationId);
   }
+}
+
+export default function App() {
+  const { path, query } = useHashRoute();
+  const queryString = query.toString();
+  useAppState();
 
   useEffect(() => {
+    syncRouteContext(path, query);
     document.documentElement.lang = "ar";
     document.documentElement.dir = "rtl";
     document.documentElement.dataset.theme = state.theme;
-  });
+    document.documentElement.dataset.appEnv = appConfig.appEnv;
+  }, [path, queryString]);
+
+  const routeContent = (
+    <ErrorBoundary key={path}>
+      <Suspense fallback={<LoadingState title="جار تحميل الشاشة" />}>
+        <Page path={path} query={query} />
+      </Suspense>
+    </ErrorBoundary>
+  );
 
   if (path === "landing" || path === "") {
     return (
       <ToastProvider>
-        <Landing />
+        <Suspense fallback={<LoadingState title="جار تحميل الصفحة الرئيسية" />}>
+          <Landing />
+        </Suspense>
       </ToastProvider>
     );
   }
 
   if (isPublicRoute(path)) {
-    return <ToastProvider>{path === "login" ? <Login /> : <Onboarding />}</ToastProvider>;
+    return (
+      <ToastProvider>
+        <Suspense fallback={<LoadingState title="جار تحميل الصفحة" />}>
+          {path === "login" ? <Login /> : <Onboarding />}
+        </Suspense>
+      </ToastProvider>
+    );
   }
 
   return (
     <ToastProvider>
       <AppShell route={path}>
-        <ErrorBoundary key={path}>
-          <Page path={path} query={query} />
-        </ErrorBoundary>
+        {routeContent}
       </AppShell>
       <DiscoveryModal />
       <IntelligenceModal />

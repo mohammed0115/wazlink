@@ -5,7 +5,7 @@
  * ويعيد المستخدم إلى Lead القائمة، وفق قاعدة «Lead واحدة لكل Business».
  */
 import type { MouseEvent } from "react";
-import { businesses, convertBusinessToLead, getDiscoveryJob, getLeadByBusinessId, state } from "@domain/data.js";
+import { businesses, convertBusinessToLead, getDiscoveryJob, getLeadByBusinessId, state } from "@services/data";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { notifyStateChanged } from "../../shared/store/appStore";

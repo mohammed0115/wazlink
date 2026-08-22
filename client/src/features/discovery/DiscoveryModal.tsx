@@ -8,14 +8,14 @@
  * لا عند فقاعة حدث من زر بداخل النافذة.
  */
 import type { MouseEvent } from "react";
-import { businesses, convertBusinessToLead, getDiscoveryJob, scraperCrmPackages, state } from "@domain/data.js";
+import { businesses, convertBusinessToLead, getDiscoveryJob, scraperCrmPackages, state } from "@services/data";
 import { notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { stopDiscoverySimulation } from "./simulation";
 import { Mono, fmt, sourceName } from "./shared";
 import { downloadScraperCsv } from "../intelligence/export";
 import { go } from "../../shared/router/useHashRoute";
-import { cancelDiscoveryJob } from "@domain/data.js";
+import { cancelDiscoveryJob } from "@services/data";
 import type { DiscoveryModalState } from "../../domain/types";
 import { useModalDismiss } from "../../shared/components/useModalDismiss";
 

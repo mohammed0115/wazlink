@@ -1,5 +1,5 @@
 /** مساعدات مشتركة لشاشات المبيعات — منقولة عن رؤوس عرض `pipeline.js`. */
-import { dealStatusLabels as rawDealStatus, mockModel } from "@domain/data.js";
+import { dealStatusLabels as rawDealStatus, mockModel } from "@services/data";
 
 export const dealStatusLabels = rawDealStatus as Record<string, string>;
 

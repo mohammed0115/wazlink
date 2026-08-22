@@ -2,7 +2,7 @@
  * Placeholder — قاعدة «لا روابط ميتة» في `ROUTES.md`.
  * كل مسار معروف غير منفذ يعرض اسم الشاشة ورقم الشحنة ومسار عودة.
  */
-import { navItems } from "@domain/data.js";
+import { navItems } from "@services/data";
 import { go } from "../router/useHashRoute";
 import { PageHead } from "./PageHead";
 

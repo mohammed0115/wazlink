@@ -3,7 +3,7 @@
  * منقول حرفيًا عن `routeNavId()` و`settingsRouteLabels` في نسخة V1،
  * ويحافظ على قاعدة S12: عنصر «الإعدادات» يبقى نشطًا في كل `#/settings/*`.
  */
-import { navItems } from "@domain/data.js";
+import { navItems } from "@services/data";
 
 export const settingsRouteLabels: Record<string, string> = {
   workspace: "مساحة العمل",

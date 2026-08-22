@@ -11,7 +11,7 @@ import {
   automationTriggerCatalog as rawTriggers,
   createAutomationRule,
   state,
-} from "@domain/data.js";
+} from "@services/data";
 import { getAutomationRulePreview } from "@domain/automation.js";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";

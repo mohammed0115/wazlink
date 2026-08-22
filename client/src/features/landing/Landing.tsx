@@ -6,7 +6,7 @@
  * ولا يغيّر فتحها أي كيان تشغيلي — العرض قراءة فقط.
  */
 import { Fragment } from "react";
-import { scraperCrmPackages } from "@domain/data.js";
+import { scraperCrmPackages } from "@services/data";
 import { getLandingTruth } from "@domain/landing-truth.js";
 import { go } from "../../shared/router/useHashRoute";
 import { useToast } from "../../shared/store/toast";

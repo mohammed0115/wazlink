@@ -1,9 +1,9 @@
 /**
  * Sidebar — نفس بنية وأصناف نسخة V1 بعد UI-FIX وSIDEBAR-SEMANTIC-ICONS.
- * مصدر عناصر التنقل يبقى `navItems` في `client/js/data.js` بلا تكرار.
+ * مصدر عناصر التنقل يبقى في طبقة البيانات عبر adapter واحد بلا تكرار.
  */
 import { Fragment } from "react";
-import { getInboxSummary, navItems, state } from "@domain/data.js";
+import { getInboxSummary, navItems, state } from "@services/data";
 import { setUiState } from "../store/appStore";
 import { go } from "../router/useHashRoute";
 import { Brand } from "./Brand";
@@ -12,7 +12,12 @@ import { routeNavId } from "./routeMeta";
 
 type NavItem = { id: string; label: string; icon: string; group: string };
 
-export function Sidebar({ route }: { route: string }) {
+type SidebarProps = {
+  route: string;
+  drawerOpen?: boolean;
+};
+
+export function Sidebar({ route, drawerOpen = false }: SidebarProps) {
   const workspaceMeta = state.workspace.companyName
     ? `${state.workspace.companyName} · ${state.workspace.teamSize || "فريق جديد"}`
     : "مسؤولة النمو";
@@ -22,7 +27,11 @@ export function Sidebar({ route }: { route: string }) {
   let lastGroup: string | null = null;
 
   return (
-    <aside className={`sidebar ${state.sidebarCollapsed ? "collapsed" : ""}`} id="sidebar">
+    <aside
+      className={`sidebar ${state.sidebarCollapsed ? "collapsed" : ""} ${drawerOpen ? "open" : ""}`}
+      id="sidebar"
+      aria-label="التنقل الرئيسي"
+    >
       <div className="sidebar-brand-row">
         <Brand />
         <button

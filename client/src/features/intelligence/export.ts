@@ -4,7 +4,7 @@
  * ينتج CSV متوافقًا مع Excel عبر Blob محلي فقط: لا خادم تصدير ولا طلب شبكة.
  * يبدأ بـUTF-8 BOM كي تُقرأ العربية صحيحة في Excel.
  */
-import { getJobResults, scraperExportColumns, state } from "@domain/data.js";
+import { getJobResults, scraperExportColumns, state } from "@services/data";
 
 type Business = Record<string, unknown>;
 

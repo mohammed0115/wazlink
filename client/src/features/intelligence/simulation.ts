@@ -6,7 +6,7 @@
  * تحترم `prefers-reduced-motion` كما تفرض قواعد S8.
  * التحليل نفسه حتمي ويأتي من `completeBusinessAnalysis`؛ الأنيميشن عرض فقط.
  */
-import { state } from "@domain/data.js";
+import { state } from "@services/data";
 import { beginBusinessAnalysis, completeBusinessAnalysis, intelligenceProcessingStages } from "@domain/intelligence.js";
 import { notifyStateChanged } from "../../shared/store/appStore";
 

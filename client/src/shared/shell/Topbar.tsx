@@ -3,7 +3,7 @@
  * وإجراءات علوية. زر القائمة يظهر على الجوال فقط عبر `responsive.css`.
  */
 import { useEffect, useRef } from "react";
-import { state } from "@domain/data.js";
+import { state } from "@services/data";
 import { go } from "../router/useHashRoute";
 import { notifyStateChanged } from "../store/appStore";
 import { useToast } from "../store/toast";

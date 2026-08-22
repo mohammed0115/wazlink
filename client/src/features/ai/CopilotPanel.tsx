@@ -4,7 +4,7 @@
  * محاكاة حتمية محلية: لا LLM ولا API ولا إرسال. «استخدام الرد» يملأ
  * Composer فقط ولا ينشئ رسالة، ويبقى `senderType` للرسالة البشرية `user`.
  */
-import { getConversation, state } from "@domain/data.js";
+import { getConversation, state } from "@services/data";
 import {
   agentModeLabels as rawAgentModes,
   createAgentProposal,

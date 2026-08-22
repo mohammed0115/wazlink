@@ -4,7 +4,7 @@
  * لا يكون الإجراء تنفيذًا قبل موافقة بشرية. لا يوجد وضع استقلال ذاتي،
  * ويحظر مركزيًا إرسال رسالة أو تغيير قيمة Deal أو إنشاء Revenue/Attribution.
  */
-import { state } from "@domain/data.js";
+import { state } from "@services/data";
 import {
   agentActionLabels as rawActionLabels,
   agentActionStatusLabels as rawStatusLabels,

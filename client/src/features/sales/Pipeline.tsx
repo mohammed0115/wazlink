@@ -17,7 +17,7 @@ import {
   getPipelineStageSummary,
   moveDealStage,
   state,
-} from "@domain/data.js";
+} from "@services/data";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";

@@ -23,6 +23,7 @@ const server = await createServer({
     alias: {
       "@": new URL("../client/src", import.meta.url).pathname,
       "@domain": new URL("../client/src/domain", import.meta.url).pathname,
+      "@services": new URL("../client/src/services", import.meta.url).pathname,
     },
   },
   plugins: [(await import("@vitejs/plugin-react")).default()],

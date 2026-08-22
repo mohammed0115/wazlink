@@ -1,5 +1,5 @@
 /** مساعدات CRM مشتركة — منقولة عن رؤوس عرض `crm.js`. */
-import { leadPriorityLabels as rawPriority, leadStatusLabels as rawStatus, mockModel } from "@domain/data.js";
+import { leadPriorityLabels as rawPriority, leadStatusLabels as rawStatus, mockModel } from "@services/data";
 import { tierLabels as rawTiers } from "@domain/intelligence.js";
 
 export const leadStatusLabels = rawStatus as Record<string, string>;

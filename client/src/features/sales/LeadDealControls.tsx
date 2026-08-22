@@ -2,7 +2,7 @@
  * لوحة الصفقات داخل Lead 360 — S6.
  * تسمح S6 بصفقات متعددة لنفس Lead عند اختلاف الخدمة أو العنوان.
  */
-import { getDealProbability, getDealStage, getLeadDeals, getOpenDealsForLead, state } from "@domain/data.js";
+import { getDealProbability, getDealStage, getLeadDeals, getOpenDealsForLead, state } from "@services/data";
 import { go } from "../../shared/router/useHashRoute";
 import { notifyStateChanged } from "../../shared/store/appStore";
 import { fmt } from "./shared";

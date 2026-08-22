@@ -5,7 +5,7 @@
  * وسلسلة الثقة. `unknown` ليست إشارة سلبية: السجل بلا أدلة كافية يظهر
  * بحالة `insufficient_data` بلا درجة مضللة.
  */
-import { state } from "@domain/data.js";
+import { state } from "@services/data";
 import { SCORING_VERSION, getBusinessIntelligence, tierLabels as rawTierLabels } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { notifyStateChanged } from "../../shared/store/appStore";

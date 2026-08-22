@@ -3,7 +3,7 @@
  * كلاهما عرض تفسيري فقط ولا يغيّر أي كيان.
  */
 import type { MouseEvent } from "react";
-import { businesses, mockModel, state } from "@domain/data.js";
+import { businesses, mockModel, state } from "@services/data";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { notifyStateChanged } from "../../shared/store/appStore";
 import { DimensionRows } from "./shared";

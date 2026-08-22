@@ -3,7 +3,7 @@
  * كلها عرض تفسيري فقط ولا تغيّر أي كيان.
  */
 import type { MouseEvent } from "react";
-import { state } from "@domain/data.js";
+import { state } from "@services/data";
 import {
   getAnalyticsFunnel,
   getAttributionTraces,

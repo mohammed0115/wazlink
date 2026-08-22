@@ -12,7 +12,7 @@ import {
   getPipelineStageSummary,
   mockModel,
   state,
-} from "@domain/data.js";
+} from "@services/data";
 import { getBusinessIntelligence, tierLabels as rawTiers } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { notifyStateChanged } from "../../shared/store/appStore";

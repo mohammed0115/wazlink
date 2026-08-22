@@ -31,7 +31,7 @@ import {
   retryMockMessage,
   sendMockMessage,
   state,
-} from "@domain/data.js";
+} from "@services/data";
 import { getBusinessIntelligence, tierLabels as rawTiers } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";

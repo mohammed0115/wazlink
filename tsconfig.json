@@ -21,6 +21,8 @@
     "paths": {
       "@/*": ["./client/src/*"],
       "@domain/*": ["./client/src/domain/*"],
+      "@services/*": ["./client/src/services/*"],
+      "@config/*": ["./client/src/config/*"],
       "@shared/*": ["./shared/*"]
     }
   }

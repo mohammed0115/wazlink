@@ -4,7 +4,7 @@
  * رسالة الخطأ مرتبطة بالحقل ولا تُستخدم تنبيهات المتصفح.
  */
 import type { FormEvent } from "react";
-import { state } from "@domain/data.js";
+import { state } from "@services/data";
 import { go } from "../../shared/router/useHashRoute";
 import { notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";

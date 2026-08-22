@@ -15,7 +15,7 @@ import {
   getUpcomingActivities,
   jobs,
   state,
-} from "@domain/data.js";
+} from "@services/data";
 import { getAgentActions } from "@domain/sales-ai.js";
 import { getAnalyticsOverview, getAttributionTraces, getSourcePerformance } from "@domain/analytics-engine.js";
 import { go } from "../../shared/router/useHashRoute";

@@ -1,5 +1,5 @@
 /** المهام — S9. سجل واحد للمهام اليدوية والآلية بنفس عقد S5، مع provenance للأتمتة. */
-import { completeLeadTask, getLead, getTasksWorkspace, mockModel, state } from "@domain/data.js";
+import { completeLeadTask, getLead, getTasksWorkspace, mockModel, state } from "@services/data";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
 import { PageHead } from "../../shared/components/PageHead";
 
