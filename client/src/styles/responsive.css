@@ -1,0 +1,123 @@
+/* UI-FIX design reminder: Light SaaS shell stays calm and readable at every breakpoint; Drawer retains the same brand, navigation, and actions without changing behavior. */
+@media (max-width:1100px) { .app-shell { padding-inline-end:76px; }.sidebar { width:76px; padding-inline:10px; }.sidebar .brand { justify-content:center; padding-inline:0; }.sidebar .brand span,.sidebar .collapse-button,.side-link span:not(.nav-icon):not(.nav-pill),.nav-group,.usage-card,.profile-trigger span { display:none; }.side-link { justify-content:center; padding:10px; }.side-link.active::before { inset-inline-end:-10px; }.sidebar-bottom { align-items:center; }.profile-trigger { justify-content:center; }.workspace { min-width:0; }.grid-4 { grid-template-columns:repeat(2,minmax(0,1fr)); }.hero { grid-template-columns:1fr; }.hero-visual { min-height:330px; }.workflow-steps { overflow:auto; grid-template-columns:repeat(5,180px); }.feature-grid { grid-template-columns:repeat(2,1fr); }.discovery-layout,.job-progress { grid-template-columns:1fr; } }
+@media (max-width:760px) { .public-nav { padding-inline:17px; }.public-nav-links { display:none; }.app-shell,.app-shell.sidebar-is-collapsed { padding-inline-end:0; }.sidebar { transform:translateX(110%); width:260px; transition:.2s ease; box-shadow:-12px 0 32px rgba(0,0,0,.18); }.sidebar.open { transform:translateX(0); }.sidebar.collapsed { width:260px; padding-inline:15px; }.sidebar .brand span,.sidebar .collapse-button,.side-link span:not(.nav-icon):not(.nav-pill),.nav-group,.usage-card,.profile-trigger span { display:grid; }.sidebar.collapsed .brand span,.sidebar.collapsed .side-link > span,.sidebar.collapsed .nav-group,.sidebar.collapsed .usage-card,.sidebar.collapsed .profile-trigger span { display:grid; }.side-link,.sidebar.collapsed .side-link { justify-content:flex-start; padding:10px; }.side-link.active::before { inset-inline-end:-15px; }.menu-button { display:grid !important; }.topbar { min-height:61px; padding-inline:16px; }.command-bar { width:auto; flex:1; }.command-bar kbd { display:none; }.page-content { padding:22px 16px 40px; }.page-head { align-items:flex-start; flex-direction:column; gap:13px; }.page-head-actions { width:100%; }.page-head-actions .button { flex:1; }.grid-3,.grid-4,.grid-2,.stats-grid,.dashboard-grid,.ui-kit-grid { grid-template-columns:1fr; }.grid-main-side,.grid-side-main { grid-template-columns:1fr; }.auth-shell { grid-template-columns:1fr; }.auth-visual { display:none; }.auth-panel { padding:25px 20px; }.intro,.hero,.landing-section { padding-inline:17px; }.hero { padding-top:48px; }.hero h1 { font-size:38px; }.feature-grid { grid-template-columns:1fr; }.section-head { align-items:flex-start; flex-direction:column; }.workflow-strip { padding-inline:17px; }.workflow-steps { margin-inline:-17px; padding-inline:17px; padding-block:0 7px; }.form-grid { grid-template-columns:1fr; }.form-field.wide { grid-column:auto; }.toolbar { align-items:flex-start; flex-direction:column; padding:10px; }.toolbar-left,.toolbar-right { width:100%; }.toolbar-right { justify-content:space-between; }.search-field { flex:1; min-width:0; }.job-progress { grid-template-columns:1fr; }.stage-list { padding:12px; }.placeholder-card { grid-template-columns:1fr; align-items:flex-start; }.toast-wrap { inset-inline-start:12px; inset-block-end:12px; } }
+@media (max-width:760px) { .decision-rail { align-items:flex-start; flex-direction:column; gap:8px; }.decision-brand { padding-left:0; border-left:0; }.decision-rail > small { display:none; }.decision-steps { width:100%; overflow:auto; padding-bottom:3px; }.decision-steps span { min-width:82px; }.decision-steps span:not(:last-child)::after { right:48px; width:28px; }.record-hero { margin:10px; }.record-hero > div:not(.record-hero-route) { grid-template-columns:74px 1fr auto; padding:9px; }.record-hero > div:not(.record-hero-route) b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } }
+@media (max-width:760px) { .lead-header { align-items:flex-start; flex-direction:column; }.lead-header-stats { flex-wrap:wrap; gap:10px; }.inbox-layout { grid-template-columns:150px 250px 390px 225px; }.agent-hero { flex-direction:column; }.agent-hero-metrics { min-width:0; width:100%; }.capability-grid { grid-template-columns:1fr 1fr; }.automation-layout { grid-template-columns:1fr; }.automation-library { display:grid; grid-template-columns:repeat(2,1fr); gap:7px; }.automation-library h3,.automation-help { grid-column:span 2; }.automation-library > button { margin:0; }.workflow-canvas { min-height:0; }.pipeline-board { margin-left:-16px; margin-right:-16px; padding-right:16px; padding-left:16px; } }
+@media (max-width:760px) { .task-summary { grid-template-columns:1fr 1fr; }.task-card { grid-template-columns:auto 1fr auto; }.task-card em { display:none; }.deal-detail { grid-template-columns:1fr; }.deal-kpis { grid-template-columns:1fr 1fr; }.deal-steps { overflow:auto; padding-bottom:5px; }.deal-steps span { min-width:73px; }.deal-activity article { grid-template-columns:64px 1fr; }.deal-activity small { grid-column:2; }.bar-chart > div { grid-template-columns:80px 1fr 28px; }.conversion-chain { align-items:flex-start; overflow:auto; padding-bottom:5px; }.conversion-chain > div { min-width:70px; }.integration-grid { grid-template-columns:1fr 1fr; }.billing-hero { align-items:flex-start; flex-direction:column; }.billing-hero > div:last-child { justify-items:start; }.settings-layout { grid-template-columns:1fr; }.settings-nav { display:flex; overflow:auto; }.settings-nav button { white-space:nowrap; } }
+
+/* UI-FIX — responsive light app shell. */
+@media (max-width:1100px){.app-shell{padding-inline-end:82px}.sidebar{width:82px;padding-inline:12px}.sidebar .brand img{width:34px;height:34px}.side-link{min-height:44px;border-radius:10px}.side-link.active::before{inset-inline-end:8px}.topbar{padding-inline:26px}.page-content{padding-inline:28px}}
+@media (max-width:900px){.app-shell,.app-shell.sidebar-is-collapsed{padding-inline-end:0}.sidebar,.sidebar.collapsed{width:min(274px,84vw);padding:18px 13px 16px;background:var(--paper);border-inline-start:1px solid var(--line);box-shadow:none}.sidebar.open{transform:translateX(0);box-shadow:-16px 0 34px rgba(23,49,59,.14),0 0 0 100vmax rgba(22,48,58,.18)}.sidebar-brand-row{min-height:60px}.sidebar .brand{padding-bottom:16px}.sidebar .brand span,.sidebar .collapse-button,.side-link span:not(.nav-icon):not(.nav-pill),.nav-group,.usage-card,.profile-trigger span{display:grid}.sidebar.collapsed .brand span,.sidebar.collapsed .side-link>span,.sidebar.collapsed .nav-group,.sidebar.collapsed .usage-card,.sidebar.collapsed .profile-trigger span{display:grid}.sidebar.collapsed .collapse-button{display:grid}.sidebar.collapsed .sidebar-brand-row{justify-content:space-between}.sidebar-nav{padding-top:15px}.side-link,.sidebar.collapsed .side-link{justify-content:flex-start;min-height:43px;padding:10px 11px}.side-link.active::before{inset-inline-end:8px}.topbar{min-height:68px;padding-inline:18px;gap:10px}.topbar-brand-lock span,.page-crumb>span,.page-crumb>i,.page-crumb>b{display:none}.command-bar{min-height:40px;padding-inline:10px;border-radius:9px}.command-bar input{font-size:11px}.top-actions{gap:4px}.top-actions .button.compact{min-height:36px;padding-inline:10px;font-size:11px}.top-icon{width:34px;height:34px}.page-content{padding:26px 18px 46px}.page-head{margin-bottom:22px}.page-head h1{font-size:30px}.page-head p{font-size:12px}.page-head-actions .button{min-height:40px}.usage-card{padding:10px 11px}.profile-trigger{padding:8px 6px}.grid-3,.grid-4,.grid-2,.stats-grid,.dashboard-grid,.ui-kit-grid,.grid-main-side,.grid-side-main{grid-template-columns:1fr}}
+
+/* S12 responsive polish: the page never becomes the scrolling surface on mobile. Wide data remains inside an explicit local scroller. */
+@media (max-width:760px){
+  html,body,#app{max-width:100%;overflow-x:hidden}
+  .sidebar,.sidebar.collapsed{display:none!important;transform:translateX(110%)!important}
+  .sidebar.open{display:flex!important;transform:translateX(0)!important}
+  .app-shell,.workspace,.page-content,.page-content>*{min-width:0;max-width:100%}
+  .app-shell,.workspace{width:100%}
+  .exec-dashboard,.analytics-workspace,.s11-workspace,.crm-workspace,.pipeline-workspace{min-width:0;width:100%}
+  .exec-dashboard>*,.analytics-workspace>*,.s11-workspace>*{min-width:0}
+  .exec-header-actions,.page-head-actions{max-width:100%}
+  .time-filter,.analytics-tabs,.decision-steps,.settings-nav,.table-wrap,.analytics-table-wrap,.pipeline-board,.inbox-layout{max-width:100%;overscroll-behavior-inline:contain}
+  .inbox-layout{min-width:0}
+  .inbox-layout,.pipeline-board{overflow-x:auto}
+  .conversation-pane{min-width:0}
+}
+
+/* MOBILE-RESPONSIVE-FIX: compact RTL layouts prioritise one readable task at a time; wide operational surfaces stack instead of shrinking into unusable columns. */
+@media (max-width:540px){
+  .public-nav{min-height:62px;padding-inline:12px;gap:10px}
+  .public-nav .brand{gap:6px;min-width:0}
+  .public-nav .brand img{width:30px;height:30px}
+  .public-nav .brand b{font-size:18px}
+  .public-nav .brand small{display:none}
+  .public-actions .button{min-height:36px;padding-inline:11px;font-size:11px;white-space:nowrap}
+  .landing-hero{min-height:0;padding-top:34px!important;padding-bottom:30px}
+  .landing-hero .hero-copy{min-width:0}
+  .hero h1,.landing-hero h1{font-size:clamp(29px,9vw,35px);line-height:1.24}
+  .hero .lead{font-size:12px;line-height:1.85}
+  .hero-actions{display:grid;grid-template-columns:1fr;gap:8px}
+  .hero-actions .button{width:100%}
+  .source-revenue-visual{min-height:0;padding:13px}
+  .source-query{grid-template-columns:1fr;gap:4px;padding:9px}
+  .source-query b{font-size:10px}
+  .source-query small{overflow-wrap:anywhere}
+  .source-revenue-footer b{font-size:15px}
+  .landing-section,.workflow-strip{padding-inline:14px!important}
+  .landing-section-title{align-items:flex-start;flex-direction:column;gap:8px}
+  .landing-section-title h2,.section-head h2{font-size:24px}
+  .landing-section-title p:not(.eyebrow){max-width:none;font-size:11px}
+  .workflow-steps{margin-inline:-14px!important;padding-inline:14px!important}
+  .product-workflow .workflow-step{min-height:116px}
+  .discovery-showcase,.intelligence-showcase,.copilot-landing{grid-template-columns:1fr}
+  .business-preview header{gap:10px;padding:14px}
+  .business-preview header>div{min-width:0}
+  .business-preview header h3{overflow-wrap:anywhere;font-size:16px}
+  .business-facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .business-facts span{padding:12px 11px}
+  .business-facts span:nth-child(3n){border-inline-start:1px solid var(--line)}
+  .business-facts span:nth-child(2n){border-inline-start:0}
+  .business-facts span:last-child{grid-column:span 2}
+  .discovery-copy{padding:20px}
+  .discovery-copy h3{font-size:20px}
+  .discovery-copy .button{width:100%}
+  .intelligence-reason header{align-items:flex-start;flex-direction:column;gap:4px}
+  .intelligence-reason>p{margin:16px 14px;font-size:13px}
+  .signal-list{grid-template-columns:1fr}
+  .signal-list span{border-inline-start:0!important;padding:11px 14px}
+  .intelligence-meta{padding:20px}
+  .record-chain{display:grid;justify-items:stretch;overflow:visible;gap:6px}
+  .record-chain article{min-width:0}
+  .record-chain>i{justify-self:center}
+  .copilot-landing{padding:20px}
+  .copilot-landing h2{font-size:25px}
+  .copilot-landing article{padding:14px}
+  .landing-kanban{grid-template-columns:1fr;overflow:visible}
+  .landing-kanban article{min-height:0}
+  .attribution-landing{padding:20px}
+  .attribution-landing h2{font-size:24px}
+  .attribution-landing-flow{display:grid;overflow:visible;justify-items:stretch;gap:6px;margin-top:17px}
+  .attribution-landing-flow article{min-width:0}
+  .attribution-landing-flow>i{justify-self:center}
+  .uses-grid,.integration-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .uses-grid article{min-height:98px;padding:12px}
+  .integration-preview-grid article{align-items:flex-start;padding:10px}
+  .integration-preview-grid i{flex:none}
+  .integration-preview-grid b{overflow-wrap:anywhere}
+  .final-cta{align-items:flex-start;flex-direction:column;margin-top:12px;padding:28px 18px}
+  .final-cta h2{font-size:25px}
+  .final-cta>div:last-child{width:100%}
+  .final-cta .button{flex:1}
+  .landing-footer{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;padding:30px 16px}
+  .landing-footer>div:first-child{grid-column:span 2}
+
+  .topbar{flex-wrap:wrap;gap:7px;min-height:0;padding:10px 12px}
+  .page-crumb{flex:1;min-width:0}
+  .topbar-brand-lock{padding-inline-end:7px}
+  .topbar-brand-lock img{width:26px;height:26px}
+  .top-actions{gap:3px}
+  .top-actions .top-icon{display:none}
+  .top-actions .button.compact{min-height:36px;padding-inline:9px;font-size:10px}
+  .command-bar{order:3;flex-basis:100%;width:100%;min-height:38px}
+  .page-content{padding:20px 12px 34px}
+  .page-head h1{font-size:25px}
+  .page-head-actions,.page-head-actions .button{width:100%}
+  .toolbar-left,.toolbar-right{flex-wrap:wrap}
+  .toolbar-right{justify-content:flex-start}
+  .search-field{min-width:0;width:100%}
+  .modal-backdrop{padding:10px}
+  .modal{max-height:calc(100dvh - 20px);padding:16px;border-radius:10px}
+  .modal-head{gap:10px}
+  .modal-footer{flex-wrap:wrap}
+  .modal-footer .button{flex:1}
+  .pipeline-board{grid-template-columns:1fr;overflow:visible;margin-inline:0;padding-inline:0}
+  .pipeline-column{min-height:0}
+  .inbox-layout{display:block;min-height:0;overflow:visible}
+  .inbox-filters,.context-panel{display:none}
+  .conversation-list{max-height:245px;overflow:auto;border-left:0;border-bottom:1px solid var(--line)}
+  .conversation-pane{border-left:0}
+  .messages{min-height:320px;padding:14px}
+  .message{max-width:88%}
+  .suggested-replies,.composer{padding-inline:10px}
+}

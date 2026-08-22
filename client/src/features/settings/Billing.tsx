@@ -1,0 +1,267 @@
+/**
+ * الفوترة — S11.
+ *
+ * اشتراك المنصة منفصل تمامًا عن مبيعات العملاء: **لا** يؤدي Plan أو Invoice
+ * أو BillingActivity إلى `RevenueEvent` أو `AttributionTouchpoint`.
+ * لا بوابة دفع ولا معالجة بطاقات؛ وسيلة الدفع مرجع عرض مقنّع فقط.
+ */
+import {
+  changeSubscriptionPlanMock,
+  getBillingActivities,
+  getBillingUsage,
+  getCurrentSubscription,
+  getPlanChangePreview,
+  mockModel,
+  previewPlanChange,
+  setSubscriptionCancelAtPeriodEnd,
+  state,
+} from "@domain/data.js";
+import { mutate, notifyStateChanged } from "../../shared/store/appStore";
+import { useToast } from "../../shared/store/toast";
+import { PageHead } from "../../shared/components/PageHead";
+import { AuditList, GovernanceRail, fmtDate, sar } from "./shared";
+
+type Row = Record<string, any>;
+
+const usageLabels: Record<string, string> = {
+  leads: "العملاء المحتملون", discoveryRuns: "عمليات الاكتشاف", seats: "المقاعد النشطة",
+  automationRuns: "تشغيلات الأتمتة", aiAnalyses: "تحليلات الذكاء",
+};
+const billingStatusLabel: Record<string, string> = {
+  trial: "تجربة", active_mock: "نشط تجريبيًا", past_due_mock: "استحقاق تجريبي", cancelled: "ملغي",
+};
+const invoiceStatusLabel: Record<string, string> = {
+  paid_mock: "مدفوعة تجريبيًا", open_mock: "مفتوحة تجريبيًا", void: "ملغاة",
+};
+
+export function Billing() {
+  const toast = useToast();
+  const subscription = getCurrentSubscription() as Row;
+  const plan = mockModel.plans.find((item: Row) => item.id === subscription.planId) as Row;
+  const usage = getBillingUsage() as Row[];
+  const payment = mockModel.paymentMethods[0] as Row;
+  const previewPlanId = state.s11Ui.billingPreviewPlanId;
+  const preview = previewPlanId ? (getPlanChangePreview(previewPlanId) as Row) : null;
+
+  return (
+    <div className="s11-workspace">
+      <GovernanceRail note="S11 · فوترة تجريبية" />
+      <PageHead
+        kicker="S11 · اشتراك المنصة"
+        title="الفوترة والاستخدام"
+        description="اشتراك وخطط وفواتير تجريبية محلية. منفصلة تمامًا عن إيراد العملاء وإسناده في S10."
+      />
+
+      <section className="s11-billing-section">
+        <header>
+          <div>
+            <p className="eyebrow">الاشتراك الحالي</p>
+            <h2>
+              {plan?.name} · {sar(plan?.price || 0)} / شهر
+            </h2>
+            <p>
+              الحالة: {billingStatusLabel[subscription.status] || subscription.status} · التجديد التجريبي{" "}
+              {fmtDate(subscription.renewsAt)}
+            </p>
+          </div>
+          <div className="s11-cancel-control">
+            {subscription.cancelAtPeriodEnd ? (
+              <button
+                className="button"
+                type="button"
+                onClick={() => {
+                  mutate(() => setSubscriptionCancelAtPeriodEnd(false));
+                  toast("أُلغيت جدولة الإنهاء؛ لم يُحذف أي سجل.", "info");
+                }}
+              >
+                إلغاء الإنهاء المجدول
+              </button>
+            ) : (
+              <button
+                className="button ghost"
+                type="button"
+                onClick={() => {
+                  mutate(() => setSubscriptionCancelAtPeriodEnd(true));
+                  toast("جُدول إلغاء تجريبي في نهاية الدورة؛ لن يُحذف أي سجل.", "info");
+                }}
+              >
+                جدولة إلغاء تجريبي
+              </button>
+            )}
+            <small>لن يُحذف أي سجل في المنتج.</small>
+          </div>
+        </header>
+      </section>
+
+      {preview && (
+        <section className="s11-billing-preview">
+          <header>
+            <div>
+              <p className="eyebrow">محاكاة تغيير خطة</p>
+              <h2>
+                {preview.current.name} ← {preview.target.name}
+              </h2>
+              <p>
+                موعد الأثر: {preview.effectiveDate}. لا يوجد دفع أو حذف بيانات أو تغيير لتوافر الميزات في S11.
+              </p>
+            </div>
+            <button
+              className="top-icon"
+              type="button"
+              aria-label="إغلاق المعاينة"
+              onClick={() => {
+                state.s11Ui = { ...state.s11Ui, billingPreviewPlanId: null };
+                notifyStateChanged();
+              }}
+            >
+              ×
+            </button>
+          </header>
+          <div className="s11-price-difference">
+            <span>
+              {sar(preview.current.price)} ← <b>{sar(preview.target.price)}</b>
+            </span>
+            {preview.downgradeWarning && (
+              <p className="s11-error-note">
+                <b>تحذير تخفيض</b>
+                <span>{preview.downgradeWarning}</span>
+              </p>
+            )}
+          </div>
+          <footer>
+            <button
+              className="button primary"
+              type="button"
+              onClick={() => {
+                mutate(() => changeSubscriptionPlanMock(preview.target.id));
+                state.s11Ui = { ...state.s11Ui, billingPreviewPlanId: null };
+                notifyStateChanged();
+                toast("غُيّرت الخطة محليًا؛ لا دفع ولا تغيير في توافر الميزات.", "success");
+              }}
+            >
+              تأكيد التغيير التجريبي
+            </button>
+          </footer>
+        </section>
+      )}
+
+      <section className="s11-billing-section">
+        <header>
+          <div>
+            <p className="eyebrow">الاستخدام</p>
+            <h2>استخدام الخطة الحالية</h2>
+          </div>
+          <small>المستخدم · الحد · المتبقي</small>
+        </header>
+        <div className="s11-usage-grid">
+          {usage.map((item) => (
+            <article className={item.over ? "over" : ""} key={item.key}>
+              <span>{usageLabels[item.key] || item.key}</span>
+              <b>
+                {item.used} <small>من {item.limit ?? "—"}</small>
+              </b>
+              <i>
+                <em style={{ width: `${item.limit ? Math.min(100, (item.used / item.limit) * 100) : 0}%` }} />
+              </i>
+              <small>
+                {item.limit === null
+                  ? "لا يوجد حد معلن"
+                  : item.over
+                    ? `تجاوز الحد التجريبي بـ${item.used - item.limit}`
+                    : `المتبقي ${item.remaining}`}
+              </small>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="s11-billing-section">
+        <header>
+          <div>
+            <p className="eyebrow">الخطط</p>
+            <h2>تغيير تجريبي فقط</h2>
+          </div>
+          <small>لا تتغير ميزات S3–S10 فعليًا عند التبديل.</small>
+        </header>
+        <div className="s11-plan-grid">
+          {mockModel.plans.map((item: Row) => (
+            <article className={item.id === plan?.id ? "current" : ""} key={item.id}>
+              <div>
+                <p>{item.id === plan?.id ? "الخطة الحالية" : "تسعير تجريبي"}</p>
+                <h3>{item.name}</h3>
+                <b>
+                  {sar(item.price)} <small>/ شهر</small>
+                </b>
+              </div>
+              <ul>
+                {item.features.slice(0, 3).map((feature: string) => (
+                  <li key={feature}>{feature}</li>
+                ))}
+              </ul>
+              <button
+                className={`button ${item.id === plan?.id ? "ghost" : ""}`}
+                type="button"
+                disabled={item.id === plan?.id}
+                onClick={() => {
+                  previewPlanChange(item.id);
+                  state.s11Ui = { ...state.s11Ui, billingPreviewPlanId: item.id };
+                  notifyStateChanged();
+                }}
+              >
+                {item.id === plan?.id ? "الخطة الحالية" : "معاينة التغيير"}
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="s11-billing-section s11-billing-history">
+        <header>
+          <div>
+            <p className="eyebrow">الفواتير ووسيلة الدفع</p>
+            <h2>سجل تجريبي قابل للمراجعة</h2>
+          </div>
+          <span className="s11-payment">
+            {payment?.brand} ·•••• {payment?.last4}
+            <small>{payment?.label}</small>
+          </span>
+        </header>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>الفاتورة</th><th>الفترة</th><th>المبلغ</th><th>الحالة</th><th>تاريخ الإصدار</th><th />
+              </tr>
+            </thead>
+            <tbody>
+              {mockModel.invoices.map((invoice: Row) => (
+                <tr key={invoice.id}>
+                  <td className="mono">{invoice.id}</td>
+                  <td>
+                    {invoice.periodStart} — {invoice.periodEnd}
+                  </td>
+                  <td>{sar(invoice.amount)}</td>
+                  <td>
+                    <span className={`s11-status ${invoice.status === "paid_mock" ? "success" : "warning"}`}>
+                      {invoiceStatusLabel[invoice.status]}
+                    </span>
+                  </td>
+                  <td>{fmtDate(invoice.issuedAt)}</td>
+                  <td>
+                    <button className="button ghost" type="button" disabled title="غير متاح في S11">
+                      قريبًا
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <section className="s11-subsection">
+          <h3>سجل الفوترة</h3>
+          <AuditList rows={getBillingActivities() as Row[]} />
+        </section>
+      </section>
+    </div>
+  );
+}

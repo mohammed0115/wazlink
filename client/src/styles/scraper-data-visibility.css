@@ -1,0 +1,14 @@
+/* SCRAPER-DATA-VISIBILITY design reminder: make extraction fields tangible before local Excel export; keep CRM separate and no provider implied. */
+.scraper-data-visibility{display:grid;gap:1rem;margin:0 0 1rem;padding:1.25rem;background:linear-gradient(135deg,#fbfeff,#f1fbfd);border:1px solid rgba(20,108,148,.18)}
+.scraper-data-visibility header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
+.scraper-data-visibility header>div{display:grid;gap:.3rem}
+.scraper-data-visibility h2,.scraper-data-visibility p{margin:0}
+.scraper-data-visibility h2{font-size:1.08rem}
+.scraper-data-visibility p{color:var(--text-muted);line-height:1.65}
+.scraper-availability-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem}
+.scraper-availability-grid span{display:grid;gap:.15rem;padding:.75rem;border-radius:12px;background:#fff;border:1px solid #e1f0f3;color:var(--text-muted);font-size:.78rem}
+.scraper-availability-grid b{color:var(--cyan-deep);font-size:1.08rem}
+.export-columns-selector{display:flex;flex-wrap:wrap;gap:.55rem;border:0;padding:0;margin:0}
+.export-columns-selector legend{width:100%;margin-bottom:.15rem;font-weight:800}
+.export-columns-selector .check{display:inline-flex;align-items:center;gap:.35rem;padding:.42rem .55rem;border:1px solid #dbecef;border-radius:999px;background:#fff;font-size:.8rem;white-space:nowrap}
+@media(max-width:540px){.scraper-data-visibility header{align-items:flex-start;flex-direction:column}.scraper-availability-grid{grid-template-columns:repeat(2,1fr)}.export-columns-selector{gap:.4rem}.export-columns-selector .check{font-size:.75rem}}
