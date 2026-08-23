@@ -6,6 +6,7 @@
  * الإفصاح عن event مقابل snapshot محفوظ كما اعتمدته S10.
  */
 import type { CSSProperties } from "react";
+import { appConfig } from "@config/env";
 import {
   businesses,
   dashboardData,
@@ -181,7 +182,7 @@ export function Dashboard() {
     <div className="exec-dashboard">
       <section className="decision-rail" aria-label="مسار القرار">
         <div className="decision-brand">
-          <img src="/leadflow-orbit-mark.svg" alt="نمو" />
+          <img src={`${appConfig.assetBaseUrl}wazlink-mark.svg`} alt="wazlink" />
           مسار القرار
         </div>
         <div className="decision-steps">

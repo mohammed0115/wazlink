@@ -28,7 +28,7 @@ const stepNames = ["بيانات الفاتورة", "وسيلة الدفع", "م
 const stepIndex: Record<string, number> = { invoice: 0, payment: 1, review: 2, success: 3, failed: 2 };
 
 const contextNextLabel = (checkout: Row) =>
-  checkout.context === "scraper_export" ? "العودة لتنزيل Excel" : checkout.context === "crm_results" ? "فتح CRM نمو" : "إدارة الاشتراك";
+  checkout.context === "scraper_export" ? "العودة لتنزيل Excel" : checkout.context === "crm_results" ? "فتح CRM wazlink" : "إدارة الاشتراك";
 
 function Steps({ step }: { step: string }) {
   const active = stepIndex[step] ?? 0;

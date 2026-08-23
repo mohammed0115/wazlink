@@ -50,7 +50,7 @@ const railSteps = [
 export function DecisionRail({ stage, job, source }: { stage: "results" | "intelligence"; job?: any; source?: any }) {
   const current = stage === "results" ? 1 : 2;
   return (
-    <section className="s4-decision-rail" aria-label="سكة قرار نمو">
+    <section className="s4-decision-rail" aria-label="سكة قرار wazlink">
       <div className="s4-rail-brand">
         <span className="s4-orbit-mark">
           <i />
@@ -58,7 +58,7 @@ export function DecisionRail({ stage, job, source }: { stage: "results" | "intel
           <i />
         </span>
         <span>
-          <b>نمو</b>
+          <b>wazlink</b>
           <small>سكة القرار</small>
         </span>
       </div>

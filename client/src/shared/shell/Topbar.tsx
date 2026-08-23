@@ -3,6 +3,7 @@
  * وإجراءات علوية. زر القائمة يظهر على الجوال فقط عبر `responsive.css`.
  */
 import { useEffect, useRef } from "react";
+import { appConfig } from "@config/env";
 import { state } from "@services/data";
 import { go } from "../router/useHashRoute";
 import { notifyStateChanged } from "../store/appStore";
@@ -38,10 +39,10 @@ export function Topbar({ route, onToggleSidebar }: { route: string; onToggleSide
         <button className="top-icon menu-button hidden" type="button" onClick={onToggleSidebar} aria-label="فتح القائمة">
           ☰
         </button>
-        <a className="topbar-brand-lock" href="#/dashboard" aria-label="نمو — الرئيسية">
-          <img src="/leadflow-orbit-mark.svg" alt="" />
+        <a className="topbar-brand-lock" href="#/dashboard" aria-label="wazlink — الرئيسية">
+          <img src={`${appConfig.assetBaseUrl}wazlink-mark.svg`} alt="" />
           <span>
-            <b>نمو</b>
+            <b>wazlink</b>
             <small>مسار القرار</small>
           </span>
         </a>

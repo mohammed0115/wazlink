@@ -2,7 +2,7 @@
  * سيناريو الاستخراج المرجعي — REFERENCE-ALIGNMENT.
  *
  * يستلهم تسلسل تجربة أدوات استخراج الشركات (استعلام → تشغيل → نتائج → تصدير)
- * بلغة «نمو» ونظام تصميمها. لا Google Maps API ولا scraping ولا credits حقيقية.
+ * بلغة «wazlink» ونظام تصميمها. لا Google Maps API ولا scraping ولا credits حقيقية.
  */
 import { useState } from "react";
 import { state } from "@services/data";
@@ -40,7 +40,7 @@ export function ScraperReferenceHero() {
             التالي: ابدأ الاستخراج
           </button>
         </div>
-        <small>بعد النتائج فقط ستختار تنزيل Excel أو تفعيل CRM نمو.</small>
+        <small>بعد النتائج فقط ستختار تنزيل Excel أو تفعيل CRM wazlink.</small>
       </div>
     </section>
   );

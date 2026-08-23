@@ -1,4 +1,4 @@
-/** نقطة دخول «نمو» — React 19 فوق نفس طبقة النطاق والأنماط المعتمدة في V1. */
+/** نقطة دخول «wazlink» — React 19 فوق نفس طبقة النطاق والأنماط المعتمدة في V1. */
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";

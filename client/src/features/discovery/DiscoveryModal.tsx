@@ -123,7 +123,7 @@ export function DiscoveryModal() {
             <div>
               <p className="eyebrow">بعد الاستخراج</p>
               <h2 id="scraperCrmDecisionTitle">ماذا تريد أن تفعل بـ{fmt(ids.length)} نتيجة؟</h2>
-              <p>اختر مسارًا واحدًا؛ باقة الاستخراج مستقلة عن باقة CRM نمو.</p>
+              <p>اختر مسارًا واحدًا؛ باقة الاستخراج مستقلة عن باقة CRM wazlink.</p>
             </div>
             <button className="modal-close" type="button" aria-label="إغلاق" onClick={close}>
               ×
@@ -164,7 +164,7 @@ export function DiscoveryModal() {
             <article className="journey-choice crm-choice">
               <span className="choice-step">02</span>
               <p className="eyebrow">{scraperCrmPackages.crm.label}</p>
-              <h3>إدارة النتائج داخل نمو</h3>
+              <h3>إدارة النتائج داخل wazlink</h3>
               <p>{scraperCrmPackages.crm.purpose}. ستتحول النتائج إلى Leads مع مصدر الاكتشاف.</p>
               <ul>
                 {scraperCrmPackages.crm.features.map((item: string) => (
@@ -198,7 +198,7 @@ export function DiscoveryModal() {
                   go("crm");
                 }}
               >
-                ترقية CRM نمو
+                ترقية CRM wazlink
               </button>
             </article>
           </div>

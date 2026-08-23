@@ -14,6 +14,7 @@ const readString = (value: unknown, fallback: string): string => {
 export const appConfig = Object.freeze({
   appEnv: readString(import.meta.env.VITE_APP_ENV, "development"),
   apiBaseUrl: readString(import.meta.env.VITE_API_BASE_URL, ""),
+  assetBaseUrl: import.meta.env.BASE_URL,
 });
 
 export type AppConfig = typeof appConfig;

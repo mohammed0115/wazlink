@@ -1,4 +1,5 @@
 /** مساعدات وكتالوجات S11 المشتركة. */
+import { appConfig } from "@config/env";
 export const fmtDate = (value?: string | null) =>
   value ? new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—";
 
@@ -76,7 +77,7 @@ export function GovernanceRail({ note }: { note: string }) {
   return (
     <section className="decision-rail s11-decision-rail" aria-label="مسار القرار">
       <div className="decision-brand">
-        <img src="/leadflow-orbit-mark.svg" alt="نمو" />
+        <img src={`${appConfig.assetBaseUrl}wazlink-mark.svg`} alt="wazlink" />
         مسار القرار
       </div>
       <div className="decision-steps">

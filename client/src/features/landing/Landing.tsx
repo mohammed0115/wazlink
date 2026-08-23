@@ -89,7 +89,7 @@ export function Landing() {
             <p className="eyebrow">الخطوة ١ من ٤ · ابدأ بالاستخراج</p>
             <h1>ابحث عن الشركات أولًا، ولا تقرر الباقة الآن</h1>
             <p className="lead">
-              أدخل القطاع والموقع، ثم راجع النتائج. بعد أن ترى البيانات، ستختار ببساطة: Excel فقط أو CRM نمو للمبيعات.
+              أدخل القطاع والموقع، ثم راجع النتائج. بعد أن ترى البيانات، ستختار ببساطة: Excel فقط أو CRM wazlink للمبيعات.
             </p>
             <div className="hero-actions">
               <button className="button primary" type="button" onClick={() => go("discovery")}>
@@ -160,7 +160,7 @@ export function Landing() {
             <article className="landing-package-card crm">
               <span>عند الحاجة فقط</span>
               <p className="eyebrow">{scraperCrmPackages.crm.label}</p>
-              <h3>تابع المبيعات داخل نمو</h3>
+              <h3>تابع المبيعات داخل wazlink</h3>
               <p>{scraperCrmPackages.crm.purpose}. اخترها فقط إذا أردت Leads ومحادثات وصفقات.</p>
               <ul>
                 {scraperCrmPackages.crm.features.map((feature: string) => (

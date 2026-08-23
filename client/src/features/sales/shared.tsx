@@ -1,4 +1,5 @@
 /** مساعدات مشتركة لشاشات المبيعات — منقولة عن رؤوس عرض `pipeline.js`. */
+import { appConfig } from "@config/env";
 import { dealStatusLabels as rawDealStatus, mockModel } from "@services/data";
 
 export const dealStatusLabels = rawDealStatus as Record<string, string>;
@@ -27,11 +28,11 @@ export function Mono({ children }: { children: React.ReactNode }) {
 /** سكة القرار في سطوح S6. */
 export function DecisionRail({ label = "متابعة القيمة" }: { label?: string }) {
   return (
-    <section className="s6-decision-rail" aria-label="نمو — سكة القرار">
+    <section className="s6-decision-rail" aria-label="wazlink — سكة القرار">
       <div className="s6-brand-mark">
-        <img src="/leadflow-orbit-mark.svg" alt="نمو" />
+        <img src={`${appConfig.assetBaseUrl}wazlink-mark.svg`} alt="wazlink" />
         <span>
-          <b>نمو</b>
+          <b>wazlink</b>
           <small>سكة القرار</small>
         </span>
       </div>

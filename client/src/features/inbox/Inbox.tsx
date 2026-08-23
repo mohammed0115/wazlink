@@ -6,6 +6,7 @@
  * وتبدأ `queued` ثم تنتقل محليًا إلى `sent` فـ`delivered`.
  */
 import { useEffect, useState } from "react";
+import { appConfig } from "@config/env";
 import {
   advanceMockMessageStatus,
   assignConversation,
@@ -140,7 +141,7 @@ export function Inbox({ conversationId }: { conversationId?: string }) {
 
       <section className="decision-rail s7-decision-rail" aria-label="سكة قرار التواصل">
         <div className="decision-brand">
-          <img src="/leadflow-orbit-mark.svg" alt="نمو" />
+          <img src={`${appConfig.assetBaseUrl}wazlink-mark.svg`} alt="wazlink" />
           سكة القرار
         </div>
         <div className="decision-steps">

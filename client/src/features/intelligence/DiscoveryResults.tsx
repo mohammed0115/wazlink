@@ -126,7 +126,7 @@ export function DiscoveryResults({ jobId }: { jobId: string }) {
 
   const openDecision = () => {
     if (!selected.length) {
-      toast("حدد نتيجة واحدة على الأقل ثم اختر Excel أو CRM نمو.", "error");
+      toast("حدد نتيجة واحدة على الأقل ثم اختر Excel أو CRM wazlink.", "error");
       return;
     }
     state.scraperCrmUi = { ...state.scraperCrmUi, jobId: job.id };
@@ -323,7 +323,7 @@ export function DiscoveryResults({ jobId }: { jobId: string }) {
           </span>
           <div>
             <button type="button" className="button primary" disabled={!selected.length} onClick={openDecision}>
-              Excel أو CRM نمو
+              Excel أو CRM wazlink
             </button>
             <button
               type="button"

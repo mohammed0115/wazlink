@@ -46,11 +46,11 @@ export function ScoreBadge({ record }: { record: any }) {
 
 export function OrbitBrand() {
   return (
-    <div className="crm-orbit-brand" aria-label="نمو — مسار القرار">
+    <div className="crm-orbit-brand" aria-label="wazlink — مسار القرار">
       <span className="crm-orbit-mark" aria-hidden="true">
         <i /><i /><i /><b />
       </span>
-      <strong>نمو</strong>
+      <strong>wazlink</strong>
       <small>مسار القرار</small>
     </div>
   );
