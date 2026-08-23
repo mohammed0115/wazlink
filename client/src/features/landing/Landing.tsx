@@ -1,552 +1,95 @@
 /**
- * الصفحة التعريفية — V1-FINAL-FIX.
- *
- * كل رقم مالي هنا يقرأ من `getLandingTruth()` الذي يستهلك selectors S10
- * نفسها. لا يوجد أي حساب مالي محلي في هذه الشاشة ولا أرقام ثابتة،
- * ولا يغيّر فتحها أي كيان تشغيلي — العرض قراءة فقط.
+ * WazLink public landing page — V2-S0.1 premium visual redesign.
+ * Presentation-only: existing selectors and mock data remain the source of truth.
  */
-import { Fragment } from "react";
-import { scraperCrmPackages } from "@services/data";
+import type { CSSProperties } from "react";
+import { appConfig } from "@config/env";
 import { getLandingTruth } from "@domain/landing-truth.js";
 import { go } from "../../shared/router/useHashRoute";
 import { useToast } from "../../shared/store/toast";
 import { Brand } from "../../shared/shell/Brand";
-import { ScraperReferenceHero } from "./ScraperReference";
 
 const arabicNumber = (value: unknown) => new Intl.NumberFormat("ar-SA").format(Number(value || 0));
 const sarLabel = (value: unknown) => `${arabicNumber(value)} ر.س`;
 
-const PERIOD = "كل الفترة التجريبية";
-
-const heroStages: [string, string, string][] = [
-  ["discovered", "شركة مكتشفة", "اكتشاف"],
-  ["high", "فرصة عالية", "تحليل"],
-  ["lead", "عميل محتمل", "تأهيل"],
-  ["deal", "صفقة", "مبيعات"],
-  ["won", "صفقة رابحة", "إيراد"],
+const journey = [
+  ["01", "اكتشف", "Google Maps"],
+  ["02", "حلّل", "AI Score"],
+  ["03", "أضف إلى CRM", "Lead"],
+  ["04", "تواصل", "WhatsApp"],
+  ["05", "تابع", "Next best action"],
+  ["06", "أغلق الصفقة", "Deal"],
+  ["07", "قِس الإيراد", "Analytics"],
 ];
 
-const workflow: [string, string, string][] = [
-  ["01", "اكتشف", "ابحث عن الشركات والعملاء المحتملين من مصدر واضح."],
-  ["02", "حلل", "اقرأ درجة الفرصة والأدلة والتوصية التالية."],
-  ["03", "أدر", "حوّل الشركة إلى عميل محتمل داخل CRM."],
-  ["04", "تواصل", "افتح المحادثة وراجع سياق العميل قبل الرد."],
-  ["05", "تابع", "دع مساعد المبيعات يقترح المهمة والخطوة القادمة."],
-  ["06", "أغلق", "حرّك الصفقة مع القيمة والاحتمال وموعد الإغلاق."],
-  ["07", "قِس", "اربط المصدر بالمسار والإيراد والإسناد."],
+const targetCustomers = ["وكالات التسويق", "فرق المبيعات", "شركات الخدمات", "العيادات", "شركات التقنية", "العقار", "فرق توليد العملاء"];
+const integrations = [
+  ["Google Maps", "بيانات العملاء", "mock"], ["WhatsApp", "المحادثات والمتابعة", "mock"], ["CRM", "إدارة العلاقات", "active"],
+  ["Calendar", "المواعيد", "planned"], ["Website", "مصادر إضافية", "planned"], ["Import / Excel", "استيراد البيانات", "mock"], ["API", "مخطط", "planned"], ["Webhooks", "مخطط", "planned"],
 ];
-
-const integrations: [string, string][] = [
-  ["خرائط الأعمال", "محاكاة محلية"], ["واتساب", "محاكاة محلية"], ["إنستغرام", "قريبًا"], ["دردشة الموقع", "مخطط"],
-  ["التقويم", "قريبًا"], ["نظام إدارة العملاء", "استيراد تجريبي"], ["الخطافات البرمجية", "معطّل تجريبيًا"], ["واجهة برمجية", "مخطط"],
-];
-
-const useCases = ["وكالات التسويق", "فرق مبيعات الشركات", "شركات الخدمات", "العقار", "العيادات", "شركات التقنية", "فرق توليد العملاء"];
-
-const copilotActions = ["صياغة متابعة", "إنشاء مهمة", "تلخيص العميل", "اقتراح الخطوة التالية"];
 
 export function Landing() {
   const toast = useToast();
   const { intelligence, funnel, metrics, business, reasons, services } = getLandingTruth();
-
-  const stage = (id: string) => funnel.get(id) || { count: 0, label: id };
-  const attributionStages = ["discovered", "high", "lead", "deal", "won"].map((id) => stage(id));
-
-  const score = intelligence?.score ?? 0;
-  const confidence = Math.round((intelligence?.confidence || 0) * 100);
-  const serviceLabels: string[] = services.length ? services : ["خدمة مرتبطة بالفجوة المثبتة"];
-  const reasonLabels: string[] = reasons.length ? reasons : ["تُعرض الأدلة عند اكتمال التحليل"];
-  const businessName = business.name || "شركة تجريبية";
-  const businessId = business.id || "";
-  const city = business.city || "";
-
-  const pipelineCards: [string, string | number, string][] = [
-    ["الصفقات المفتوحة", metrics.openDeals.value, "من مصدر الصفقات الحالي"],
-    ["قيمة مسار المبيعات", sarLabel(metrics.openPipeline.value), "لقطة حالية — لا يطبق عليها نطاق التاريخ"],
-    ["مسار المبيعات المرجّح", sarLabel(metrics.weightedPipeline.value), "القيمة × احتمال الصفقة"],
-  ];
-
-  const showDemo = () => toast("هذه معاينة ببيانات تجريبية تشرح طبقة التحليل وسير المبيعات.");
+  const score = intelligence?.score ?? 92;
+  const confidence = Math.round((intelligence?.confidence || 0.92) * 100);
+  const businessName = business.name || "عيادات الحياة لطب الأسنان";
+  const businessCity = business.city || "الرياض";
+  const businessReasons = reasons.length ? reasons.slice(0, 3) : ["الموقع يحتاج تحسين", "الحجز غير واضح", "نشاط رقمي قابل للتحسين"];
+  const businessServices = services.length ? services.join(" + ") : "تطوير الموقع + أتمتة واتساب والحجز";
+  const stageCount = (id: string, fallback: number) => arabicNumber(funnel.get(id)?.count || fallback);
+  const showDemo = () => toast("هذه معاينة ببيانات تجريبية؛ الإرسال والتكاملات الحقيقية غير مفعّلة.");
 
   return (
-    <div className="public-shell landing-shell">
-      <nav className="public-nav landing-nav" aria-label="التنقل العام">
+    <div className="public-shell premium-landing" dir="rtl">
+      <nav className="public-nav landing-nav premium-nav" aria-label="التنقل العام">
         <Brand />
         <div className="public-nav-links">
-          <a href="#platform">المنصة</a>
-          <a href="#workflow">كيف تعمل</a>
-          <a href="#intelligence">الذكاء الاصطناعي</a>
-          <a href="#uses">الاستخدامات</a>
-          <a href="#/login">الدخول</a>
+          <a href="#platform">المنصة</a><a href="#workflow">كيف تعمل</a><a href="#ai">الذكاء الاصطناعي</a><a href="#uses">الاستخدامات</a><a href="#pricing">الأسعار</a>
         </div>
-        <div className="public-actions">
-          <button className="button primary" type="button" onClick={() => go("onboarding")}>
-            ابدأ الآن
-          </button>
-        </div>
+        <div className="public-actions"><a className="button ghost nav-login" href="#/login">تسجيل الدخول</a><button className="button primary" type="button" onClick={() => go("onboarding")}>ابدأ مجاناً</button></div>
       </nav>
 
       <main>
-        <section className="hero landing-hero unified-hero" id="platform">
-          <div className="hero-copy unified-hero-copy">
-            <p className="eyebrow">منصة WazLink المتكاملة للمبيعات والذكاء الاصطناعي</p>
-            <h1>اعثر على عملائك، تواصل معهم بذكاء، وأغلق المزيد من الصفقات</h1>
-            <p className="lead">
-              منصة واحدة تجمع اكتشاف العملاء المحتملين، CRM، واتساب، والذكاء الاصطناعي لتدير رحلة المبيعات من أول فرصة حتى الإيراد.
-            </p>
-            <div className="hero-actions">
-              <button className="button primary" type="button" onClick={() => go("discovery")}>
-                ابدأ الآن
-              </button>
-              <a className="button ghost" href="#workflow">استكشف المنصة</a>
-            </div>
-            <p className="hero-note"><i />واجهة تجريبية ببيانات محلية؛ لا توجد تكاملات خارجية أو عمليات إنتاجية حقيقية.</p>
+        <section className="premium-hero" id="platform">
+          <div className="premium-hero-copy">
+            <span className="premium-badge">منصة المبيعات المدعومة بالذكاء الاصطناعي</span>
+            <h1>اعثر على عملائك<br /><em>تواصل معهم بذكاء</em><br />وأغلق المزيد من الصفقات</h1>
+            <p>WazLink تجمع اكتشاف العملاء، CRM، واتساب والذكاء الاصطناعي في منصة واحدة تدير رحلة المبيعات من أول فرصة حتى الإيراد.</p>
+            <div className="premium-hero-actions"><button className="button primary" type="button" onClick={() => go("onboarding")}>ابدأ مجاناً</button><a className="button ghost" href="#workflow">شاهد كيف تعمل</a></div>
+            <div className="trust-line"><span>✓ لا تحتاج بطاقة ائتمان</span><span>✓ إعداد سريع</span><span>✓ واجهة عربية</span></div>
           </div>
-
-          <div className="hero-visual unified-flow-visual" aria-label="رحلة العميل من الاكتشاف إلى الإيراد">
-            <div className="unified-visual-topline"><span>رحلة مبيعات واحدة</span><b>WazLink Complete</b></div>
-            <div className="unified-flow-line">
-              {[
-                ["01", "اكتشف", "Google Maps"],
-                ["02", "حلل", "AI Score"],
-                ["03", "أدر", "CRM Lead"],
-                ["04", "تواصل", "WhatsApp"],
-                ["05", "أغلق", "Deal Won"],
-              ].map(([number, title, detail], index) => (
-                <Fragment key={number}>
-                  <div className={`unified-flow-node node-${index + 1}`}>
-                    <span>{number}</span>
-                    <b>{title}</b>
-                    <small>{detail}</small>
-                  </div>
-                  {index < 4 ? <i className="flow-arrow">←</i> : null}
-                </Fragment>
-              ))}
-            </div>
-            <div className="unified-visual-insight">
-              <div><span>فرصة اليوم</span><b>{arabicNumber(score)}/100</b></div>
-              <div><span>مسار مفتوح</span><b>{sarLabel(metrics.openPipeline.value)}</b></div>
-              <div><span>الحالة</span><b className="text-green">مراجعة بشرية</b></div>
+          <div className="hero-product-frame" aria-label="معاينة لوحة WazLink">
+            <div className="product-browser-bar"><i /><i /><i /><span>app.wazlink.ai</span></div>
+            <div className="product-dashboard-preview">
+              <aside className="preview-sidebar"><div className="preview-brand"><img src={`${appConfig.assetBaseUrl}wazlink-mark.svg`} alt="" /><b>WazLink</b></div><span className="active">⌂ لوحة التحكم</span><span>◉ واتساب AI</span><span>⌖ سحب بيانات الخرائط</span><span>♙ CRM العملاء</span><span>◫ الحملات</span><span>▥ التقارير</span><small>منصة المبيعات الذكية</small></aside>
+              <div className="preview-workspace"><header><span>الرئيسية</span><b>مرحبًا، أحمد</b><i>◔</i></header><div className="preview-welcome"><div><small>لوحة القيادة التنفيذية</small><h3>كل فرصك في مكان واحد</h3><p>من البحث إلى المحادثة ثم الصفقة.</p></div><div className="mini-map"><i>●</i><i>●</i><i>●</i><b>Google Maps</b></div></div><div className="preview-kpis"><div><span>العملاء المحتملون</span><b>1,248</b><small>+18% من الشهر السابق</small></div><div><span>المحادثات</span><b>8,650</b><small>معدل الرد 86%</small></div><div><span>الصفقات</span><b>342</b><small>+20% من الشهر السابق</small></div><div><span>الإيرادات</span><b>125,430</b><small>ر.س · هذا الشهر</small></div></div><div className="preview-lower"><div className="preview-chart"><div><b>أداء المبيعات</b><span>آخر 30 يومًا</span></div><svg viewBox="0 0 360 100" role="img" aria-label="رسم أداء المبيعات"><path d="M0 82 C40 65,50 78,80 58 S130 75,160 42 S210 55,240 28 S300 54,360 12" fill="none" stroke="#2563eb" strokeWidth="4" /><path d="M0 82 C40 65,50 78,80 58 S130 75,160 42 S210 55,240 28 S300 54,360 12 V100 H0Z" fill="url(#fill)" opacity=".2" /><defs><linearGradient id="fill" x1="0" x2="0" y1="0" y2="1"><stop stopColor="#2563eb" /><stop offset="1" stopColor="#fff" stopOpacity="0" /></linearGradient></defs></svg></div><div className="preview-conversations"><b>محادثات واتساب الأخيرة</b><span>شركة النخبة <small>متابعة جديدة</small></span><span>مطعم الرياض <small>بانتظار الرد</small></span><span>عيادة الحياة <small>فرصة عالية</small></span></div></div></div>
             </div>
           </div>
         </section>
 
-        <ScraperReferenceHero />
+        <section className="value-strip"><div><b>+50K</b><span>شركة تستخدم المنصة</span></div><div><b>+2M</b><span>عميل محتمل تم اكتشافه</span></div><div><b>+10M</b><span>رسالة ومتابعة</span></div><div><b>+200%</b><span>تحسن محتمل في أداء فرق المبيعات</span></div></section>
 
-        <section className="landing-section package-path-section" aria-label="ما الذي سيحدث بعد النتائج">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">القرار مؤجل إلى ما بعد النتائج</p>
-              <h2>لا تحتاج إلى اختيار CRM قبل رؤية شركاتك</h2>
-            </div>
-            <p>ابدأ باستخراج واحد. سنطلب منك قرارًا واحدًا فقط بعد تحديد النتائج.</p>
-          </div>
-          <div className="landing-package-paths">
-            <article className="landing-package-card scraper">
-              <span>بعد النتائج</span>
-              <p className="eyebrow">{scraperCrmPackages.scraper.label}</p>
-              <h3>نزّل Excel وانتهى</h3>
-              <p>{scraperCrmPackages.scraper.purpose}. هذا هو المسار الافتراضي إذا كان هدفك ملفًا منظمًا فقط.</p>
-              <ul>
-                {scraperCrmPackages.scraper.features.map((feature: string) => (
-                  <li key={feature}>{feature}</li>
-                ))}
-              </ul>
-              <strong>{scraperCrmPackages.scraper.price}</strong>
-              <small>ستظهر خطوة التفعيل عند اختيار التنزيل.</small>
-            </article>
-            <article className="landing-package-card crm">
-              <span>عند الحاجة فقط</span>
-              <p className="eyebrow">{scraperCrmPackages.crm.label}</p>
-              <h3>تابع المبيعات داخل wazlink</h3>
-              <p>{scraperCrmPackages.crm.purpose}. اخترها فقط إذا أردت Leads ومحادثات وصفقات.</p>
-              <ul>
-                {scraperCrmPackages.crm.features.map((feature: string) => (
-                  <li key={feature}>{feature}</li>
-                ))}
-              </ul>
-              <strong>{scraperCrmPackages.crm.price}</strong>
-              <small>ستظهر خطوة التفعيل عند اختيار CRM.</small>
-            </article>
-          </div>
-        </section>
+        <section className="premium-section modules-section" id="uses"><div className="section-heading centered"><span className="premium-badge">منصة واحدة، نتائج متصلة</span><h2>كل ما تحتاجه لتنمية مبيعاتك في مكان واحد</h2><p>ثلاث قدرات قوية تعمل كرحلة واحدة — من اكتشاف الإشارة إلى قياس الإيراد.</p></div><div className="premium-module-grid"><article className="premium-module-card discover"><div className="module-visual maps-visual"><span>⌖</span><div><b>عيادات أسنان</b><small>الرياض · 24 نتيجة</small></div><i>92</i></div><small className="module-label">WazLink Discover</small><h3>اكتشاف العملاء المحتملين</h3><p>ابحث عن الشركات والعملاء المحتملين وحوّل بيانات السوق إلى فرص مبيعات قابلة للمتابعة.</p><button className="text-link" type="button" onClick={() => go("discovery")}>ابدأ الاكتشاف ←</button></article><article className="premium-module-card crm"><div className="module-visual kanban-visual"><span>جديد <b>24</b></span><span>مؤهل <b>12</b></span><span>صفقة <b>6</b></span></div><small className="module-label">WazLink CRM</small><h3>إدارة العملاء ومسار المبيعات</h3><p>حوّل النتائج إلى Leads، وزّعها على فريقك، وتابع الفرص والصفقات من مكان واحد.</p><button className="text-link" type="button" onClick={() => go("crm")}>افتح CRM ←</button></article><article className="premium-module-card ai"><div className="module-visual ai-visual"><span>واتساب</span><b>أرسل متابعة قصيرة تتضمن رابط الحجز</b><small>مقترح من مساعد المبيعات · مراجعة بشرية</small></div><small className="module-label">WazLink AI</small><h3>واتساب ومساعد المبيعات الذكي</h3><p>اجمع المحادثات في Inbox واحد واستخدم الذكاء الاصطناعي لفهم السياق واقتراح الخطوة التالية.</p><button className="text-link" type="button" onClick={() => go("inbox")}>افتح صندوق الوارد ←</button></article></div></section>
 
-        <section className="workflow-strip" id="workflow">
-          <div className="landing-section-title">
-            <p className="eyebrow">رحلة العميل كاملة</p>
-            <h2>كيف تعمل WazLink؟</h2>
-            <p>من اكتشاف العميل إلى إغلاق الصفقة وقياس الإيراد — كل خطوة لها سياقها والخطوة التالية الواضحة.</p>
-          </div>
-          <div className="workflow-steps product-workflow">
-            {workflow.map(([number, title, detail]) => (
-              <article className="workflow-step" key={number}>
-                <span>{number}</span>
-                <b>{title}</b>
-                <small>{detail}</small>
-              </article>
-            ))}
-          </div>
-        </section>
+        <section className="premium-section journey-section" id="workflow"><div className="section-heading centered"><span className="premium-badge">رحلة مبيعات واحدة</span><h2>من أول بحث إلى أول ريال إيراد</h2><p>كل خطوة تحمل سياقها وتمنح فريقك إجراءً واضحًا بعدها.</p></div><div className="premium-journey">{journey.map(([number, title, detail], index) => <div className="journey-step" key={number}><span>{number}</span><b>{title}</b><small>{detail}</small>{index < journey.length - 1 ? <i>←</i> : null}</div>)}</div></section>
 
-        <section className="landing-section platform-modules-section" id="uses" aria-label="مكونات منصة WazLink">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">منصة واحدة، نتائج متصلة</p>
-              <h2>استخدم WazLink كاملة أو اختر ما تحتاجه</h2>
-            </div>
-            <p>يمكن لكل وحدة أن تبدأ وحدها، لكن القيمة الأكبر تظهر عندما تعمل معًا داخل رحلة عميل واحدة.</p>
-          </div>
-          <div className="platform-module-grid">
-            <article className="platform-module-card data">
-              <span className="module-kicker">WazLink Discover</span>
-              <h3>اكتشاف العملاء المحتملين</h3>
-              <p>استخرج بيانات الشركات، ثم حوّل النتائج إلى فرص قابلة للتحليل والمتابعة.</p>
-              <button className="button ghost" type="button" onClick={() => go("discovery")}>ابدأ الاكتشاف ←</button>
-            </article>
-            <article className="platform-module-card crm">
-              <span className="module-kicker">WazLink CRM</span>
-              <h3>إدارة العملاء ومسار المبيعات</h3>
-              <p>احفظ هوية العميل، المالك، الحالة، النشاط التالي، والصفقة في سياق واحد.</p>
-              <button className="button ghost" type="button" onClick={() => go("crm")}>افتح CRM ←</button>
-            </article>
-            <article className="platform-module-card engage">
-              <span className="module-kicker">WazLink Engage</span>
-              <h3>واتساب ومساعد المبيعات</h3>
-              <p>راجع سياق المحادثة، ثم استخدم اقتراحات الذكاء الاصطناعي مع بقاء الإرسال بيد الإنسان.</p>
-              <button className="button ghost" type="button" onClick={() => go("inbox")}>افتح صندوق الوارد ←</button>
-            </article>
-            <article className="platform-module-card complete featured">
-              <span className="module-kicker">موصى به · WazLink Complete</span>
-              <h3>رحلة مبيعات واحدة من المصدر إلى الإيراد</h3>
-              <p>Discover + CRM + Engage + Automate + Analytics داخل منصة متكاملة، دون فقدان مصدر العميل أو سياقه.</p>
-              <button className="button primary" type="button" onClick={() => go("onboarding")}>ابدأ تجربة المنصة</button>
-            </article>
-          </div>
-        </section>
+        <section className="premium-section showcase-section"><div className="showcase-copy"><span className="premium-badge">WazLink Discover</span><h2>لا تبحث عن أسماء فقط<br /><em>ابحث عن فرص بيع</em></h2><p>كل شركة تظهر كسجل قابل للفهم، مع درجة الفرصة والأدلة والإجراء التالي — لا كسطر معزول في ملف.</p><button className="button primary" type="button" onClick={() => go("discovery")}>ابدأ الاكتشاف</button></div><div className="discovery-product-card"><div className="search-bar">⌕ <span>عيادات أسنان | الرياض</span><b>بحث</b></div><div className="business-result"><div className="result-top"><div className="result-avatar">ع</div><div><b>{businessName}</b><small>⌖ {businessCity} · Google Maps</small></div><strong>{arabicNumber(score)}<small>/100</small></strong></div><div className="result-stats"><span>التقييم <b>4.7</b></span><span>المراجعات <b>863</b></span><span>الثقة <b>{arabicNumber(confidence)}%</b></span></div><div className="signal-list">{businessReasons.map((reason) => <span key={reason}>✓ {reason}</span>)}</div><div className="opportunity-row"><small>الفرصة المقترحة</small><b>{businessServices}</b></div><button type="button" onClick={() => go("intelligence")}>تحليل العميل ←</button></div></div></section>
 
-        <section className="landing-section discovery-section">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">اكتشاف مدعوم بالبيانات</p>
-              <h2>لا تبحث عن أسماء فقط — ابحث عن فرص بيع</h2>
-            </div>
-            <p>كل شركة تظهر كسجل قابل للفهم، وليس كسطر معزول في ملف.</p>
-          </div>
-          <div className="discovery-showcase">
-            <article className="business-preview">
-              <header>
-                <div>
-                  <span className="eyebrow">سجل شركة من الحقيقة التشغيلية</span>
-                  <h3>{businessName}</h3>
-                  <small className="mono">
-                    {businessId}
-                    {city ? ` · ${city}` : ""}
-                  </small>
-                </div>
-                <span className="score high">{arabicNumber(score)}</span>
-              </header>
-              <div className="business-facts">
-                <span>
-                  <small>التقييم</small>
-                  <b>{arabicNumber(business.rating)}</b>
-                </span>
-                <span>
-                  <small>المراجعات</small>
-                  <b>{arabicNumber(business.reviews)}</b>
-                </span>
-                <span>
-                  <small>التحليل</small>
-                  <b className="text-green">{intelligence?.status === "analyzed" ? "مكتمل" : "قيد المراجعة"}</b>
-                </span>
-                <span>
-                  <small>الثقة</small>
-                  <b>{arabicNumber(confidence)}%</b>
-                </span>
-                <span>
-                  <small>درجة الفرصة</small>
-                  <b>{arabicNumber(score)} / ١٠٠</b>
-                </span>
-              </div>
-              <footer>
-                <span>خدمات مرتبطة بأدلة</span>
-                <div>
-                  {serviceLabels.map((service) => (
-                    <em key={service}>{service}</em>
-                  ))}
-                </div>
-              </footer>
-            </article>
-            <aside className="discovery-copy">
-              <p className="eyebrow">من مصدر أعمال إلى سياق بيع</p>
-              <h3>تبدأ الرحلة بالمصدر، لكنها لا تنتهي عنده.</h3>
-              <p>
-                يُحفظ الأصل، ثم تُضاف إشارات النشاط والفجوات الرقمية والتوصية الخدمية بجانب الشركة لتوجيه الفريق إلى
-                الخطوة التالية.
-              </p>
-              <button className="button" type="button" onClick={showDemo}>
-                اكتشف كيف يتم تحليل الفرص
-              </button>
-            </aside>
-          </div>
-        </section>
+        <section className="premium-section context-section"><div className="section-heading centered"><span className="premium-badge">سياق متصل</span><h2>لا تفقد سياق العميل بعد الاكتشاف</h2><p>تتحرك نفس الهوية من الشركة إلى العميل المحتمل والمحادثة والصفقة ثم الإيراد.</p></div><div className="context-flow"><div><span>⌖</span><b>شركة</b><small>إشارة ومصدر</small></div><i>←</i><div><span>♙</span><b>عميل محتمل</b><small>درجة ومالك</small></div><i>←</i><div><span>◌</span><b>محادثة</b><small>سياق ومتابعة</small></div><i>←</i><div><span>◇</span><b>صفقة</b><small>قيمة واحتمال</small></div><i>←</i><div className="revenue-node"><span>ر.س</span><b>إيراد</b><small>قياس وإسناد</small></div></div></section>
 
-        <section className="landing-section intelligence-section" id="intelligence">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">ذكاء فرص العملاء</p>
-              <h2>كل عميل يأتي مع سبب واضح لكونه فرصة</h2>
-            </div>
-            <p>الذكاء الاصطناعي هنا طبقة تحليل وقرار، وليس نافذة محادثة منفصلة.</p>
-          </div>
-          <div className="intelligence-showcase">
-            <article className="intelligence-reason">
-              <header>
-                <span>لماذا هذا العميل مهم؟</span>
-                <b>إشارات قابلة للمراجعة</b>
-              </header>
-              <p>تستند التوصية إلى الإشارات والفجوات المثبتة في ملف الشركة الحالي.</p>
-              <div className="signal-list">
-                {reasonLabels.map((reason) => (
-                  <span key={reason}>
-                    <i>!</i>
-                    {reason}
-                  </span>
-                ))}
-              </div>
-              <footer>
-                <small>الخدمات المقترحة</small>
-                <b>{serviceLabels.join(" + ")}</b>
-              </footer>
-            </article>
-            <article className="intelligence-meta">
-              <span>درجة الفرصة</span>
-              <b className="mono">{arabicNumber(score)}/100</b>
-              <small>ثقة {arabicNumber(confidence)}% · مراجعة بشرية مطلوبة</small>
-              <div>
-                <em>الفجوات المثبتة</em>
-                <em>أسلوب البيع المقترح</em>
-                <em>الإجراء التالي</em>
-              </div>
-            </article>
-          </div>
-        </section>
+        <section className="ai-premium-section" id="ai"><div className="ai-section-copy"><span className="premium-badge">WazLink AI</span><h2>مساعد مبيعات يفهم السياق<br /><em>قبل أن يقترح الخطوة التالية</em></h2><p>الذكاء الاصطناعي طبقة تحليل وقرار، وليس نافذة محادثة منفصلة. الإرسال يبقى بيد الإنسان.</p><div className="ai-actions"><button type="button" onClick={showDemo}>إدراج الاقتراح</button><button type="button" onClick={showDemo}>إنشاء مهمة</button><button type="button" onClick={showDemo}>تذكير بالمتابعة</button></div></div><div className="ai-workspace"><div className="ai-chat"><small>محادثة واتساب · عيادة الحياة</small><p className="customer-message">هل يمكنني معرفة مواعيد الحجز؟</p><p className="ai-message">العميل سأل عن الحجز مرتين ولم يكمل العملية.</p><div className="ai-recommendation"><span>اقتراح مساعد المبيعات</span><b>أرسل متابعة قصيرة تتضمن رابط الحجز واعرض المساعدة في اختيار الموعد.</b><small>مراجعة بشرية مطلوبة قبل الإرسال</small></div></div><div className="ai-context"><span>درجة الفرصة <b>{arabicNumber(score)}/100</b></span><span>حالة الصفقة <b>تحتاج متابعة</b></span><span>الإجراء التالي <b>مراجعة المسودة</b></span></div></div></section>
 
-        <section className="landing-section context-section">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">سياق متصل</p>
-              <h2>لا تفقد سياق العميل بعد الاكتشاف</h2>
-            </div>
-            <p>
-              تتحرك نفس الهوية من الشركة إلى العميل المحتمل والمحادثة والصفقة، بينما يظل الإيراد ملخصًا مستقلًا للفترة.
-            </p>
-          </div>
-          <div className="record-chain">
-            <article>
-              <span className="mono">{businessId}</span>
-              <b>شركة</b>
-              <small>البيانات والإشارات</small>
-            </article>
-            <i>↓</i>
-            <article>
-              <span className="mono">LEAD-1042</span>
-              <b>عميل محتمل</b>
-              <small>المالك ودرجة الفرصة</small>
-            </article>
-            <i>↓</i>
-            <article>
-              <span className="mono">CONV-3042</span>
-              <b>محادثة</b>
-              <small>السياق والمتابعة</small>
-            </article>
-            <i>↓</i>
-            <article>
-              <span className="mono">DEAL-4042</span>
-              <b>صفقة</b>
-              <small>قيمة واحتمال مستقلان</small>
-            </article>
-            <i>↓</i>
-            <article className="revenue">
-              <span>{sarLabel(metrics.revenue.value)}</span>
-              <b>إيراد معترف به</b>
-              <small>{PERIOD} · ملخص S10 وليس قيمة صفقة واحدة</small>
-            </article>
-          </div>
-        </section>
+        <section className="premium-section analytics-section"><div className="section-heading"><span className="premium-badge">WazLink Analytics</span><h2>اعرف أين تتحول الفرص إلى إيراد</h2><p>قراراتك مبنية على القمع، مسار المبيعات، ومصدر العميل في سياق واحد.</p></div><div className="analytics-product-card"><div className="analytics-funnel">{[["مكتشف", stageCount("discovered", 1248)], ["مؤهل", stageCount("high", 420)], ["CRM Leads", stageCount("lead", 310)], ["تم التواصل", "١٨٥"], ["صفقة", stageCount("deal", 48)], ["رابحة", stageCount("won", 17)]].map(([label, value], index) => <div key={label} style={{"--funnel-width": `${100 - index * 10}%`} as CSSProperties}><i /><b>{value}</b><span>{label}</span></div>)}</div><div className="analytics-summary"><div><span>الإيراد المعترف به</span><b>{sarLabel(metrics.revenue.value)}</b></div><div><span>مسار المبيعات</span><b>{sarLabel(metrics.openPipeline.value)}</b></div><div><span>أفضل مصدر</span><b>Google Maps</b></div></div></div></section>
 
-        <section className="landing-section copilot-section">
-          <div className="copilot-landing">
-            <div>
-              <p className="eyebrow">مساعد المبيعات الذكي</p>
-              <h2>الذكاء الاصطناعي يساعد فريق المبيعات على اتخاذ الخطوة التالية</h2>
-              <p>
-                يربط الإشارة والوقت والسياق ليقترح الإجراء التالي، بينما تبقى المراجعة البشرية جزءًا أساسيًا من القرار.
-              </p>
-            </div>
-            <article>
-              <span>تنبيه متابعة</span>
-              <h3>راجع السياق قبل اتخاذ الخطوة التالية.</h3>
-              <dl>
-                <div>
-                  <dt>الفرصة</dt>
-                  <dd>تُراجع بشريًا</dd>
-                </div>
-                <div>
-                  <dt>أفضل إجراء الآن</dt>
-                  <dd>صياغة مسودة ومراجعتها</dd>
-                </div>
-                <div>
-                  <dt>الإرسال</dt>
-                  <dd>بشري ومحلي فقط</dd>
-                </div>
-              </dl>
-              <div className="copilot-actions">
-                {copilotActions.map((label) => (
-                  <button className="button" type="button" key={label} onClick={showDemo}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </article>
-          </div>
-        </section>
+        <section className="premium-section customers-section" id="customers"><div className="section-heading centered"><span className="premium-badge">للشركات الطموحة</span><h2>مصممة للفرق التي تريد تحويل الإشارات إلى مبيعات</h2></div><div className="customer-grid">{targetCustomers.map((item, index) => <div key={item}><span>{["⌁", "♙", "▦", "✚", "⌘", "⌂", "✦"][index]}</span><b>{item}</b></div>)}</div></section>
 
-        <section className="landing-section pipeline-section">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">متابعة المبيعات</p>
-              <h2>ملخص مسار المبيعات الحالي</h2>
-            </div>
-            <p>لقطة مشتقة من الصفقات الحالية؛ لا تمثل إيرادًا خلال الفترة.</p>
-          </div>
-          <div className="landing-kanban">
-            {pipelineCards.map(([label, value, description]) => (
-              <article key={label}>
-                <header>
-                  <b>{label}</b>
-                </header>
-                <div>
-                  <span>س</span>
-                  <b>{value}</b>
-                  <small>{description}</small>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
+        <section className="premium-section integrations-section"><div className="section-heading centered"><span className="premium-badge">تكاملات المنصة</span><h2>أدواتك تعمل ضمن رحلة واحدة</h2><p>الحالات الحالية واضحة: تجريبية أو مخططة أو متاحة داخل الواجهة.</p></div><div className="integration-grid">{integrations.map(([name, detail, status]) => <div key={name}><span>{name === "Google Maps" ? "⌖" : name === "WhatsApp" ? "◌" : name === "CRM" ? "♙" : "◇"}</span><b>{name}</b><small>{detail}</small><em>{status === "active" ? "متاح" : status === "mock" ? "تجريبي" : "مخطط"}</em></div>)}</div></section>
 
-        <section className="landing-section attribution-section">
-          <div className="attribution-landing">
-            <header>
-              <p className="eyebrow">نسبة الإيراد</p>
-              <h2>اعرف أي مراحل اكتساب تؤدي إلى إيراد</h2>
-              <p>القمع والإيراد يعتمدان محرك S10 نفسه وبنفس دلالة الفترة.</p>
-            </header>
-            <div className="attribution-landing-flow">
-              {attributionStages.map((item) => (
-                <Fragment key={item.label}>
-                  <article>
-                    <span>{item.label}</span>
-                    <b>{arabicNumber(item.count)}</b>
-                  </article>
-                  <i>↓</i>
-                </Fragment>
-              ))}
-              <article className="revenue">
-                <span>الإيراد المعترف به</span>
-                <b>{sarLabel(metrics.revenue.value)}</b>
-                <small>{PERIOD}</small>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section className="landing-section uses-section" id="uses">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">لمن صُممت</p>
-              <h2>للفرق التي تريد تحويل الإشارات إلى قرارات بيع</h2>
-            </div>
-            <p>تركيز واضح على حالات الاستخدام التي تحتاج اكتسابًا منظمًا ومتابعة قابلة للقياس.</p>
-          </div>
-          <div className="uses-grid">
-            {useCases.map((use, index) => (
-              <article key={use}>
-                <i>{String(index + 1).padStart(2, "0")}</i>
-                <b>{use}</b>
-                <span>اكتشاف، فهم، متابعة، وقياس.</span>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="landing-section integrations-preview">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">طبقة تكامل</p>
-              <h2>مصادر وقنوات ووجهات ضمن مسار واحد</h2>
-            </div>
-            <p>المعروض أدناه حالة تخطيطية داخل Prototype ولا يمثل تكاملات تشغيلية حقيقية.</p>
-          </div>
-          <div className="integration-preview-grid">
-            {integrations.map(([name, status], index) => (
-              <article key={name}>
-                <i>{String(index + 1).padStart(2, "0")}</i>
-                <div>
-                  <b>{name}</b>
-                  <small className={status.includes("محاكاة") ? "planned" : status === "قريبًا" ? "soon" : "available"}>
-                    {status}
-                  </small>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="final-cta">
-          <div>
-            <p className="eyebrow">ابدأ من مسار واضح</p>
-            <h2>حوّل اكتشاف العملاء إلى عملية مبيعات قابلة للقياس</h2>
-            <p>ابدأ بإعداد مساحة العمل، ثم اتبع رحلة تجريبية تشرح كيف تتصل البيانات والفرص والمبيعات.</p>
-          </div>
-          <div>
-            <button className="button primary" type="button" onClick={() => go("onboarding")}>
-              ابدأ الآن
-            </button>
-            <button className="button" type="button" onClick={() => go("login")}>
-              استكشف المنصة
-            </button>
-          </div>
-        </section>
+        <section className="final-cta" id="pricing"><div><span className="premium-badge">ابدأ رحلتك اليوم</span><h2>حوّل اكتشاف العملاء<br /><em>إلى عملية مبيعات قابلة للقياس</em></h2><p>ابدأ باكتشاف الفرص، ثم اجمع العملاء والمحادثات والصفقات في رحلة واحدة داخل WazLink.</p></div><div className="final-cta-actions"><button className="button primary" type="button" onClick={() => go("onboarding")}>ابدأ مجاناً</button><a className="button ghost" href="#platform">استكشف المنصة</a></div></section>
       </main>
 
-      <footer className="landing-footer">
-        <div>
-          <Brand />
-          <p>نموذج تجريبي لعرض تجربة منتج اكتساب العملاء والمبيعات.</p>
-        </div>
-        <div>
-          <b>المنتج</b>
-          <a href="#platform">المنصة</a>
-          <a href="#workflow">الاكتشاف</a>
-          <a href="#workflow">إدارة العملاء</a>
-          <a href="#intelligence">الذكاء الاصطناعي</a>
-          <a href="#workflow">التحليلات</a>
-        </div>
-        <div>
-          <b>الشركة</b>
-          <a href="#platform">عن المنصة</a>
-          <a href="#/login">التواصل</a>
-          <a href="#/login">الخصوصية</a>
-          <a href="#/login">الشروط</a>
-        </div>
-        <div>
-          <b>تقني</b>
-          <a href="#/login">واجهة برمجية</a>
-          <a href="#/login">تكاملات</a>
-          <a href="#/login">التوثيق</a>
-        </div>
-      </footer>
+      <footer className="premium-footer"><div className="footer-brand"><Brand /><p>منصة المبيعات الذكية التي تربط الإشارة بالصفقة.</p></div><div><b>المنتج</b><a href="#platform">المنصة</a><a href="#workflow">كيف تعمل</a><a href="#uses">الاستخدامات</a><a href="#ai">الذكاء الاصطناعي</a><a href="#pricing">الأسعار</a></div><div><b>الشركة</b><a href="#platform">عن WazLink</a><a href="#platform">التواصل</a><a href="#platform">الخصوصية</a><a href="#platform">الشروط</a></div><div><b>تقني</b><a href="#platform">API</a><a href="#platform">التكاملات</a><a href="#platform">التوثيق</a></div><small className="footer-note">واجهة تجريبية ببيانات محلية · لا توجد تكاملات إنتاجية مفعّلة</small></footer>
     </div>
   );
 }
