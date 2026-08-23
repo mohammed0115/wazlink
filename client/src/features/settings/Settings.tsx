@@ -5,27 +5,7 @@
  * ويعاد استخدام `User` و`Team` القائمين بلا قاعدة مستخدمين ثانية.
  */
 import type { FormEvent } from "react";
-import {
-  createTeamInvitation,
-  getCurrentWorkspaceUser,
-  getNotificationPreferences,
-  getSecuritySettings,
-  getSettingsActivities,
-  getTeamInvitations,
-  getWorkspace,
-  mockModel,
-  notificationCategoryLabels as rawCategories,
-  notificationChannelLabels as rawChannels,
-  setNotificationPreference,
-  setTeamMemberStatus,
-  state,
-  updateCurrentUserSettings,
-  updateSecuritySettings,
-  updateWorkspaceSettings,
-  workspaceCurrencies,
-  workspaceLocales,
-  workspaceTimezones,
-} from "@services/data";
+import { createTeamInvitation, getCurrentWorkspaceUser, getNotificationPreferences, getSecuritySettings, getSettingsActivities, getTeamInvitations, getWorkspace, notificationCategoryLabels as rawCategories, notificationChannelLabels as rawChannels, setNotificationPreference, setTeamMemberStatus, updateCurrentUserSettings, updateSecuritySettings, updateWorkspaceSettings, workspaceCurrencies, workspaceLocales, workspaceTimezones, listUsers, getUiState } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
@@ -55,10 +35,10 @@ function OptionRows({ items }: { items: readonly (string | Row)[] }) {
 
 export function Settings({ section }: { section?: string }) {
   const toast = useToast();
-  const active = section || state.s11Ui.settingsSection || "workspace";
+  const active = section || getUiState().s11Ui.settingsSection || "workspace";
 
   const setSection = (id: string) => {
-    state.s11Ui = { ...state.s11Ui, settingsSection: id };
+    getUiState().s11Ui = { ...getUiState().s11Ui, settingsSection: id };
     notifyStateChanged();
   };
 
@@ -249,7 +229,7 @@ function TeamSection({ toast }: { toast: (m: string, t?: any) => void }) {
         <p>تُعاد استخدام Users نفسها التي تملك Leads وDeals ومحادثات؛ لا توجد قاعدة مستخدمين ثانية.</p>
       </header>
       <div className="s11-team-list">
-        {mockModel.users.map((user: Row) => (
+        {listUsers().map((user: Row) => (
           <article key={user.id}>
             <i className="avatar">{user.name.slice(0, 1)}</i>
             <div>

@@ -7,32 +7,7 @@
  */
 import { useEffect, useState } from "react";
 import { appConfig } from "@config/env";
-import {
-  advanceMockMessageStatus,
-  assignConversation,
-  closeConversation,
-  conversationStatusLabels as rawConvStatus,
-  getConversation,
-  getConversationBusiness,
-  getConversationContact,
-  getConversationContext,
-  getConversationMessages,
-  getConversationNeedsReply,
-  getDealProbability,
-  getDealStage,
-  getInboxConversations,
-  getInboxSummary,
-  getLeadActivitySummary,
-  getLeadOwner,
-  leadPriorityLabels as rawPriority,
-  leadStatusLabels as rawLeadStatus,
-  messageDeliveryLabels as rawDelivery,
-  mockModel,
-  reopenConversation,
-  retryMockMessage,
-  sendMockMessage,
-  state,
-} from "@services/data";
+import { advanceMockMessageStatus, assignConversation, closeConversation, conversationStatusLabels as rawConvStatus, getConversation, getConversationBusiness, getConversationContact, getConversationContext, getConversationMessages, getConversationNeedsReply, getDealProbability, getDealStage, getInboxConversations, getInboxSummary, getLeadActivitySummary, getLeadOwner, leadPriorityLabels as rawPriority, leadStatusLabels as rawLeadStatus, messageDeliveryLabels as rawDelivery, reopenConversation, retryMockMessage, sendMockMessage, listUsers, listQuickReplyTemplates, getUiState } from "@services";
 import { getBusinessIntelligence, tierLabels as rawTiers } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
@@ -50,10 +25,10 @@ type Row = Record<string, any>;
 type Attachment = { name: string; size: string } | null;
 
 /** حالة واجهة الوارد: مسودات ومرفق تجريبي — تبدأ فارغة في الـfixture. */
-const drafts = () => state.inboxDrafts as Record<string, string>;
-const attachmentState = () => state.inboxAttachment as Attachment;
+const drafts = () => getUiState().inboxDrafts as Record<string, string>;
+const attachmentState = () => getUiState().inboxAttachment as Attachment;
 const setAttachment = (value: Attachment) => {
-  (state as { inboxAttachment: Attachment }).inboxAttachment = value;
+  (getUiState() as { inboxAttachment: Attachment }).inboxAttachment = value;
 };
 
 const fmt = (value: number | null | undefined) => new Intl.NumberFormat("ar-SA").format(value || 0);
@@ -69,7 +44,7 @@ function dayLabel(value?: string) {
 }
 
 const ownerName = (ownerId: string) =>
-  mockModel.users.find((user: Row) => user.id === ownerId)?.name || "غير مسند";
+  listUsers().find((user: Row) => user.id === ownerId)?.name || "غير مسند";
 
 function messagePreview(message?: Row) {
   if (!message) return "لا توجد رسائل بعد";
@@ -88,10 +63,10 @@ export function Inbox({ conversationId }: { conversationId?: string }) {
 
   const rows = getInboxConversations();
   const summary = getInboxSummary();
-  const filters = state.inboxFilters;
+  const filters = getUiState().inboxFilters;
 
   const explicit = Boolean(conversationId);
-  const selectedId = explicit ? conversationId : isMobile ? null : state.selectedConversationId;
+  const selectedId = explicit ? conversationId : isMobile ? null : getUiState().selectedConversationId;
   const conversation = selectedId ? getConversation(selectedId) : null;
   const visibleSelected = rows.some((row: Row) => row.conversation.id === conversation?.id) ? conversation : null;
 
@@ -104,7 +79,7 @@ export function Inbox({ conversationId }: { conversationId?: string }) {
   }, []);
 
   const setFilter = (key: string, value: string) => {
-    (state.inboxFilters as Record<string, string>)[key] = value;
+    (getUiState().inboxFilters as Record<string, string>)[key] = value;
     notifyStateChanged();
   };
 
@@ -184,7 +159,7 @@ export function Inbox({ conversationId }: { conversationId?: string }) {
           <span>المسؤول</span>
           <select value={filters.ownerId} onChange={(e) => setFilter("ownerId", e.target.value)}>
             <option value="all">كل المسؤولين</option>
-            {mockModel.users.map((user: Row) => (
+            {listUsers().map((user: Row) => (
               <option value={user.id} key={user.id}>{user.name}</option>
             ))}
           </select>
@@ -220,7 +195,7 @@ export function Inbox({ conversationId }: { conversationId?: string }) {
                     aria-current={selected ? "true" : "false"}
                     key={item.id}
                     onClick={() => {
-                      state.selectedConversationId = item.id;
+                      getUiState().selectedConversationId = item.id;
                       go(`inbox/${item.id}`);
                     }}
                   >
@@ -329,7 +304,7 @@ function ConversationThread({ conversation, toast }: { conversation: Row; toast:
               type="button"
               className="button ghost compact"
               onClick={() => {
-                state.inboxContextOpen = !state.inboxContextOpen;
+                getUiState().inboxContextOpen = !getUiState().inboxContextOpen;
                 notifyStateChanged();
               }}
             >
@@ -401,7 +376,7 @@ function ConversationThread({ conversation, toast }: { conversation: Row; toast:
 
       <section className="s7-composer-shell">
         <div className="s7-templates" aria-label="ردود سريعة ثابتة">
-          {mockModel.quickReplyTemplates.map((template: Row) => (
+          {listQuickReplyTemplates().map((template: Row) => (
             <button
               type="button"
               className="button ghost compact"
@@ -495,7 +470,7 @@ function ContextPanel({ conversation }: { conversation: Row }) {
   const intelligence = business ? (getBusinessIntelligence(business.id) as any) : null;
 
   return (
-    <aside className={`s7-context ${state.inboxContextOpen ? "open" : ""}`} aria-label="سياق العميل ومساعد المبيعات">
+    <aside className={`s7-context ${getUiState().inboxContextOpen ? "open" : ""}`} aria-label="سياق العميل ومساعد المبيعات">
       <header>
         <div>
           <p className="eyebrow">سياق CRM</p>
@@ -505,7 +480,7 @@ function ContextPanel({ conversation }: { conversation: Row }) {
           type="button"
           className="button ghost compact"
           onClick={() => {
-            state.inboxContextOpen = false;
+            getUiState().inboxContextOpen = false;
             notifyStateChanged();
           }}
         >
@@ -546,7 +521,7 @@ function ContextPanel({ conversation }: { conversation: Row }) {
             value={conversation.assignedTo}
             onChange={(event) => mutate(() => assignConversation(conversation.id, event.target.value))}
           >
-            {mockModel.users.map((user: Row) => (
+            {listUsers().map((user: Row) => (
               <option value={user.id} key={user.id}>{user.name}</option>
             ))}
           </select>

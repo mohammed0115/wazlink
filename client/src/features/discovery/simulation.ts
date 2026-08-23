@@ -5,7 +5,7 @@
  * كما كان `discoveryTimers` في نسخة Vanilla. المحاكاة محلية بالكامل:
  * لا شبكة ولا Scraping ولا مصدر خارجي.
  */
-import { progressDiscoveryJob, startDiscoveryJob } from "@services/data";
+import { progressDiscoveryJob, startDiscoveryJob } from "@services";
 import { notifyStateChanged } from "../../shared/store/appStore";
 
 const timers = new Map<string, number>();

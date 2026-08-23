@@ -1,5 +1,5 @@
 /** مساعدات CRM مشتركة — منقولة عن رؤوس عرض `crm.js`. */
-import { leadPriorityLabels as rawPriority, leadStatusLabels as rawStatus, mockModel } from "@services/data";
+import { leadPriorityLabels as rawPriority, leadStatusLabels as rawStatus, listUsers } from "@services";
 import { tierLabels as rawTiers } from "@domain/intelligence.js";
 
 export const leadStatusLabels = rawStatus as Record<string, string>;
@@ -92,4 +92,4 @@ export function LeadRail({ lead, business, job, source }: { lead?: any; business
   );
 }
 
-export const userName = (id: string) => mockModel.users.find((user: { id: string }) => user.id === id)?.name || "الفريق";
+export const userName = (id: string) => listUsers().find((user: { id: string }) => user.id === id)?.name || "الفريق";

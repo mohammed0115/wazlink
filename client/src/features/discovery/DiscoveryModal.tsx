@@ -8,24 +8,24 @@
  * لا عند فقاعة حدث من زر بداخل النافذة.
  */
 import type { MouseEvent } from "react";
-import { businesses, convertBusinessToLead, getDiscoveryJob, scraperCrmPackages, state } from "@services/data";
+import { businesses, convertBusinessToLead, getDiscoveryJob, scraperCrmPackages, getUiState } from "@services";
 import { notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { stopDiscoverySimulation } from "./simulation";
 import { Mono, fmt, sourceName } from "./shared";
 import { downloadScraperCsv } from "../intelligence/export";
 import { go } from "../../shared/router/useHashRoute";
-import { cancelDiscoveryJob } from "@services/data";
+import { cancelDiscoveryJob } from "@services";
 import type { DiscoveryModalState } from "../../domain/types";
 import { useModalDismiss } from "../../shared/components/useModalDismiss";
 
 export function DiscoveryModal() {
   const toast = useToast();
-  const modal = state.discoveryModal as DiscoveryModalState;
+  const modal = getUiState().discoveryModal as DiscoveryModalState;
   if (!modal) return null;
 
   const close = () => {
-    (state as { discoveryModal: DiscoveryModalState }).discoveryModal = null;
+    (getUiState() as { discoveryModal: DiscoveryModalState }).discoveryModal = null;
     notifyStateChanged();
   };
 
@@ -114,7 +114,7 @@ export function DiscoveryModal() {
   }
 
   if (modal.type === "scraper-crm-decision") {
-    const job = getDiscoveryJob(modal.jobId || state.selectedJobId);
+    const job = getDiscoveryJob(modal.jobId || getUiState().selectedJobId);
     const ids = modal.businessIds || [];
     return (
       <div className="modal-backdrop" onClick={onBackdrop}>
@@ -146,9 +146,9 @@ export function DiscoveryModal() {
                 className="button primary"
                 type="button"
                 onClick={() => {
-                  const count = downloadScraperCsv(modal.jobId || state.selectedJobId, ids);
-                  state.scraperCrmUi = { ...state.scraperCrmUi, exportCount: count };
-                  (state as { discoveryModal: DiscoveryModalState }).discoveryModal = {
+                  const count = downloadScraperCsv(modal.jobId || getUiState().selectedJobId, ids);
+                  getUiState().scraperCrmUi = { ...getUiState().scraperCrmUi, exportCount: count };
+                  (getUiState() as { discoveryModal: DiscoveryModalState }).discoveryModal = {
                     type: "scraper-export-success",
                     jobId: modal.jobId,
                     businessIds: ids,
@@ -185,11 +185,11 @@ export function DiscoveryModal() {
                   );
                   const created = outcomes.filter((result: { kind: string }) => result.kind === "created").length;
                   const duplicates = outcomes.filter((result: { kind: string }) => result.kind === "duplicate").length;
-                  state.scraperCrmUi = {
-                    ...state.scraperCrmUi,
+                  getUiState().scraperCrmUi = {
+                    ...getUiState().scraperCrmUi,
                     convertedLeadIds: outcomes.map((result: any) => result.lead?.id).filter(Boolean) as never[],
                   };
-                  (state as { selectedResultIds: string[] }).selectedResultIds = [];
+                  (getUiState() as { selectedResultIds: string[] }).selectedResultIds = [];
                   close();
                   toast(
                     `تمت ترقية CRM محليًا: ${created} Lead جديدة${duplicates ? `، و${duplicates} موجودة مسبقًا لم تتكرر` : ""}. لا توجد دفعة أو اتصال خارجي.`,
@@ -223,7 +223,7 @@ export function DiscoveryModal() {
               <p className="eyebrow">اكتمل التصدير</p>
               <h2 id="exportSuccessTitle">تم تنزيل ملف Excel محليًا</h2>
               <p>
-                {fmt(state.scraperCrmUi.exportCount || 0)} صفًا بالأعمدة التي اخترتها. لم يُنشأ Lead أو Deal، ولم يحدث أي
+                {fmt(getUiState().scraperCrmUi.exportCount || 0)} صفًا بالأعمدة التي اخترتها. لم يُنشأ Lead أو Deal، ولم يحدث أي
                 اتصال خارجي.
               </p>
             </div>

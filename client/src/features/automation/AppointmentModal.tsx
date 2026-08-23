@@ -1,12 +1,6 @@
 /** نافذة إنشاء موعد — S9. موعد محلي فقط؛ لا تقويم خارجي، وينبه عند التداخل. */
 import type { FormEvent, MouseEvent } from "react";
-import {
-  appointmentLocationLabels as rawLocation,
-  appointmentTypeLabels as rawType,
-  createAppointment,
-  mockModel,
-  state,
-} from "@services/data";
+import { appointmentLocationLabels as rawLocation, appointmentTypeLabels as rawType, createAppointment, listUsers, listLeads, getUiState } from "@services";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { useModalDismiss } from "../../shared/components/useModalDismiss";
@@ -17,11 +11,11 @@ const appointmentLocationLabels = rawLocation as Record<string, string>;
 
 export function AppointmentModal() {
   const toast = useToast();
-  const modal = state.appointmentModal as { type?: string } | null;
+  const modal = getUiState().appointmentModal as { type?: string } | null;
   if (modal?.type !== "create-appointment") return null;
 
   const close = () => {
-    (state as { appointmentModal: unknown }).appointmentModal = null;
+    (getUiState() as { appointmentModal: unknown }).appointmentModal = null;
     notifyStateChanged();
   };
   const panelRef = useModalDismiss(close);
@@ -78,7 +72,7 @@ export function AppointmentModal() {
             <label className="form-field">
               <span>العميل</span>
               <select name="leadId">
-                {mockModel.leads.map((lead: Row) => (
+                {listLeads().map((lead: Row) => (
                   <option value={lead.id} key={lead.id}>{lead.id}</option>
                 ))}
               </select>
@@ -86,7 +80,7 @@ export function AppointmentModal() {
             <label className="form-field">
               <span>المالك</span>
               <select name="ownerId">
-                {mockModel.users.map((user: Row) => (
+                {listUsers().map((user: Row) => (
                   <option value={user.id} key={user.id}>{user.name}</option>
                 ))}
               </select>

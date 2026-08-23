@@ -23,7 +23,7 @@ import {
   getTaskAnalytics,
   normalizeAnalyticsContext,
 } from "@domain/analytics-engine.js";
-import { state } from "@services/data";
+import {  getUiState } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
@@ -40,7 +40,7 @@ const fmt = (value: unknown) =>
 const money = (value: unknown) => (value === null || value === undefined ? "—" : `${fmt(value)} ر.س`);
 const pct = (value: unknown) => (value === null || value === undefined ? "—" : `${fmt(value)}٪`);
 
-const context = () => normalizeAnalyticsContext(state.analyticsContext);
+const context = () => normalizeAnalyticsContext(getUiState().analyticsContext);
 const metric = (id: string) => metricDefinitions.find((item) => item.id === id);
 
 const tabs: [string, string][] = [
@@ -58,7 +58,7 @@ function MetricCard({ id, value, unit = "number" }: { id: string; value: unknown
       tabIndex={0}
       aria-label={`عرض تفاصيل ${definition?.label || id}`}
       onClick={() => {
-        state.analyticsUi = { ...state.analyticsUi, drilldown: { type: "metric", metricId: id } as never };
+        getUiState().analyticsUi = { ...getUiState().analyticsUi, drilldown: { type: "metric", metricId: id } as never };
         notifyStateChanged();
       }}
     >
@@ -151,11 +151,11 @@ export function Analytics({ section = "overview" }: { section?: string }) {
   const tab = tabs.some(([id]) => id === section) ? section : "overview";
 
   const setFilter = (key: string, value: string) => {
-    state.analyticsContext = { ...state.analyticsContext, [key]: value };
+    getUiState().analyticsContext = { ...getUiState().analyticsContext, [key]: value };
     notifyStateChanged();
   };
   const resetFilters = () => {
-    state.analyticsContext = normalizeAnalyticsContext({});
+    getUiState().analyticsContext = normalizeAnalyticsContext({});
     notifyStateChanged();
   };
 
@@ -308,7 +308,7 @@ function Overview({ ctx, onReset }: { ctx: Row; onReset: () => void }) {
               key={stage.id}
               type="button"
               onClick={() => {
-                state.analyticsUi = { ...state.analyticsUi, drilldown: { type: "funnel", stageId: stage.id } as never };
+                getUiState().analyticsUi = { ...getUiState().analyticsUi, drilldown: { type: "funnel", stageId: stage.id } as never };
                 notifyStateChanged();
               }}
             >
@@ -344,7 +344,7 @@ function Funnel({ ctx, onReset }: { ctx: Row; onReset: () => void }) {
             <button
               type="button"
               onClick={() => {
-                state.analyticsUi = { ...state.analyticsUi, drilldown: { type: "funnel", stageId: stage.id } as never };
+                getUiState().analyticsUi = { ...getUiState().analyticsUi, drilldown: { type: "funnel", stageId: stage.id } as never };
                 notifyStateChanged();
               }}
             >
@@ -416,8 +416,8 @@ function Revenue({ ctx, onReset }: { ctx: Row; onReset: () => void }) {
                       className="button compact"
                       type="button"
                       onClick={() => {
-                        state.analyticsUi = {
-                          ...state.analyticsUi,
+                        getUiState().analyticsUi = {
+                          ...getUiState().analyticsUi,
                           drilldown: { type: "trace", revenueId: trace.event.id } as never,
                         };
                         notifyStateChanged();

@@ -5,17 +5,7 @@
  * الإغلاق كخاسرة يتطلب سببًا صريحًا.
  */
 import type { FormEvent, MouseEvent } from "react";
-import {
-  businesses,
-  closeDealAsLost,
-  closeDealAsWon,
-  createDeal,
-  getDeal,
-  getDealLead,
-  getPipelineStageSummary,
-  mockModel,
-  state,
-} from "@services/data";
+import { businesses, closeDealAsLost, closeDealAsWon, createDeal, getDeal, getDealLead, getPipelineStageSummary, listUsers, listLeads, listServiceCatalog, getUiState } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
@@ -26,11 +16,11 @@ type DealModalState = { type: "create"; leadId?: string } | { type: "won" | "los
 
 export function DealModal() {
   const toast = useToast();
-  const modal = state.dealModal as DealModalState;
+  const modal = getUiState().dealModal as DealModalState;
   if (!modal) return null;
 
   const close = () => {
-    (state as { dealModal: DealModalState }).dealModal = null;
+    (getUiState() as { dealModal: DealModalState }).dealModal = null;
     notifyStateChanged();
   };
   const panelRef = useModalDismiss(close);
@@ -40,7 +30,7 @@ export function DealModal() {
   };
 
   if (modal.type === "create") {
-    const selectedLead = modal.leadId || mockModel.leads[0]?.id || "";
+    const selectedLead = modal.leadId || listLeads()[0]?.id || "";
     const lead = getDealLead({ leadId: selectedLead });
     const business = lead && businesses.find((item: any) => item.id === lead.businessId);
     const openStages = getPipelineStageSummary("PIPE-1001")
@@ -67,7 +57,7 @@ export function DealModal() {
         toast("توجد صفقة مفتوحة مطابقة لنفس Lead والخدمة؛ لم تُنشأ نسخة ثانية.", "info");
       } else if (result?.deal) {
         toast("أُنشئت الصفقة محليًا وسُجل الأثر.", "success");
-        state.selectedDealId = result.deal.id;
+        getUiState().selectedDealId = result.deal.id;
         go(`deals/${result.deal.id}`);
       } else {
         toast("تعذر إنشاء الصفقة؛ راجع القيمة والمرحلة.", "error");
@@ -93,7 +83,7 @@ export function DealModal() {
             <label className="form-field wide">
               <span>Lead</span>
               <select name="leadId" defaultValue={selectedLead} required>
-                {mockModel.leads.map((item: any) => {
+                {listLeads().map((item: any) => {
                   const itemBusiness = businesses.find((b: any) => b.id === item.businessId);
                   return (
                     <option value={item.id} key={item.id}>
@@ -111,7 +101,7 @@ export function DealModal() {
               <span>الخدمة المرجعية</span>
               <select name="serviceId">
                 <option value="">عنوان مخصص</option>
-                {mockModel.serviceCatalog.map((service: any) => (
+                {listServiceCatalog().map((service: any) => (
                   <option value={service.id} key={service.id}>{service.name}</option>
                 ))}
               </select>
@@ -142,7 +132,7 @@ export function DealModal() {
             <label className="form-field">
               <span>المالك</span>
               <select name="ownerId" defaultValue={lead?.ownerId}>
-                {mockModel.users.map((user: any) => (
+                {listUsers().map((user: any) => (
                   <option value={user.id} key={user.id}>{user.name}</option>
                 ))}
               </select>

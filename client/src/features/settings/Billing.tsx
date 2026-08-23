@@ -5,17 +5,7 @@
  * أو BillingActivity إلى `RevenueEvent` أو `AttributionTouchpoint`.
  * لا بوابة دفع ولا معالجة بطاقات؛ وسيلة الدفع مرجع عرض مقنّع فقط.
  */
-import {
-  changeSubscriptionPlanMock,
-  getBillingActivities,
-  getBillingUsage,
-  getCurrentSubscription,
-  getPlanChangePreview,
-  mockModel,
-  previewPlanChange,
-  setSubscriptionCancelAtPeriodEnd,
-  state,
-} from "@services/data";
+import { changeSubscriptionPlanMock, getBillingActivities, getBillingUsage, getCurrentSubscription, getPlanChangePreview, previewPlanChange, setSubscriptionCancelAtPeriodEnd, listPlans, listInvoices, listPaymentMethods, getUiState } from "@services";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { PageHead } from "../../shared/components/PageHead";
@@ -37,10 +27,10 @@ const invoiceStatusLabel: Record<string, string> = {
 export function Billing() {
   const toast = useToast();
   const subscription = getCurrentSubscription() as Row;
-  const plan = mockModel.plans.find((item: Row) => item.id === subscription.planId) as Row;
+  const plan = listPlans().find((item: Row) => item.id === subscription.planId) as Row;
   const usage = getBillingUsage() as Row[];
-  const payment = mockModel.paymentMethods[0] as Row;
-  const previewPlanId = state.s11Ui.billingPreviewPlanId;
+  const payment = listPaymentMethods()[0] as Row;
+  const previewPlanId = getUiState().s11Ui.billingPreviewPlanId;
   const preview = previewPlanId ? (getPlanChangePreview(previewPlanId) as Row) : null;
 
   return (
@@ -110,7 +100,7 @@ export function Billing() {
               type="button"
               aria-label="إغلاق المعاينة"
               onClick={() => {
-                state.s11Ui = { ...state.s11Ui, billingPreviewPlanId: null };
+                getUiState().s11Ui = { ...getUiState().s11Ui, billingPreviewPlanId: null };
                 notifyStateChanged();
               }}
             >
@@ -134,7 +124,7 @@ export function Billing() {
               type="button"
               onClick={() => {
                 mutate(() => changeSubscriptionPlanMock(preview.target.id));
-                state.s11Ui = { ...state.s11Ui, billingPreviewPlanId: null };
+                getUiState().s11Ui = { ...getUiState().s11Ui, billingPreviewPlanId: null };
                 notifyStateChanged();
                 toast("غُيّرت الخطة محليًا؛ لا دفع ولا تغيير في توافر الميزات.", "success");
               }}
@@ -184,7 +174,7 @@ export function Billing() {
           <small>لا تتغير ميزات S3–S10 فعليًا عند التبديل.</small>
         </header>
         <div className="s11-plan-grid">
-          {mockModel.plans.map((item: Row) => (
+          {listPlans().map((item: Row) => (
             <article className={item.id === plan?.id ? "current" : ""} key={item.id}>
               <div>
                 <p>{item.id === plan?.id ? "الخطة الحالية" : "تسعير تجريبي"}</p>
@@ -204,7 +194,7 @@ export function Billing() {
                 disabled={item.id === plan?.id}
                 onClick={() => {
                   previewPlanChange(item.id);
-                  state.s11Ui = { ...state.s11Ui, billingPreviewPlanId: item.id };
+                  getUiState().s11Ui = { ...getUiState().s11Ui, billingPreviewPlanId: item.id };
                   notifyStateChanged();
                 }}
               >
@@ -234,7 +224,7 @@ export function Billing() {
               </tr>
             </thead>
             <tbody>
-              {mockModel.invoices.map((invoice: Row) => (
+              {listInvoices().map((invoice: Row) => (
                 <tr key={invoice.id}>
                   <td className="mono">{invoice.id}</td>
                   <td>

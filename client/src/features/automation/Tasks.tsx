@@ -1,5 +1,5 @@
 /** المهام — S9. سجل واحد للمهام اليدوية والآلية بنفس عقد S5، مع provenance للأتمتة. */
-import { completeLeadTask, getLead, getTasksWorkspace, mockModel, state } from "@services/data";
+import { completeLeadTask, getLead, getTasksWorkspace, listUsers, getUiState } from "@services";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
 import { PageHead } from "../../shared/components/PageHead";
 
@@ -7,15 +7,15 @@ type Row = Record<string, any>;
 
 const formatDateTime = (value?: string) =>
   value ? new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—";
-const userLabel = (id: string) => mockModel.users.find((user: Row) => user.id === id)?.name || "—";
+const userLabel = (id: string) => listUsers().find((user: Row) => user.id === id)?.name || "—";
 const taskOrigin = (task: Row) => (task.createdByAutomationRunId ? "automation" : "manual");
 
 export function Tasks() {
   const rows = getTasksWorkspace() as Row[];
-  const filters = state.taskFilters;
+  const filters = getUiState().taskFilters;
 
   const setFilter = (key: string, value: string) => {
-    (state.taskFilters as Record<string, string>)[key] = value;
+    (getUiState().taskFilters as Record<string, string>)[key] = value;
     notifyStateChanged();
   };
 

@@ -7,16 +7,7 @@
  * `AttributionTouchpoint` — الفوترة منفصلة عن إيراد العملاء في S10.
  */
 import type { FormEvent } from "react";
-import {
-  closeMockCheckout,
-  completeMockCheckout,
-  continueMockCheckoutPayment,
-  failMockCheckout,
-  finishMockCheckoutJourney,
-  getMockCheckoutPreview,
-  state,
-  updateMockCheckoutInvoice,
-} from "@services/data";
+import { closeMockCheckout, completeMockCheckout, continueMockCheckoutPayment, failMockCheckout, finishMockCheckoutJourney, getMockCheckoutPreview, updateMockCheckoutInvoice, getUiState } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";

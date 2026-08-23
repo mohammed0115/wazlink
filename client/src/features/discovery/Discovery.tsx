@@ -6,12 +6,7 @@
  * ولا تنشئ Lead أو Score أو CRM.
  */
 import { useRef, type FormEvent } from "react";
-import {
-  createDiscoveryJob,
-  discoverySourceOptions,
-  getDiscoveryCombinations,
-  state,
-} from "@services/data";
+import { createDiscoveryJob, discoverySourceOptions, getDiscoveryCombinations, getUiState } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
@@ -33,7 +28,7 @@ function ChipList({ items, type }: { items: string[]; type: ChipType }) {
             type="button"
             aria-label={`حذف ${item}`}
             onClick={() => {
-              state.discoveryDraft[key] = state.discoveryDraft[key].filter((value: string) => value !== item);
+              getUiState().discoveryDraft[key] = getUiState().discoveryDraft[key].filter((value: string) => value !== item);
               notifyStateChanged();
             }}
           >
@@ -46,7 +41,7 @@ function ChipList({ items, type }: { items: string[]; type: ChipType }) {
 }
 
 function CombinationsPreview() {
-  const draft = state.discoveryDraft;
+  const draft = getUiState().discoveryDraft;
   const combinations = getDiscoveryCombinations(draft.keywords, draft.locations);
   const visible = draft.showCombinations ? combinations : combinations.slice(0, 4);
 
@@ -162,7 +157,7 @@ export function Discovery() {
   const keywordInput = useRef<HTMLInputElement>(null);
   const locationInput = useRef<HTMLInputElement>(null);
 
-  const draft = state.discoveryDraft;
+  const draft = getUiState().discoveryDraft;
   const hasValues = draft.keywords.length && draft.locations.length;
 
   function addItem(type: ChipType) {

@@ -4,14 +4,7 @@
  * لا expressions ولا JavaScript ولا templates تنفيذية.
  */
 import { useState, type FormEvent, type MouseEvent } from "react";
-import {
-  automationActionCatalog as rawActions,
-  automationConditionFieldCatalog as rawFields,
-  automationOperatorLabels as rawOperators,
-  automationTriggerCatalog as rawTriggers,
-  createAutomationRule,
-  state,
-} from "@services/data";
+import { automationActionCatalog as rawActions, automationConditionFieldCatalog as rawFields, automationOperatorLabels as rawOperators, automationTriggerCatalog as rawTriggers, createAutomationRule, getUiState } from "@services";
 import { getAutomationRulePreview } from "@domain/automation.js";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
@@ -35,11 +28,11 @@ export function AutomationModal() {
     approvalPolicy: "auto_safe",
   });
 
-  const modal = state.automationModal as { type?: string } | null;
+  const modal = getUiState().automationModal as { type?: string } | null;
   if (modal?.type !== "create-rule") return null;
 
   const close = () => {
-    (state as { automationModal: unknown }).automationModal = null;
+    (getUiState() as { automationModal: unknown }).automationModal = null;
     notifyStateChanged();
   };
   const panelRef = useModalDismiss(close);

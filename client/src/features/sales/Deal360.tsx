@@ -5,19 +5,7 @@
  * **لا** يضيف `RevenueEvent` ولا `AttributionTouchpoint`.
  */
 import type { FormEvent } from "react";
-import {
-  getDeal,
-  getDealActivities,
-  getDealBusiness,
-  getDealLead,
-  getDealProbability,
-  getDealStage,
-  getLeadActivitySummary,
-  isDealProbabilityManual,
-  mockModel,
-  state,
-  updateDeal,
-} from "@services/data";
+import { getDeal, getDealActivities, getDealBusiness, getDealLead, getDealProbability, getDealStage, getLeadActivitySummary, isDealProbabilityManual, updateDeal, listUsers, getUiState } from "@services";
 import { getBusinessIntelligence, tierLabels as rawTiers } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
@@ -79,7 +67,7 @@ export function Deal360({ dealId }: { dealId: string }) {
   }
 
   const openModal = (type: string) => {
-    (state as { dealModal: unknown }).dealModal = { type, dealId: deal.id };
+    (getUiState() as { dealModal: unknown }).dealModal = { type, dealId: deal.id };
     notifyStateChanged();
   };
 
@@ -165,7 +153,7 @@ export function Deal360({ dealId }: { dealId: string }) {
                 <label className="form-field">
                   <span>المالك</span>
                   <select name="ownerId" defaultValue={deal.ownerId}>
-                    {mockModel.users.map((user: any) => (
+                    {listUsers().map((user: any) => (
                       <option value={user.id} key={user.id}>{user.name}</option>
                     ))}
                   </select>
@@ -240,7 +228,7 @@ export function Deal360({ dealId }: { dealId: string }) {
                     type="button"
                     onClick={() => {
                       if (lead?.id) {
-                        state.selectedLeadId = lead.id;
+                        getUiState().selectedLeadId = lead.id;
                         go(`crm/leads/${lead.id}`);
                       }
                     }}

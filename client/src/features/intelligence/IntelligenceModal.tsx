@@ -3,7 +3,7 @@
  * كلاهما عرض تفسيري فقط ولا يغيّر أي كيان.
  */
 import type { MouseEvent } from "react";
-import { businesses, mockModel, state } from "@services/data";
+import { businesses, listSignals, getUiState } from "@services";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { notifyStateChanged } from "../../shared/store/appStore";
 import { DimensionRows } from "./shared";
@@ -12,11 +12,11 @@ import { useModalDismiss } from "../../shared/components/useModalDismiss";
 type IntelligenceModalState = { type: "breakdown"; businessId: string } | { type: "evidence"; signalId: string } | null;
 
 export function IntelligenceModal() {
-  const modal = state.intelligenceModal as IntelligenceModalState;
+  const modal = getUiState().intelligenceModal as IntelligenceModalState;
   if (!modal) return null;
 
   const close = () => {
-    (state as { intelligenceModal: IntelligenceModalState }).intelligenceModal = null;
+    (getUiState() as { intelligenceModal: IntelligenceModalState }).intelligenceModal = null;
     notifyStateChanged();
   };
   const panelRef = useModalDismiss(close);
@@ -56,7 +56,7 @@ export function IntelligenceModal() {
     );
   }
 
-  const signal = mockModel.signals.find((item: { id: string }) => item.id === modal.signalId);
+  const signal = listSignals().find((item: { id: string }) => item.id === modal.signalId);
   if (!signal) return null;
   const business = businesses.find((item: { id: string }) => item.id === signal.businessId);
 

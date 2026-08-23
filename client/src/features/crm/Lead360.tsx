@@ -5,27 +5,7 @@
  * ولا ينسخ Score أو Opportunity داخل Lead. الصفقات والمحادثات عرض سياقي فقط.
  */
 import type { FormEvent } from "react";
-import {
-  addLeadNote,
-  addLeadTask,
-  assignLeadOwner,
-  businesses,
-  completeLeadTask,
-  getDiscoveryJob,
-  getDiscoverySource,
-  getLead,
-  getLeadActivities,
-  getLeadContacts,
-  getLeadConversations,
-  getLeadDeals,
-  getLeadNotes,
-  getLeadOwner,
-  getLeadTasks,
-  mockModel,
-  state,
-  updateLeadPriority,
-  updateLeadStatus,
-} from "@services/data";
+import { addLeadNote, addLeadTask, assignLeadOwner, businesses, completeLeadTask, getDiscoveryJob, getDiscoverySource, getLead, getLeadActivities, getLeadContacts, getLeadConversations, getLeadDeals, getLeadNotes, getLeadOwner, getLeadTasks, updateLeadPriority, updateLeadStatus, listUsers, getUiState } from "@services";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate } from "../../shared/store/appStore";
@@ -128,7 +108,7 @@ export function Lead360({ leadId }: { leadId: string }) {
               className="button primary"
               type="button"
               onClick={() => {
-                if (business?.id) state.selectedBusinessId = business.id;
+                if (business?.id) getUiState().selectedBusinessId = business.id;
                 go(`intelligence?business=${business?.id}`);
               }}
             >
@@ -153,7 +133,7 @@ export function Lead360({ leadId }: { leadId: string }) {
             </p>
           </div>
         </div>
-        <div className="lead-quick-state">
+        <div className="lead-quick-getUiState()">
           <div>
             <span>الحالة</span>
             <select value={lead.status} onChange={(e) => mutate(() => updateLeadStatus(lead.id, e.target.value))}>
@@ -173,7 +153,7 @@ export function Lead360({ leadId }: { leadId: string }) {
           <div>
             <span>المالك</span>
             <select value={lead.ownerId} onChange={(e) => mutate(() => assignLeadOwner(lead.id, e.target.value))}>
-              {mockModel.users.map((user: any) => (
+              {listUsers().map((user: any) => (
                 <option value={user.id} key={user.id}>{user.name}</option>
               ))}
             </select>
@@ -342,7 +322,7 @@ export function Lead360({ leadId }: { leadId: string }) {
                 <option>اجتماع</option>
               </select>
               <select name="ownerId" defaultValue={lead.ownerId}>
-                {mockModel.users.map((user: any) => (
+                {listUsers().map((user: any) => (
                   <option value={user.id} key={user.id}>{user.name}</option>
                 ))}
               </select>

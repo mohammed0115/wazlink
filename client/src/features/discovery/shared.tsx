@@ -1,5 +1,5 @@
 /** مساعدات مشتركة بين شاشات الاكتشاف — منقولة عن رؤوس `discovery.js`. */
-import { getDiscoverySource, getJobStatusLabel } from "@services/data";
+import { getDiscoverySource, getJobStatusLabel } from "@services";
 
 export const fmt = (value: number) => new Intl.NumberFormat("ar-SA").format(value || 0);
 

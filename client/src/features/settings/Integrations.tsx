@@ -6,17 +6,7 @@
  * `hasConfiguredSecret` فقط ولا تُخزَّن أو تُعرض أي قيمة سرية.
  */
 import type { FormEvent } from "react";
-import {
-  connectIntegrationMock,
-  disconnectIntegrationMock,
-  getIntegration,
-  getIntegrationActivities,
-  integrationStatusLabels as rawStatusLabels,
-  mockModel,
-  retryIntegrationMock,
-  state,
-  updateIntegrationConfiguration,
-} from "@services/data";
+import { connectIntegrationMock, disconnectIntegrationMock, getIntegration, getIntegrationActivities, integrationStatusLabels as rawStatusLabels, retryIntegrationMock, updateIntegrationConfiguration, listIntegrations, getUiState } from "@services";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { PageHead } from "../../shared/components/PageHead";
@@ -67,7 +57,7 @@ function IntegrationAction({ integration, toast }: { integration: Row; toast: (m
         className="button"
         type="button"
         onClick={() => {
-          state.s11Ui = { ...state.s11Ui, integrationDetailId: integration.id };
+          getUiState().s11Ui = { ...getUiState().s11Ui, integrationDetailId: integration.id };
           notifyStateChanged();
         }}
       >
@@ -84,7 +74,7 @@ function IntegrationAction({ integration, toast }: { integration: Row; toast: (m
 
 export function Integrations() {
   const toast = useToast();
-  const selected = getIntegration(state.s11Ui.integrationDetailId);
+  const selected = getIntegration(getUiState().s11Ui.integrationDetailId);
 
   return (
     <div className="s11-workspace">
@@ -106,7 +96,7 @@ export function Integrations() {
       {selected && <IntegrationDetail integration={selected} toast={toast} />}
 
       <section className="s11-integration-grid">
-        {mockModel.integrations.map((integration: Row) => (
+        {listIntegrations().map((integration: Row) => (
           <article className="s11-integration-card" key={integration.id}>
             <header>
               <span className="s11-integration-mark">{integration.name.slice(0, 1)}</span>
@@ -131,7 +121,7 @@ export function Integrations() {
                 className="button ghost"
                 type="button"
                 onClick={() => {
-                  state.s11Ui = { ...state.s11Ui, integrationDetailId: integration.id };
+                  getUiState().s11Ui = { ...getUiState().s11Ui, integrationDetailId: integration.id };
                   notifyStateChanged();
                 }}
               >
@@ -169,7 +159,7 @@ function IntegrationDetail({ integration, toast }: { integration: Row; toast: (m
           type="button"
           aria-label="إغلاق التفاصيل"
           onClick={() => {
-            state.s11Ui = { ...state.s11Ui, integrationDetailId: null };
+            getUiState().s11Ui = { ...getUiState().s11Ui, integrationDetailId: null };
             notifyStateChanged();
           }}
         >

@@ -3,16 +3,7 @@
  * منقولة عن `renderDeals()`: 10 فلاتر وجدول تشغيلي.
  * القيمة المرجحة = القيمة × احتمال الصفقة ÷ 100 وفق `ENTITY_MODEL §8`.
  */
-import {
-  getDealBusiness,
-  getDealLead,
-  getDealProbability,
-  getDealStage,
-  getPipelineMetrics,
-  getPipelineStageSummary,
-  mockModel,
-  state,
-} from "@services/data";
+import { getDealBusiness, getDealLead, getDealProbability, getDealStage, getPipelineMetrics, getPipelineStageSummary, listUsers, listDeals, getUiState } from "@services";
 import { getBusinessIntelligence, tierLabels as rawTiers } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { notifyStateChanged } from "../../shared/store/appStore";
@@ -34,8 +25,8 @@ function dealRecord(deal: Row): Row {
 }
 
 function dealRows(): Row[] {
-  const filters = state.dealFilters;
-  return mockModel.deals
+  const filters = getUiState().dealFilters;
+  return listDeals()
     .map(dealRecord)
     .filter((row: Row) => {
       const text = `${row.deal.title} ${row.deal.id} ${row.lead?.id || ""} ${row.business?.name || ""} ${row.business?.city || ""}`.toLowerCase();
@@ -67,14 +58,14 @@ function dealRows(): Row[] {
 }
 
 export function Deals() {
-  const filters = state.dealFilters;
+  const filters = getUiState().dealFilters;
   const rows = dealRows();
   const metrics = getPipelineMetrics();
   const stages = getPipelineStageSummary("PIPE-1001").map(({ stage }: Row) => stage);
-  const jobIds = [...new Set(mockModel.deals.map((deal: Row) => getDealLead(deal)?.sourceJobId).filter(Boolean))] as string[];
+  const jobIds = [...new Set(listDeals().map((deal: Row) => getDealLead(deal)?.sourceJobId).filter(Boolean))] as string[];
 
   const setFilter = (key: string, value: string) => {
-    (state.dealFilters as Record<string, string>)[key] = value;
+    (getUiState().dealFilters as Record<string, string>)[key] = value;
     notifyStateChanged();
   };
 
@@ -91,7 +82,7 @@ export function Deals() {
               className="button primary"
               type="button"
               onClick={() => {
-                (state as { dealModal: unknown }).dealModal = { type: "create" };
+                (getUiState() as { dealModal: unknown }).dealModal = { type: "create" };
                 notifyStateChanged();
               }}
             >
@@ -128,7 +119,7 @@ export function Deals() {
           </select>
           <select value={filters.ownerId} onChange={(e) => setFilter("ownerId", e.target.value)}>
             <option value="all">كل الملاك</option>
-            {mockModel.users.map((user: Row) => (
+            {listUsers().map((user: Row) => (
               <option value={user.id} key={user.id}>{user.name}</option>
             ))}
           </select>
@@ -195,7 +186,7 @@ export function Deals() {
                         type="button"
                         className="row-link"
                         onClick={() => {
-                          state.selectedDealId = deal.id;
+                          getUiState().selectedDealId = deal.id;
                           go(`deals/${deal.id}`);
                         }}
                       >
@@ -209,7 +200,7 @@ export function Deals() {
                         className="row-link"
                         onClick={() => {
                           if (lead?.id) {
-                            state.selectedLeadId = lead.id;
+                            getUiState().selectedLeadId = lead.id;
                             go(`crm/leads/${lead.id}`);
                           }
                         }}
@@ -232,7 +223,7 @@ export function Deals() {
                         type="button"
                         className="button ghost compact"
                         onClick={() => {
-                          state.selectedDealId = deal.id;
+                          getUiState().selectedDealId = deal.id;
                           go(`deals/${deal.id}`);
                         }}
                       >

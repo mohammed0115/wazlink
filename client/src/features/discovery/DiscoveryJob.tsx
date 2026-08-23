@@ -3,15 +3,7 @@
  * منقولة عن `renderDiscoveryJob()`: ملخص، تقدم، أعداد، ومراحل معالجة.
  * المراحل تمثل تجربة محلية ثابتة لا Scraping ولا Enrichment فعليًا.
  */
-import {
-  completeDiscoveryJob,
-  formatDiscoveryJobCreatedAt,
-  getDiscoveryJob,
-  getJobStatusLabel,
-  isDiscoveryResultsAvailable,
-  retryDiscoveryJob,
-  state,
-} from "@services/data";
+import { completeDiscoveryJob, formatDiscoveryJobCreatedAt, getDiscoveryJob, getJobStatusLabel, isDiscoveryResultsAvailable, retryDiscoveryJob, getUiState } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
@@ -70,7 +62,7 @@ export function DiscoveryJob({ jobId }: { jobId: string }) {
   const canResults = isDiscoveryResultsAvailable(job);
 
   const requestCancel = () => {
-    (state as { discoveryModal: DiscoveryModalState }).discoveryModal = { type: "cancel", jobId: job.id };
+    (getUiState() as { discoveryModal: DiscoveryModalState }).discoveryModal = { type: "cancel", jobId: job.id };
     notifyStateChanged();
   };
 

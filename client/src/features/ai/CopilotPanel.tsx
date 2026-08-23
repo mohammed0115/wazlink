@@ -4,7 +4,7 @@
  * محاكاة حتمية محلية: لا LLM ولا API ولا إرسال. «استخدام الرد» يملأ
  * Composer فقط ولا ينشئ رسالة، ويبقى `senderType` للرسالة البشرية `user`.
  */
-import { getConversation, state } from "@services/data";
+import { getConversation, getUiState } from "@services";
 import {
   agentModeLabels as rawAgentModes,
   createAgentProposal,
@@ -64,9 +64,9 @@ function QualificationView({ record }: { record?: Row }) {
     <>
       <div className="s8-qualification-grid">
         {qualificationFields.map(([key, label]) => (
-          <article className={`state-${payload[key]?.state || "unknown"}`} key={key}>
+          <article className={`getUiState()-${payload[key]?.getUiState() || "unknown"}`} key={key}>
             <span>{label}</span>
-            <b>{qualificationLabels[payload[key]?.state] || "غير معروف"}</b>
+            <b>{qualificationLabels[payload[key]?.getUiState()] || "غير معروف"}</b>
             <small>{payload[key]?.value || "لا يوجد دليل كافٍ."}</small>
           </article>
         ))}
@@ -101,15 +101,15 @@ export function CopilotPanel({ conversationId }: { conversationId?: string }) {
   };
 
   const setTab = (tab: string) => {
-    state.copilotTab = tab;
+    getUiState().copilotTab = tab;
     notifyStateChanged();
   };
 
   let body: React.ReactNode;
 
-  if (state.copilotTab === "qualification") {
+  if (getUiState().copilotTab === "qualification") {
     body = <QualificationView record={latestByType?.qualification} />;
-  } else if (state.copilotTab === "evidence") {
+  } else if (getUiState().copilotTab === "evidence") {
     body = (
       <div className="s8-evidence-panel">
         <article>
@@ -169,7 +169,7 @@ export function CopilotPanel({ conversationId }: { conversationId?: string }) {
             <h3>{nba.payload.label}</h3>
             <p>{nba.payload.reason}</p>
             <EvidenceList refs={nba.evidenceRefs} />
-            {state.agentMode === "approval_required" ? (
+            {getUiState().agentMode === "approval_required" ? (
               <button
                 type="button"
                 className="button compact"
@@ -247,8 +247,8 @@ export function CopilotPanel({ conversationId }: { conversationId?: string }) {
             <button
               type="button"
               key={id}
-              className={`s8-tab ${state.copilotTab === id ? "active" : ""}`}
-              aria-pressed={state.copilotTab === id}
+              className={`s8-tab ${getUiState().copilotTab === id ? "active" : ""}`}
+              aria-pressed={getUiState().copilotTab === id}
               onClick={() => setTab(id)}
             >
               {label}

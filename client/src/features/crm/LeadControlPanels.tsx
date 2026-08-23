@@ -5,17 +5,7 @@
  * - مساعد المبيعات (S8): قراءة فقط؛ لا mutation تلقائية.
  * - الأتمتة والمواعيد (S9): قراءة مرجعية؛ لا جدولة ولا إرسال.
  */
-import {
-  conversationStatusLabels as rawConvStatus,
-  getAutomationRuns,
-  getConversationLatestMessage,
-  getConversationNeedsReply,
-  getConversationUnreadCount,
-  getLeadAppointments,
-  getLeadContacts,
-  getLeadConversations,
-  mockModel,
-} from "@services/data";
+import { conversationStatusLabels as rawConvStatus, getAutomationRuns, getConversationLatestMessage, getConversationNeedsReply, getConversationUnreadCount, getLeadAppointments, getLeadContacts, getLeadConversations, listDeals, listConversations } from "@services";
 import { getAiSalesInsights } from "@domain/sales-ai.js";
 import { go } from "../../shared/router/useHashRoute";
 import { fmt, formatIso } from "./shared";
@@ -116,8 +106,8 @@ export function LeadAutomationControls({ leadId }: { leadId: string }) {
   const runs = runsForRule().filter(
     (run) =>
       run.triggerEntityId === leadId ||
-      mockModel.conversations.find((conversation: Row) => conversation.id === run.triggerEntityId)?.leadId === leadId ||
-      mockModel.deals.find((deal: Row) => deal.id === run.triggerEntityId)?.leadId === leadId,
+      listConversations().find((conversation: Row) => conversation.id === run.triggerEntityId)?.leadId === leadId ||
+      listDeals().find((deal: Row) => deal.id === run.triggerEntityId)?.leadId === leadId,
   );
 
   return (

@@ -5,7 +5,7 @@
  * ويعيد المستخدم إلى Lead القائمة، وفق قاعدة «Lead واحدة لكل Business».
  */
 import type { MouseEvent } from "react";
-import { businesses, convertBusinessToLead, getDiscoveryJob, getLeadByBusinessId, state } from "@services/data";
+import { businesses, convertBusinessToLead, getDiscoveryJob, getLeadByBusinessId, getUiState } from "@services";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { notifyStateChanged } from "../../shared/store/appStore";
@@ -17,11 +17,11 @@ type CrmModalState = { type: "conversion"; businessId: string } | null;
 
 export function CrmModal() {
   const toast = useToast();
-  const modal = state.crmModal as CrmModalState;
+  const modal = getUiState().crmModal as CrmModalState;
   if (!modal) return null;
 
   const close = () => {
-    (state as { crmModal: CrmModalState }).crmModal = null;
+    (getUiState() as { crmModal: CrmModalState }).crmModal = null;
     notifyStateChanged();
   };
   const panelRef = useModalDismiss(close);
@@ -58,7 +58,7 @@ export function CrmModal() {
               type="button"
               onClick={() => {
                 close();
-                state.selectedLeadId = existing.id;
+                getUiState().selectedLeadId = existing.id;
                 go(`crm/leads/${existing.id}`);
               }}
             >
@@ -117,7 +117,7 @@ export function CrmModal() {
                 toast("أُنشئت Lead محليًا مع حفظ مصدر الاكتشاف وسياق Intelligence.", "success");
               }
               if (result.lead?.id) {
-                state.selectedLeadId = result.lead.id;
+                getUiState().selectedLeadId = result.lead.id;
                 go(`crm/leads/${result.lead.id}`);
               }
             }}

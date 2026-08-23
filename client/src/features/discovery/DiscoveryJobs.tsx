@@ -2,18 +2,7 @@
  * عمليات الاكتشاف — S3.
  * منقولة عن `renderDiscoveryJobs()` مع نفس الفلاتر والترتيب وأعمدة الجدول.
  */
-import {
-  cancelDiscoveryJob,
-  formatDiscoveryJobCreatedAt,
-  getJobStatusLabel,
-  isDiscoveryJobRecent,
-  isDiscoveryJobToday,
-  isDiscoveryResultsAvailable,
-  jobs,
-  mockModel,
-  retryDiscoveryJob,
-  state,
-} from "@services/data";
+import { cancelDiscoveryJob, formatDiscoveryJobCreatedAt, getJobStatusLabel, isDiscoveryJobRecent, isDiscoveryJobToday, isDiscoveryResultsAvailable, jobs, retryDiscoveryJob, listDiscoverySources, getUiState } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
@@ -25,7 +14,7 @@ import type { DiscoveryListFilters, DiscoveryModalState } from "../../domain/typ
 type Job = Record<string, any>;
 
 function applyJobFilters(): Job[] {
-  const filters = state.discoveryListFilters;
+  const filters = getUiState().discoveryListFilters;
   const matchesDate = (job: Job) =>
     filters.date === "all" ||
     (filters.date === "today" && isDiscoveryJobToday(job)) ||
@@ -50,11 +39,11 @@ function applyJobFilters(): Job[] {
 
 export function DiscoveryJobs() {
   const toast = useToast();
-  const filters = state.discoveryListFilters;
+  const filters = getUiState().discoveryListFilters;
   const visible = applyJobFilters();
 
   const setFilter = (key: string, value: string) => {
-    (state.discoveryListFilters as DiscoveryListFilters)[key] = value;
+    (getUiState().discoveryListFilters as DiscoveryListFilters)[key] = value;
     notifyStateChanged();
   };
 
@@ -97,7 +86,7 @@ export function DiscoveryJobs() {
           </select>
           <select value={filters.sourceId} onChange={(event) => setFilter("sourceId", event.target.value)}>
             <option value="all">كل المصادر</option>
-            {mockModel.discoverySources.map((source: { id: string; name: string }) => (
+            {listDiscoverySources().map((source: { id: string; name: string }) => (
               <option value={source.id} key={source.id}>
                 {source.name}
               </option>
@@ -166,7 +155,7 @@ export function DiscoveryJobs() {
                             type="button"
                             className="button ghost danger-action"
                             onClick={() => {
-                              (state as { discoveryModal: DiscoveryModalState }).discoveryModal = { type: "cancel", jobId: job.id };
+                              (getUiState() as { discoveryModal: DiscoveryModalState }).discoveryModal = { type: "cancel", jobId: job.id };
                               notifyStateChanged();
                             }}
                           >

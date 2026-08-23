@@ -5,7 +5,7 @@
  * وسلسلة الثقة. `unknown` ليست إشارة سلبية: السجل بلا أدلة كافية يظهر
  * بحالة `insufficient_data` بلا درجة مضللة.
  */
-import { state } from "@services/data";
+import {  getUiState } from "@services";
 import { SCORING_VERSION, getBusinessIntelligence, tierLabels as rawTierLabels } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { notifyStateChanged } from "../../shared/store/appStore";
@@ -28,7 +28,7 @@ export function Intelligence({ businessId }: { businessId: string }) {
   const record = getBusinessIntelligence(businessId);
 
   const openEvidence = (signalId: string) => {
-    (state as { intelligenceModal: IntelligenceModalState }).intelligenceModal = { type: "evidence", signalId };
+    (getUiState() as { intelligenceModal: IntelligenceModalState }).intelligenceModal = { type: "evidence", signalId };
     notifyStateChanged();
   };
 
@@ -49,7 +49,7 @@ export function Intelligence({ businessId }: { businessId: string }) {
 
   const { business, analysis, job, source } = record;
   const backToResults = (
-    <button className="button" type="button" onClick={() => go(`discovery/results?job=${job?.id || state.selectedJobId}`)}>
+    <button className="button" type="button" onClick={() => go(`discovery/results?job=${job?.id || getUiState().selectedJobId}`)}>
       العودة إلى النتائج
     </button>
   );
@@ -69,7 +69,7 @@ export function Intelligence({ businessId }: { businessId: string }) {
           actions={backToResults}
         />
         <DecisionRail stage="intelligence" job={job} source={source} />
-        <section className="s4-insufficient-state card">
+        <section className="s4-insufficient-getUiState() card">
           <span className="status warning">بيانات غير كافية</span>
           <h2>نحتاج إشارات إضافية قبل تقييم الفرصة بثقة.</h2>
           <p>
@@ -97,7 +97,7 @@ export function Intelligence({ businessId }: { businessId: string }) {
           actions={backToResults}
         />
         <DecisionRail stage="intelligence" job={job} source={source} />
-        <section className="s4-insufficient-state card s4-error-state">
+        <section className="s4-insufficient-getUiState() card s4-error-getUiState()">
           <span className="status danger">تعذر التحليل</span>
           <h2>لا نعرض نتيجة غير مكتملة على أنها فرصة.</h2>
           <p>
@@ -178,7 +178,7 @@ export function Intelligence({ businessId }: { businessId: string }) {
               type="button"
               className="button ghost"
               onClick={() => {
-                (state as { intelligenceModal: IntelligenceModalState }).intelligenceModal = {
+                (getUiState() as { intelligenceModal: IntelligenceModalState }).intelligenceModal = {
                   type: "breakdown",
                   businessId: business.id,
                 };
@@ -281,8 +281,8 @@ export function Intelligence({ businessId }: { businessId: string }) {
               type="button"
               className="button primary"
               onClick={() => {
-                state.selectedBusinessId = business.id;
-                (state as { crmModal: unknown }).crmModal = { type: "conversion", businessId: business.id };
+                getUiState().selectedBusinessId = business.id;
+                (getUiState() as { crmModal: unknown }).crmModal = { type: "conversion", businessId: business.id };
                 notifyStateChanged();
                 go("crm");
               }}

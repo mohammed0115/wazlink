@@ -6,7 +6,7 @@
  * تحترم `prefers-reduced-motion` كما تفرض قواعد S8.
  * التحليل نفسه حتمي ويأتي من `completeBusinessAnalysis`؛ الأنيميشن عرض فقط.
  */
-import { state } from "@services/data";
+import {  getUiState } from "@services";
 import { beginBusinessAnalysis, completeBusinessAnalysis, intelligenceProcessingStages } from "@domain/intelligence.js";
 import { notifyStateChanged } from "../../shared/store/appStore";
 
@@ -43,7 +43,7 @@ function schedule(callback: () => void, delay: number) {
 }
 
 const setProcessing = (value: ProcessingState | null) => {
-  (state as { intelligenceProcessing: ProcessingState | null }).intelligenceProcessing = value;
+  (getUiState() as { intelligenceProcessing: ProcessingState | null }).intelligenceProcessing = value;
   notifyStateChanged();
 };
 

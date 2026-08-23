@@ -3,7 +3,7 @@
  * كلها عرض تفسيري فقط ولا تغيّر أي كيان.
  */
 import type { MouseEvent } from "react";
-import { state } from "@services/data";
+import {  getUiState } from "@services";
 import {
   getAnalyticsFunnel,
   getAttributionTraces,
@@ -36,13 +36,13 @@ function IdsList({ ids }: { ids: string[] }) {
 }
 
 export function AnalyticsModal() {
-  const modal = state.analyticsUi?.drilldown as DrilldownState;
+  const modal = getUiState().analyticsUi?.drilldown as DrilldownState;
   if (!modal) return null;
 
-  const ctx = normalizeAnalyticsContext(state.analyticsContext);
+  const ctx = normalizeAnalyticsContext(getUiState().analyticsContext);
 
   const close = () => {
-    state.analyticsUi = { ...state.analyticsUi, drilldown: null };
+    getUiState().analyticsUi = { ...getUiState().analyticsUi, drilldown: null };
     notifyStateChanged();
   };
   const panelRef = useModalDismiss(close);

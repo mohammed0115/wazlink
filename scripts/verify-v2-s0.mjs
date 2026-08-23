@@ -35,7 +35,7 @@ check("centralized hash router", app.includes("useHashRoute") && app.includes("i
 check("shared app shell", app.includes("<AppShell route={path}>") && existsSync(join(src, "shared/shell/AppShell.tsx")));
 check("shared error boundary", app.includes("<ErrorBoundary") && existsSync(join(src, "shared/components/ErrorBoundary.tsx")));
 check("shared loading state", app.includes("<LoadingState") && existsSync(join(src, "shared/components/States.tsx")));
-check("service boundary", existsSync(join(src, "services/data.ts")) && featureAndShared.includes("@services/data"));
+check("service boundary", existsSync(join(src, "services/index.ts")) && (featureAndShared.includes('from "@services"') || featureAndShared.includes('from "@services/data"')));
 check("mock data isolated from consumers", !featureAndShared.includes("@domain/data.js"));
 check("environment config centralized", existsSync(join(src, "config/env.ts")) && existsSync(join(root, ".env.example")) && !sourceFiles.filter((path) => !path.endsWith("config/env.ts")).some((path) => /import\.meta\.env/.test(read(path))));
 check("central domain types", existsSync(join(src, "domain/types.ts")) && ["Business", "Lead", "Deal", "Conversation", "RevenueEvent", "AutomationRule", "Workspace", "Subscription"].every((name) => read(join(src, "domain/types.ts")).includes(`interface ${name}`)));

@@ -1,13 +1,5 @@
 /** المواعيد — S9. مواعيد محلية قابلة للمراجعة؛ لا تقويم خارجي ولا مزامنة. */
-import {
-  appointmentLocationLabels as rawLocation,
-  appointmentStatusLabels as rawStatus,
-  appointmentTypeLabels as rawType,
-  getAppointments,
-  getLead,
-  mockModel,
-  state,
-} from "@services/data";
+import { appointmentLocationLabels as rawLocation, appointmentStatusLabels as rawStatus, appointmentTypeLabels as rawType, getAppointments, getLead, listUsers, getUiState } from "@services";
 import { notifyStateChanged } from "../../shared/store/appStore";
 import { PageHead } from "../../shared/components/PageHead";
 
@@ -19,14 +11,14 @@ const appointmentLocationLabels = rawLocation as Record<string, string>;
 
 const formatDateTime = (value?: string) =>
   value ? new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—";
-const userLabel = (id: string) => mockModel.users.find((user: Row) => user.id === id)?.name || "—";
+const userLabel = (id: string) => listUsers().find((user: Row) => user.id === id)?.name || "—";
 
 export function Appointments() {
   const appointments = getAppointments() as Row[];
-  const filters = state.appointmentFilters;
+  const filters = getUiState().appointmentFilters;
 
   const setFilter = (key: string, value: string) => {
-    (state.appointmentFilters as Record<string, string>)[key] = value;
+    (getUiState().appointmentFilters as Record<string, string>)[key] = value;
     notifyStateChanged();
   };
 
@@ -41,7 +33,7 @@ export function Appointments() {
             className="button primary"
             type="button"
             onClick={() => {
-              (state as { appointmentModal: unknown }).appointmentModal = { type: "create-appointment" };
+              (getUiState() as { appointmentModal: unknown }).appointmentModal = { type: "create-appointment" };
               notifyStateChanged();
             }}
           >
@@ -59,7 +51,7 @@ export function Appointments() {
           </select>
           <select value={filters.ownerId} onChange={(e) => setFilter("ownerId", e.target.value)}>
             <option value="all">كل المالكين</option>
-            {mockModel.users.map((user: Row) => (
+            {listUsers().map((user: Row) => (
               <option value={user.id} key={user.id}>{user.name}</option>
             ))}
           </select>

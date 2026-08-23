@@ -7,16 +7,7 @@
  */
 import type { CSSProperties } from "react";
 import { appConfig } from "@config/env";
-import {
-  businesses,
-  dashboardData,
-  getAutomationMetrics,
-  getInboxConversations,
-  getPipelineStageSummary,
-  getUpcomingActivities,
-  jobs,
-  state,
-} from "@services/data";
+import { businesses, dashboardData, getAutomationMetrics, getInboxConversations, getPipelineStageSummary, getUpcomingActivities, jobs, getUiState } from "@services";
 import { getAgentActions } from "@domain/sales-ai.js";
 import { getAnalyticsOverview, getAttributionTraces, getSourcePerformance } from "@domain/analytics-engine.js";
 import { go } from "../../shared/router/useHashRoute";
@@ -70,16 +61,16 @@ const agentStatusLabels: Record<string, string> = {
 
 function StateSwitcher() {
   return (
-    <section className="dashboard-state-panel" aria-label="حالات عرض لوحة التحكم">
+    <section className="dashboard-getUiState()-panel" aria-label="حالات عرض لوحة التحكم">
       <span>حالات اختبار الواجهة:</span>
       <div>
         {viewStates.map(([id, label]) => (
           <button
             key={id}
             type="button"
-            className={state.dashboardView === id ? "active" : ""}
+            className={getUiState().dashboardView === id ? "active" : ""}
             onClick={() => {
-              state.dashboardView = id;
+              getUiState().dashboardView = id;
               notifyStateChanged();
             }}
           >
@@ -93,7 +84,7 @@ function StateSwitcher() {
 
 /** ينتقل إلى المسار مع تثبيت السجل المختار — يقابل `data-route` + `data-business`. */
 function openRoute(route: string, businessId?: string) {
-  if (businessId) state.selectedBusinessId = businessId;
+  if (businessId) getUiState().selectedBusinessId = businessId;
   go(route);
 }
 
@@ -101,8 +92,8 @@ export function Dashboard() {
   const toast = useToast();
   const data = dashboardData;
 
-  const dashboardDateRange = dateRangeByTimeframe[state.dashboardTimeframe] || "all";
-  const analytics = getAnalyticsOverview({ ...state.analyticsContext, dateRange: dashboardDateRange });
+  const dashboardDateRange = dateRangeByTimeframe[getUiState().dashboardTimeframe] || "all";
+  const analytics = getAnalyticsOverview({ ...getUiState().analyticsContext, dateRange: dashboardDateRange });
   const analyticsFunnel = analytics.funnel.stages;
   const analyticsSources = getSourcePerformance();
   const business = (id: string) => businesses.find((item: { id: string }) => item.id === id);
@@ -146,10 +137,10 @@ export function Dashboard() {
   const recentConversations = getInboxConversations({ search: "", filter: "all", ownerId: "all", channel: "whatsapp", sort: "latest" }).slice(0, 4);
   const agentActions = getAgentActions().slice(0, 4);
   const automationMetrics = getAutomationMetrics();
-  const timeframeTitle = timeframeTitles[state.dashboardTimeframe];
+  const timeframeTitle = timeframeTitles[getUiState().dashboardTimeframe];
 
-  if (state.dashboardView !== "ready") {
-    const [title, description, icon, kind] = feedbackConfigurations[state.dashboardView];
+  if (getUiState().dashboardView !== "ready") {
+    const [title, description, icon, kind] = feedbackConfigurations[getUiState().dashboardView];
     return (
       <div className="exec-dashboard">
         <StateSwitcher />
@@ -157,7 +148,7 @@ export function Dashboard() {
           <i>{icon}</i>
           <h2>{title}</h2>
           <p>{description}</p>
-          {state.dashboardView === "empty" ? (
+          {getUiState().dashboardView === "empty" ? (
             <button className="button primary" type="button" onClick={() => go("discovery")}>
               اكتشاف عملاء
             </button>
@@ -166,7 +157,7 @@ export function Dashboard() {
               className="button primary"
               type="button"
               onClick={() => {
-                state.dashboardView = "ready";
+                getUiState().dashboardView = "ready";
                 notifyStateChanged();
               }}
             >
@@ -207,9 +198,9 @@ export function Dashboard() {
               <button
                 key={label}
                 type="button"
-                className={state.dashboardTimeframe === label ? "active" : ""}
+                className={getUiState().dashboardTimeframe === label ? "active" : ""}
                 onClick={() => {
-                  state.dashboardTimeframe = label;
+                  getUiState().dashboardTimeframe = label;
                   notifyStateChanged();
                 }}
               >
@@ -325,7 +316,7 @@ export function Dashboard() {
                         type="button"
                         className="button compact"
                         onClick={() => {
-                          if (recommendation.businessId) state.selectedBusinessId = recommendation.businessId;
+                          if (recommendation.businessId) getUiState().selectedBusinessId = recommendation.businessId;
                           toast("تم إنشاء متابعة تجريبية مرتبطة بالعميل.", "success");
                         }}
                       >

@@ -4,15 +4,7 @@
  * منقولة عن `renderCrm()`. Lead تُنشأ فقط بعد تأكيد مستخدم صريح، ولا تنسخ
  * Business أو Score أو Opportunity — تُقرأ بالمرجع عند العرض فقط.
  */
-import {
-  businesses,
-  getCrmSummary,
-  getDiscoveryJob,
-  getLeadActivitySummary,
-  getLeadOwner,
-  mockModel,
-  state,
-} from "@services/data";
+import { businesses, getCrmSummary, getDiscoveryJob, getLeadActivitySummary, getLeadOwner, listUsers, listLeads, getUiState } from "@services";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { notifyStateChanged } from "../../shared/store/appStore";
@@ -33,8 +25,8 @@ import {
 type Row = Record<string, any>;
 
 function leadRows(): Row[] {
-  const filters = state.crmFilters;
-  return mockModel.leads
+  const filters = getUiState().crmFilters;
+  return listLeads()
     .map((lead: Row) => ({
       lead,
       business: businesses.find((item: Row) => item.id === lead.businessId),
@@ -70,25 +62,25 @@ function leadRows(): Row[] {
     });
 }
 
-const selectedLeadIds = () => state.selectedLeadIds as string[];
+const selectedLeadIds = () => getUiState().selectedLeadIds as string[];
 const setSelectedLeadIds = (ids: string[]) => {
-  (state as { selectedLeadIds: string[] }).selectedLeadIds = ids;
+  (getUiState() as { selectedLeadIds: string[] }).selectedLeadIds = ids;
 };
 
 export function Crm() {
-  const filters = state.crmFilters;
+  const filters = getUiState().crmFilters;
 
   const setFilter = (key: string, value: string) => {
-    (state.crmFilters as Record<string, string>)[key] = value;
+    (getUiState().crmFilters as Record<string, string>)[key] = value;
     notifyStateChanged();
   };
 
   // حالات عرض الواجهة الأربع — محاكاة محلية بلا Backend
-  if (state.crmView === "loading") {
+  if (getUiState().crmView === "loading") {
     return (
       <>
         <PageHead kicker="إدارة العملاء" title="جارٍ تحميل Leads" description="محاكاة محلية لحالة التحميل؛ لا يوجد Backend." />
-        <section className="crm-state card">
+        <section className="crm-getUiState() card">
           <span className="status info">جارٍ التحميل</span>
           <h2>نجهز سياق العملاء وملكية السجلات.</h2>
           <div className="crm-skeleton" />
@@ -96,7 +88,7 @@ export function Crm() {
       </>
     );
   }
-  if (state.crmView === "empty") {
+  if (getUiState().crmView === "empty") {
     return (
       <>
         <PageHead
@@ -109,7 +101,7 @@ export function Crm() {
             </button>
           }
         />
-        <section className="crm-state card">
+        <section className="crm-getUiState() card">
           <span className="status neutral">قائمة فارغة</span>
           <h2>لم تُضف أي Business إلى CRM في هذه الجلسة.</h2>
           <p>التحويل فعل مستخدم صريح ويحفظ مصدر الاكتشاف وسياق Intelligence.</p>
@@ -117,7 +109,7 @@ export function Crm() {
       </>
     );
   }
-  if (state.crmView === "error") {
+  if (getUiState().crmView === "error") {
     return (
       <>
         <PageHead
@@ -129,7 +121,7 @@ export function Crm() {
               className="button primary"
               type="button"
               onClick={() => {
-                state.crmView = "ready";
+                getUiState().crmView = "ready";
                 notifyStateChanged();
               }}
             >
@@ -137,7 +129,7 @@ export function Crm() {
             </button>
           }
         />
-        <section className="crm-state card">
+        <section className="crm-getUiState() card">
           <span className="status danger">تعذر العرض</span>
           <h2>يمكنك العودة إلى الحالة الجاهزة بأمان.</h2>
         </section>
@@ -149,9 +141,9 @@ export function Crm() {
   const summary = getCrmSummary();
   const selected = selectedLeadIds().filter((id) => rows.some((row) => row.lead.id === id));
 
-  const jobsList = [...new Map(mockModel.leads.map((lead: Row) => [lead.sourceJobId, getDiscoveryJob(lead.sourceJobId)])).values()].filter(Boolean) as Row[];
-  const cities = [...new Set(mockModel.leads.map((lead: Row) => businesses.find((b: Row) => b.id === lead.businessId)?.city).filter(Boolean))] as string[];
-  const tags = [...new Set(mockModel.leads.flatMap((lead: Row) => lead.tags || []))] as string[];
+  const jobsList = [...new Map(listLeads().map((lead: Row) => [lead.sourceJobId, getDiscoveryJob(lead.sourceJobId)])).values()].filter(Boolean) as Row[];
+  const cities = [...new Set(listLeads().map((lead: Row) => businesses.find((b: Row) => b.id === lead.businessId)?.city).filter(Boolean))] as string[];
+  const tags = [...new Set(listLeads().flatMap((lead: Row) => lead.tags || []))] as string[];
 
   return (
     <>
@@ -194,7 +186,7 @@ export function Crm() {
           </label>
           <select value={filters.ownerId} onChange={(e) => setFilter("ownerId", e.target.value)}>
             <option value="all">كل الملاك</option>
-            {mockModel.users.map((user: Row) => (
+            {listUsers().map((user: Row) => (
               <option value={user.id} key={user.id}>{user.name}</option>
             ))}
           </select>
@@ -305,7 +297,7 @@ export function Crm() {
                         type="button"
                         className="row-link company-cell"
                         onClick={() => {
-                          state.selectedLeadId = lead.id;
+                          getUiState().selectedLeadId = lead.id;
                           go(`crm/leads/${lead.id}`);
                         }}
                       >
@@ -334,7 +326,7 @@ export function Crm() {
                         type="button"
                         className="button ghost compact"
                         onClick={() => {
-                          state.selectedLeadId = lead.id;
+                          getUiState().selectedLeadId = lead.id;
                           go(`crm/leads/${lead.id}`);
                         }}
                       >

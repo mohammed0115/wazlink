@@ -5,7 +5,7 @@
  * بلغة «wazlink» ونظام تصميمها. لا Google Maps API ولا scraping ولا credits حقيقية.
  */
 import { useState } from "react";
-import { state } from "@services/data";
+import {  getUiState } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
@@ -63,8 +63,8 @@ export function ScraperReferenceImport() {
     }
 
     for (const [keyword, location] of parsed) {
-      if (!state.discoveryDraft.keywords.includes(keyword)) state.discoveryDraft.keywords.push(keyword);
-      if (!state.discoveryDraft.locations.includes(location)) state.discoveryDraft.locations.push(location);
+      if (!getUiState().discoveryDraft.keywords.includes(keyword)) getUiState().discoveryDraft.keywords.push(keyword);
+      if (!getUiState().discoveryDraft.locations.includes(location)) getUiState().discoveryDraft.locations.push(location);
     }
 
     toast(`أُضيفت ${parsed.length} استعلامات محلية إلى عملية الاكتشاف.`, "success");

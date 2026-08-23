@@ -1,7 +1,7 @@
 /**
  * جسر الحالة بين React وطبقة النطاق القائمة.
  *
- * لا يعيد هذا الملف تعريف مصدر الحقيقة. يبقى `state` و`mockModel` في
+ * لا يعيد هذا الملف تعريف مصدر الحقيقة. يبقى `getUiState()` و`mockRecords` في
  * `client/js/data.js` كما هما — نفس الكائن القابل للتغيير الذي تستخدمه
  * كل الـdomain functions وكل فحوص `scripts/verify-*.mjs`.
  *
@@ -10,7 +10,7 @@
  * فتعيد React رسم ما يعتمد عليه فقط.
  */
 import { useCallback, useSyncExternalStore } from "react";
-import { state } from "@services/data";
+import {  getUiState } from "@services";
 
 type Listener = () => void;
 
@@ -45,9 +45,9 @@ export function mutate<T>(run: () => T): T {
 }
 
 /** يشترك في إصدار الحالة المشتركة ويعيد الكائن نفسه (قابل للتغيير عمدًا). */
-export function useAppState(): typeof state {
+export function useAppState(): ReturnType<typeof getUiState> {
   useSyncExternalStore(subscribe, getVersion, getVersion);
-  return state;
+  return getUiState();
 }
 
 /** يعيد دالة mutate ثابتة المرجع لاستخدامها داخل معالجات الأحداث. */
@@ -59,7 +59,7 @@ export function useMutate(): typeof mutate {
  * يضبط حقلًا واحدًا في الحالة المشتركة ثم يعيد الرسم.
  * مخصص لحالة الواجهة (فلاتر، تحديد، نوافذ) لا لكيانات النطاق.
  */
-export function setUiState<K extends keyof typeof state>(key: K, value: (typeof state)[K]): void {
-  state[key] = value;
+export function setUiState<K extends keyof ReturnType<typeof getUiState>>(key: K, value: ReturnType<typeof getUiState>[K]): void {
+  getUiState()[key] = value;
   notifyStateChanged();
 }

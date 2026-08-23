@@ -1,6 +1,6 @@
 /** مساعدات مشتركة لشاشات المبيعات — منقولة عن رؤوس عرض `pipeline.js`. */
 import { appConfig } from "@config/env";
-import { dealStatusLabels as rawDealStatus, mockModel } from "@services/data";
+import { dealStatusLabels as rawDealStatus, listUsers } from "@services";
 
 export const dealStatusLabels = rawDealStatus as Record<string, string>;
 
@@ -14,7 +14,7 @@ export const dateTimeLabel = (value?: string | null) =>
   value ? new Intl.DateTimeFormat("ar-SA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value)) : "—";
 
 export const ownerName = (ownerId: string) =>
-  mockModel.users.find((user: { id: string }) => user.id === ownerId)?.name || "غير مسند";
+  listUsers().find((user: { id: string }) => user.id === ownerId)?.name || "غير مسند";
 
 export const statusTone = (status: string) => (status === "won" ? "success" : status === "lost" ? "danger" : "info");
 

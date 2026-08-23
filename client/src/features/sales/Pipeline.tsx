@@ -6,18 +6,7 @@
  * أزرار النقل تبقى بديلًا كاملًا للوحة المفاتيح.
  */
 import { useState } from "react";
-import {
-  getDealBusiness,
-  getDealLead,
-  getDealProbability,
-  getDealStage,
-  getLeadActivitySummary,
-  getPipeline,
-  getPipelineMetrics,
-  getPipelineStageSummary,
-  moveDealStage,
-  state,
-} from "@services/data";
+import { getDealBusiness, getDealLead, getDealProbability, getDealStage, getLeadActivitySummary, getPipeline, getPipelineMetrics, getPipelineStageSummary, moveDealStage, getUiState } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
@@ -54,7 +43,7 @@ function DealCard({ row, stages, onMove }: { row: Row; stages: Row[]; onMove: (d
         type="button"
         className="deal-card-main"
         onClick={() => {
-          state.selectedDealId = deal.id;
+          getUiState().selectedDealId = deal.id;
           go(`deals/${deal.id}`);
         }}
       >
@@ -98,7 +87,7 @@ function DealCard({ row, stages, onMove }: { row: Row; stages: Row[]; onMove: (d
             type="button"
             className="button primary compact"
             onClick={() => {
-              (state as { dealModal: unknown }).dealModal = { type: "won", dealId: deal.id };
+              (getUiState() as { dealModal: unknown }).dealModal = { type: "won", dealId: deal.id };
               notifyStateChanged();
             }}
           >
@@ -138,7 +127,7 @@ export function Pipeline() {
               className="button primary"
               type="button"
               onClick={() => {
-                (state as { dealModal: unknown }).dealModal = { type: "create" };
+                (getUiState() as { dealModal: unknown }).dealModal = { type: "create" };
                 notifyStateChanged();
               }}
             >

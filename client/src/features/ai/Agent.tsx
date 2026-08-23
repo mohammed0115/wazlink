@@ -4,7 +4,7 @@
  * لا يكون الإجراء تنفيذًا قبل موافقة بشرية. لا يوجد وضع استقلال ذاتي،
  * ويحظر مركزيًا إرسال رسالة أو تغيير قيمة Deal أو إنشاء Revenue/Attribution.
  */
-import { state } from "@services/data";
+import {  getUiState } from "@services";
 import {
   agentActionLabels as rawActionLabels,
   agentActionStatusLabels as rawStatusLabels,
@@ -37,21 +37,21 @@ export function Agent() {
         kicker="مساعد المبيعات"
         title="Agent محكوم بالموافقة"
         description="طبقة مقترحات حتمية محلية تمر عبر السياسة والموافقة والتدقيق؛ لا إرسال ذاتي ولا تغييرات مالية."
-        actions={<span className={`s8-mode-badge ${state.agentMode}`}>Agent: {agentModeLabels[state.agentMode]}</span>}
+        actions={<span className={`s8-mode-badge ${getUiState().agentMode}`}>Agent: {agentModeLabels[getUiState().agentMode]}</span>}
       />
 
       <section className="s8-agent-workspace">
         <article className="s8-agent-mode">
           <header>
             <span>وضع Agent</span>
-            <b>{agentModeLabels[state.agentMode]}</b>
+            <b>{agentModeLabels[getUiState().agentMode]}</b>
           </header>
           <label>
             اختر الوضع
             <select
-              value={state.agentMode}
+              value={getUiState().agentMode}
               onChange={(event) => {
-                state.agentMode = event.target.value;
+                getUiState().agentMode = event.target.value;
                 notifyStateChanged();
                 toast(`وضع Agent الحالي: ${agentModeLabels[event.target.value]}.`, "info");
               }}
