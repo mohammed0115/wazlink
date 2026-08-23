@@ -3,16 +3,16 @@
  * لا مصادقة ولا حساب ولا جلسة دائمة؛ التحقق داخل الصفحة وفق قاعدة S1:
  * رسالة الخطأ مرتبطة بالحقل ولا تُستخدم تنبيهات المتصفح.
  */
-import type { FormEvent } from "react";
-import { state } from "@services/data";
+import { useState, type FormEvent } from "react";
 import { go } from "../../shared/router/useHashRoute";
-import { notifyStateChanged } from "../../shared/store/appStore";
+import { useSession } from "../../shared/context/AppProviders";
 import { useToast } from "../../shared/store/toast";
 import { Brand } from "../../shared/shell/Brand";
 
 export function Login() {
   const toast = useToast();
-  const errors: Record<string, string> = state.loginErrors || {};
+  const { onboardingDone, signInMock } = useSession();
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -25,16 +25,12 @@ export function Login() {
     else if (!/^\S+@\S+\.\S+$/.test(email)) nextErrors.email = "أدخل بريدًا إلكترونيًا صحيحًا.";
     if (!password) nextErrors.password = "أدخل كلمة المرور.";
 
-    state.loginErrors = nextErrors;
-    if (Object.keys(nextErrors).length) {
-      notifyStateChanged();
-      return;
-    }
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
 
-    state.signedIn = true;
-    notifyStateChanged();
+    signInMock();
     toast("تم التحقق محليًا من بيانات الدخول التجريبية.", "success");
-    go(state.onboardingDone ? "dashboard" : "onboarding");
+    go(onboardingDone ? "dashboard" : "onboarding");
   }
 
   return (

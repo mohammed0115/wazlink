@@ -5,10 +5,10 @@
  * قواعد التحقق والنصوص. المدخلات تبقى في ذاكرة الجلسة فقط: لا حساب،
  * ولا تخزين دائم، ولا اتصال خارجي.
  */
-import type { FormEvent } from "react";
-import { state } from "@services/data";
+import { useState, type FormEvent } from "react";
+import { workspaceService } from "@services";
 import { go } from "../../shared/router/useHashRoute";
-import { notifyStateChanged } from "../../shared/store/appStore";
+import { useSession, useWorkspace } from "../../shared/context/AppProviders";
 import { useToast } from "../../shared/store/toast";
 import { Brand } from "../../shared/shell/Brand";
 import type { OnboardingCollection, OnboardingWorkspace } from "../../domain/types";
@@ -47,43 +47,8 @@ const aiChoices: [string, string][] = [
 
 const textFields = ["companyName", "industry", "city", "teamSize", "salesTeam", "pipeline", "monthlyLeads", "averageDealValue"] as const;
 
-/** `state.workspace` كما تصفه العقود؛ الحقول تُكتب ديناميكيًا في نسخة Vanilla. */
-const workspace = () => state.workspace as OnboardingWorkspace;
-const onboardingErrors = () => (state.onboardingErrors ?? {}) as Record<string, string>;
-
-function syncOnboardingForm(form: HTMLFormElement): void {
-  const data = new FormData(form);
-  const target = workspace() as Record<string, unknown>;
-  for (const key of textFields) {
-    if (data.has(key)) target[key] = String(data.get(key)).trim();
-  }
-}
-
-function validateOnboardingStep(step: number): boolean {
-  const w = workspace();
-  const errors: Record<string, string> = {};
-
-  if (step === 1) {
-    if (!w.companyName) errors.companyName = "أدخل اسم الشركة للمتابعة.";
-    if (!w.industry) errors.industry = "اختر القطاع.";
-    if (!w.city) errors.city = "أدخل المدينة.";
-    if (!w.teamSize) errors.teamSize = "اختر حجم الفريق.";
-  }
-  if (step === 2 && !w.goals.length) errors.goals = "اختر هدفًا واحدًا على الأقل.";
-  if (step === 3 && !w.sources.length) errors.sources = "اختر مصدرًا واحدًا على الأقل.";
-  if (step === 4) {
-    if (!w.salesTeam) errors.salesTeam = "أدخل عدد أعضاء الفريق.";
-    if (!w.pipeline) errors.pipeline = "اختر حالة مسار المبيعات.";
-    if (!w.monthlyLeads) errors.monthlyLeads = "أدخل متوسط العملاء الشهري.";
-    if (!w.averageDealValue) errors.averageDealValue = "أدخل متوسط قيمة الصفقة.";
-  }
-
-  state.onboardingErrors = errors;
-  return Object.keys(errors).length === 0;
-}
-
-function FieldError({ name }: { name: string }) {
-  const message = onboardingErrors()[name];
+function FieldError({ name, errors }: { name: string; errors: Record<string, string> }) {
+  const message = errors[name];
   if (!message) return null;
   return (
     <p className="wizard-error" role="alert">
@@ -92,17 +57,16 @@ function FieldError({ name }: { name: string }) {
   );
 }
 
-function ChoiceGrid({ collection, choices }: { collection: OnboardingCollection; choices: [string, string][] }) {
+function ChoiceGrid({ collection, choices, draft, setDraft }: { collection: OnboardingCollection; choices: [string, string][]; draft: OnboardingWorkspace; setDraft: (next: OnboardingWorkspace) => void }) {
   function toggle(value: string) {
-    const current = workspace()[collection];
-    workspace()[collection] = current.includes(value) ? current.filter((entry) => entry !== value) : [...current, value];
-    notifyStateChanged();
+    const current = draft[collection];
+    setDraft({ ...draft, [collection]: current.includes(value) ? current.filter((entry) => entry !== value) : [...current, value] });
   }
 
   return (
     <div className="onboarding-choice-grid">
       {choices.map(([value, label]) => {
-        const selected = workspace()[collection].includes(value);
+        const selected = draft[collection].includes(value);
         return (
           <button
             key={value}
@@ -122,38 +86,61 @@ function ChoiceGrid({ collection, choices }: { collection: OnboardingCollection;
 
 export function Onboarding() {
   const toast = useToast();
-  const step: number = state.onboardingStep;
-  const w = workspace();
+  const { updateWorkspace } = useWorkspace();
+  const { completeOnboarding } = useSession();
+  const [step, setStep] = useState(1);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [w, setDraft] = useState<OnboardingWorkspace>(() => ({ ...workspaceService.getCurrent() } as OnboardingWorkspace));
+
+  function validate(current: OnboardingWorkspace, currentStep: number): Record<string, string> {
+    const nextErrors: Record<string, string> = {};
+    if (currentStep === 1) {
+      if (!current.companyName) nextErrors.companyName = "أدخل اسم الشركة للمتابعة.";
+      if (!current.industry) nextErrors.industry = "اختر القطاع.";
+      if (!current.city) nextErrors.city = "أدخل المدينة.";
+      if (!current.teamSize) nextErrors.teamSize = "اختر حجم الفريق.";
+    }
+    if (currentStep === 2 && !current.goals.length) nextErrors.goals = "اختر هدفًا واحدًا على الأقل.";
+    if (currentStep === 3 && !current.sources.length) nextErrors.sources = "اختر مصدرًا واحدًا على الأقل.";
+    if (currentStep === 4) {
+      if (!current.salesTeam) nextErrors.salesTeam = "أدخل عدد أعضاء الفريق.";
+      if (!current.pipeline) nextErrors.pipeline = "اختر حالة مسار المبيعات.";
+      if (!current.monthlyLeads) nextErrors.monthlyLeads = "أدخل متوسط العملاء الشهري.";
+      if (!current.averageDealValue) nextErrors.averageDealValue = "أدخل متوسط قيمة الصفقة.";
+    }
+    return nextErrors;
+  }
 
   function back() {
-    state.onboardingStep = Math.max(1, step - 1);
-    state.onboardingErrors = {};
-    notifyStateChanged();
+    setStep((current) => Math.max(1, current - 1));
+    setErrors({});
   }
 
   function finish() {
-    state.onboardingDone = true;
-    state.signedIn = true;
-    state.onboardingErrors = {};
-    notifyStateChanged();
+    updateWorkspace(w);
+    completeOnboarding();
+    setErrors({});
     go("dashboard");
     toast("تم تجهيز مساحة العمل التجريبية وفق اختياراتك.", "success");
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    syncOnboardingForm(event.currentTarget);
-    if (!validateOnboardingStep(step)) {
-      notifyStateChanged();
-      return;
+    const data = new FormData(event.currentTarget);
+    const nextDraft = { ...w } as OnboardingWorkspace & Record<string, unknown>;
+    for (const key of textFields) {
+      if (data.has(key)) nextDraft[key] = String(data.get(key) || "").trim();
     }
+    const normalizedDraft = nextDraft as OnboardingWorkspace;
+    setDraft(normalizedDraft);
+    const nextErrors = validate(normalizedDraft, step);
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
     if (step === 5) {
       finish();
       return;
     }
-    state.onboardingErrors = {};
-    state.onboardingStep = step + 1;
-    notifyStateChanged();
+    setStep((current) => current + 1);
   }
 
   return (
@@ -197,9 +184,9 @@ export function Onboarding() {
                       name="companyName"
                       defaultValue={w.companyName}
                       placeholder="مثال: وكالة نمو الرقمية"
-                      aria-invalid={Boolean(onboardingErrors().companyName)}
+                      aria-invalid={Boolean(errors.companyName)}
                     />
-                    <FieldError name="companyName" />
+                    <FieldError errors={errors} name="companyName" />
                   </div>
                   <div className="form-field">
                     <label htmlFor="workspaceIndustry">القطاع</label>
@@ -209,12 +196,12 @@ export function Onboarding() {
                         <option key={entry}>{entry}</option>
                       ))}
                     </select>
-                    <FieldError name="industry" />
+                    <FieldError errors={errors} name="industry" />
                   </div>
                   <div className="form-field">
                     <label htmlFor="workspaceCity">المدينة</label>
                     <input id="workspaceCity" name="city" defaultValue={w.city} placeholder="مثال: الرياض" />
-                    <FieldError name="city" />
+                    <FieldError errors={errors} name="city" />
                   </div>
                   <div className="form-field wide">
                     <label htmlFor="workspaceTeam">حجم الفريق</label>
@@ -224,7 +211,7 @@ export function Onboarding() {
                         <option key={entry}>{entry}</option>
                       ))}
                     </select>
-                    <FieldError name="teamSize" />
+                    <FieldError errors={errors} name="teamSize" />
                   </div>
                 </div>
               </>
@@ -234,8 +221,8 @@ export function Onboarding() {
               <>
                 <h1>ما الهدف الرئيسي من استخدام المنصة؟</h1>
                 <p>يمكنك اختيار أكثر من هدف. يساعدنا ذلك على ترتيب لوحة التجربة الأولية.</p>
-                <ChoiceGrid collection="goals" choices={goalChoices} />
-                <FieldError name="goals" />
+                <ChoiceGrid collection="goals" choices={goalChoices} draft={w} setDraft={setDraft} />
+                <FieldError errors={errors} name="goals" />
               </>
             )}
 
@@ -243,8 +230,8 @@ export function Onboarding() {
               <>
                 <h1>من أين تحصل على العملاء الآن؟</h1>
                 <p>اختر المصادر التي تستخدمها حاليًا. جميع الخيارات في هذا النموذج تجريبية فقط.</p>
-                <ChoiceGrid collection="sources" choices={sourceChoices} />
-                <FieldError name="sources" />
+                <ChoiceGrid collection="sources" choices={sourceChoices} draft={w} setDraft={setDraft} />
+                <FieldError errors={errors} name="sources" />
               </>
             )}
 
@@ -256,7 +243,7 @@ export function Onboarding() {
                   <div className="form-field">
                     <label htmlFor="salesTeam">عدد أعضاء الفريق</label>
                     <input id="salesTeam" name="salesTeam" className="ltr" inputMode="numeric" defaultValue={w.salesTeam || ""} placeholder="مثال: ٦" />
-                    <FieldError name="salesTeam" />
+                    <FieldError errors={errors} name="salesTeam" />
                   </div>
                   <div className="form-field">
                     <label htmlFor="hasPipeline">هل يوجد مسار مبيعات؟</label>
@@ -265,17 +252,17 @@ export function Onboarding() {
                       <option value="نعم">نعم</option>
                       <option value="لا">لا</option>
                     </select>
-                    <FieldError name="pipeline" />
+                    <FieldError errors={errors} name="pipeline" />
                   </div>
                   <div className="form-field">
                     <label htmlFor="monthlyLeads">متوسط العملاء شهريًا</label>
                     <input id="monthlyLeads" name="monthlyLeads" className="ltr" inputMode="numeric" defaultValue={w.monthlyLeads} placeholder="مثال: ٥٠٠" />
-                    <FieldError name="monthlyLeads" />
+                    <FieldError errors={errors} name="monthlyLeads" />
                   </div>
                   <div className="form-field">
                     <label htmlFor="averageDealValue">متوسط قيمة الصفقة</label>
                     <input id="averageDealValue" name="averageDealValue" className="ltr" inputMode="numeric" defaultValue={w.averageDealValue} placeholder="مثال: ٢٥٠٠٠" />
-                    <FieldError name="averageDealValue" />
+                    <FieldError errors={errors} name="averageDealValue" />
                   </div>
                 </div>
                 <div className="wizard-preview-metrics">
@@ -296,7 +283,7 @@ export function Onboarding() {
               <>
                 <h1>كيف تريد أن يساعدك الذكاء الاصطناعي؟</h1>
                 <p>اختر التفضيلات التي تريد ظهورها في التجربة. يمكنك تغييرها لاحقًا.</p>
-                <ChoiceGrid collection="aiPreferences" choices={aiChoices} />
+                <ChoiceGrid collection="aiPreferences" choices={aiChoices} draft={w} setDraft={setDraft} />
                 <div className="prototype-notice">
                   <b>تنبيه تجريبي</b>
                   <span>جميع وظائف الذكاء الاصطناعي في هذا النموذج محاكاة لغرض اختبار تجربة المنتج فقط.</span>

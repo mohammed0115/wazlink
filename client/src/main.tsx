@@ -2,6 +2,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import { AppProviders } from "./shared/context/AppProviders";
 import "./styles/index";
 
 const container = document.getElementById("app");
@@ -9,6 +10,8 @@ if (!container) throw new Error('لم يُعثر على عنصر التطبيق 
 
 createRoot(container).render(
   <StrictMode>
-    <App />
+    <AppProviders>
+      <App />
+    </AppProviders>
   </StrictMode>,
 );

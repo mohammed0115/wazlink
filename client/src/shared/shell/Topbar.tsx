@@ -4,16 +4,18 @@
  */
 import { useEffect, useRef } from "react";
 import { appConfig } from "@config/env";
-import { state } from "@services/data";
+import { notificationService } from "@services";
+import { useWorkspace, useTheme } from "../context/AppProviders";
 import { go } from "../router/useHashRoute";
-import { notifyStateChanged } from "../store/appStore";
 import { useToast } from "../store/toast";
 import { routeLabel } from "./routeMeta";
 
 export function Topbar({ route, onToggleSidebar }: { route: string; onToggleSidebar: () => void }) {
   const toast = useToast();
   const commandInput = useRef<HTMLInputElement>(null);
-  const workspaceName = state.workspace.companyName || "مساحة العمل";
+  const { workspace } = useWorkspace();
+  const { toggleTheme } = useTheme();
+  const workspaceName = workspace.companyName || "مساحة العمل";
   const label = routeLabel(route);
 
   // اختصار ⌘K / Ctrl+K لتركيز شريط الأوامر — سلوك محفوظ من V1.
@@ -27,11 +29,6 @@ export function Topbar({ route, onToggleSidebar }: { route: string; onToggleSide
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
-
-  function toggleTheme() {
-    state.theme = state.theme === "light" ? "dark" : "light";
-    notifyStateChanged();
-  }
 
   return (
     <header className="topbar">
@@ -76,7 +73,7 @@ export function Topbar({ route, onToggleSidebar }: { route: string; onToggleSide
           className="top-icon"
           type="button"
           title="الإشعارات"
-          onClick={() => toast(`لديك ${state.notifications} إشعارات تجريبية في هذه الجلسة.`, "info")}
+          onClick={() => toast(`لديك ${notificationService.unreadCount()} إشعارات تجريبية في هذه الجلسة.`, "info")}
         >
           ◌
         </button>

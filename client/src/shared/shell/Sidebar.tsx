@@ -3,8 +3,8 @@
  * مصدر عناصر التنقل يبقى في طبقة البيانات عبر adapter واحد بلا تكرار.
  */
 import { Fragment } from "react";
-import { getInboxSummary, navItems, state } from "@services/data";
-import { setUiState } from "../store/appStore";
+import { getInboxSummary, navItems } from "@services";
+import { useWorkspace } from "../context/AppProviders";
 import { go } from "../router/useHashRoute";
 import { Brand } from "./Brand";
 import { NavIcon } from "./NavIcon";
@@ -15,11 +15,14 @@ type NavItem = { id: string; label: string; icon: string; group: string };
 type SidebarProps = {
   route: string;
   drawerOpen?: boolean;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 };
 
-export function Sidebar({ route, drawerOpen = false }: SidebarProps) {
-  const workspaceMeta = state.workspace.companyName
-    ? `${state.workspace.companyName} · ${state.workspace.teamSize || "فريق جديد"}`
+export function Sidebar({ route, drawerOpen = false, collapsed = false, onToggleCollapsed }: SidebarProps) {
+  const { workspace } = useWorkspace();
+  const workspaceMeta = workspace.companyName
+    ? `${workspace.companyName} · ${workspace.teamSize || "فريق جديد"}`
     : "مسؤولة النمو";
   const activeRoute = routeNavId(route);
   const inboxUnread = getInboxSummary().unread;
@@ -28,7 +31,7 @@ export function Sidebar({ route, drawerOpen = false }: SidebarProps) {
 
   return (
     <aside
-      className={`sidebar ${state.sidebarCollapsed ? "collapsed" : ""} ${drawerOpen ? "open" : ""}`}
+      className={`sidebar ${collapsed ? "collapsed" : ""} ${drawerOpen ? "open" : ""}`}
       id="sidebar"
       aria-label="التنقل الرئيسي"
     >
@@ -38,7 +41,7 @@ export function Sidebar({ route, drawerOpen = false }: SidebarProps) {
           className="collapse-button"
           type="button"
           aria-label="طي القائمة"
-          onClick={() => setUiState("sidebarCollapsed", !state.sidebarCollapsed)}
+          onClick={onToggleCollapsed}
         >
           ›
         </button>

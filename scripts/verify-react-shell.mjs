@@ -29,12 +29,13 @@ const server = await createServer({
 });
 
 try {
-  const [{ Landing }, { Login }, { Onboarding }, { Dashboard }, { Sidebar }, domain, analytics] = await Promise.all([
+  const [{ Landing }, { Login }, { Onboarding }, { Dashboard }, { Sidebar }, { AppProviders }, domain, analytics] = await Promise.all([
     server.ssrLoadModule("/src/features/landing/Landing.tsx"),
     server.ssrLoadModule("/src/features/auth/Login.tsx"),
     server.ssrLoadModule("/src/features/auth/Onboarding.tsx"),
     server.ssrLoadModule("/src/features/dashboard/Dashboard.tsx"),
     server.ssrLoadModule("/src/shared/shell/Sidebar.tsx"),
+    server.ssrLoadModule("/src/shared/context/AppProviders.tsx"),
     server.ssrLoadModule("/src/domain/data.js"),
     server.ssrLoadModule("/src/domain/analytics-engine.js"),
   ]);
@@ -54,11 +55,12 @@ try {
 
   const before = snapshot();
 
+  const withProviders = (element) => createElement(AppProviders, null, element);
   const landing = renderToStaticMarkup(createElement(Landing));
-  const login = renderToStaticMarkup(createElement(Login));
-  const onboarding = renderToStaticMarkup(createElement(Onboarding));
-  const dashboard = renderToStaticMarkup(createElement(Dashboard));
-  const sidebar = renderToStaticMarkup(createElement(Sidebar, { route: "dashboard" }));
+  const login = renderToStaticMarkup(withProviders(createElement(Login)));
+  const onboarding = renderToStaticMarkup(withProviders(createElement(Onboarding)));
+  const dashboard = renderToStaticMarkup(withProviders(createElement(Dashboard)));
+  const sidebar = renderToStaticMarkup(withProviders(createElement(Sidebar, { route: "dashboard" })));
 
   const after = snapshot();
   const overview = getAnalyticsOverview({ dateRange: "all" });

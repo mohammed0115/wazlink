@@ -6,7 +6,8 @@
  * تكامل شبكة؛ مصدر البيانات الحالي يمر عبر adapter الخدمات.
  */
 import { lazy, Suspense, useEffect } from "react";
-import { markConversationRead, state } from "@services/data";
+import { markConversationRead } from "@services";
+import { useTheme } from "./shared/context/AppProviders";
 import { appConfig } from "./config/env";
 import { isPublicRoute, useHashRoute } from "./shared/router/useHashRoute";
 import { useAppState } from "./shared/store/appStore";
@@ -63,11 +64,11 @@ function Page({ path, query }: { path: string; query: URLSearchParams }) {
   if (path === "discovery") return <Discovery />;
   if (path === "discovery/jobs" || path === "discovery-jobs") return <DiscoveryJobs />;
   if (path.startsWith("discovery/jobs/")) return <DiscoveryJob jobId={path.split("/").pop() as string} />;
-  if (path === "job") return <DiscoveryJob jobId={state.selectedJobId} />;
+  if (path === "job") return <DiscoveryJob jobId={query.get("job") || ""} />;
 
   // S4 — النتائج والذكاء
-  if (path === "discovery/results" || path === "results") return <DiscoveryResults jobId={state.selectedJobId} />;
-  if (path === "intelligence" || path === "lead-profile") return <Intelligence businessId={state.selectedBusinessId} />;
+  if (path === "discovery/results" || path === "results") return <DiscoveryResults jobId={query.get("job") || ""} />;
+  if (path === "intelligence" || path === "lead-profile") return <Intelligence businessId={query.get("business") || ""} />;
 
   // S5 — CRM وملف Lead 360
   if (path === "crm" || path === "leads") return <Crm />;
@@ -107,38 +108,26 @@ function Page({ path, query }: { path: string; query: URLSearchParams }) {
   return <Placeholder route={path} />;
 }
 
-function syncRouteContext(path: string, query: URLSearchParams) {
-  const jobParam = query.get("job");
-  const businessParam = query.get("business");
-  if (jobParam) state.selectedJobId = jobParam;
-  if (businessParam) state.selectedBusinessId = businessParam;
-  if (path.startsWith("discovery/jobs/")) state.selectedJobId = path.split("/").pop() as string;
-  if (path.startsWith("crm/leads/")) state.selectedLeadId = path.split("/").pop() as string;
-  if (path.startsWith("deals/")) state.selectedDealId = path.split("/").pop() as string;
-  if (path.startsWith("settings/")) {
-    const section = path.split("/")[1];
-    if (settingsRouteLabels[section]) state.s11Ui = { ...state.s11Ui, settingsSection: section };
-  } else if (path === "settings") {
-    state.s11Ui = { ...state.s11Ui, settingsSection: "workspace" };
-  }
+function syncRouteContext(path: string) {
   if (path.startsWith("inbox/")) {
-    state.selectedConversationId = path.split("/").pop() as string;
-    markConversationRead(state.selectedConversationId);
+    const conversationId = path.split("/").pop();
+    if (conversationId) markConversationRead(conversationId);
   }
 }
 
 export default function App() {
   const { path, query } = useHashRoute();
   const queryString = query.toString();
+  const { theme } = useTheme();
   useAppState();
 
   useEffect(() => {
-    syncRouteContext(path, query);
+    syncRouteContext(path);
     document.documentElement.lang = "ar";
     document.documentElement.dir = "rtl";
-    document.documentElement.dataset.theme = state.theme;
+    document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.appEnv = appConfig.appEnv;
-  }, [path, queryString]);
+  }, [path, queryString, theme]);
 
   const routeContent = (
     <ErrorBoundary key={path}>
