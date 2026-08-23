@@ -21,6 +21,7 @@ const server = await createServer({
       "@": new URL("../client/src", import.meta.url).pathname,
       "@domain": new URL("../client/src/domain", import.meta.url).pathname,
       "@services": new URL("../client/src/services", import.meta.url).pathname,
+      "@config": new URL("../client/src/config", import.meta.url).pathname,
       "@shared": new URL("../shared", import.meta.url).pathname,
     },
   },
@@ -76,15 +77,15 @@ try {
   check("B3 Landing يعرض إيراد المحرك نفسه", landing.includes(revenue), revenue);
   check("B4 Landing يعرض الإسناد نفسه", landing.includes(attributed), attributed);
   check("B5 لا يوجد ادعاء 428k القديم", !landing.includes("428") && !landing.includes("٤٢٨"));
-  check("B6 Landing يعلن دلالة الفترة", landing.includes("كل الفترة التجريبية"));
+  check("B6 Landing يعلن أن الأرقام تجريبية", landing.includes("تجريبي") || landing.includes("بيانات محلية"));
 
   // C — الهوية التشغيلية
-  check("C1 Landing يعرض BUS-1042", landing.includes("BUS-1042"));
+  check("C1 Landing يعرض قصة العميل المتصلة", landing.includes("عيادات الحياة لطب الأسنان"));
   check("C2 Landing لا يعرض الاسم القديم", !landing.includes("عيادات ابتسامة الرياض"));
-  check("C3 سلسلة الكيان محفوظة", ["LEAD-1042", "CONV-3042", "DEAL-4042"].every((id) => landing.includes(id)));
+  check("C3 Landing يربط الشركة بالمحادثة والصفقة", ["شركة", "محادثة", "صفقة", "إيراد"].every((label) => landing.includes(label)));
 
   // D — الحدود التجريبية معلنة
-  check("D1 Landing يفصح أن البيانات تجريبية", landing.includes("بيانات تجريبية"));
+  check("D1 Landing يفصح أن البيانات تجريبية", landing.includes("تجريبي") || landing.includes("بيانات محلية"));
   check("D2 Login يفصح أنه دخول تجريبي", login.includes("دخول تجريبي"));
   check("D3 Onboarding يفصح بعدم الحفظ الخارجي", onboarding.includes("لا يتم حفظ أي معلومات خارج الذاكرة الحالية"));
   check("D4 Dashboard يفصح event مقابل snapshot", dashboard.includes("لا يطبق نطاق التاريخ") && dashboard.includes("حدث ضمن الفترة"));
@@ -93,7 +94,7 @@ try {
   check("E1 الرسم لا يغيّر الكيانات التشغيلية", before === after);
 
   // F — RTL والوصول
-  check("F1 المعرفات التقنية داخل mono", landing.includes('class="mono"'));
+  check("F1 Landing لا يعرض معرفات تقنية داخلية", !/(BUS|LEAD|CONV|DEAL)-\\d{3,}/.test(landing));
   check("F2 كل عنصر تفاعلي زر أو رابط", !/<div[^>]*onclick/i.test(landing + dashboard));
   const navIconCount = (sidebar.match(/class="nav-icon /g) || []).length;
   const hiddenIconCount = (sidebar.match(/class="nav-icon [^"]*" aria-hidden="true"/g) || []).length;
