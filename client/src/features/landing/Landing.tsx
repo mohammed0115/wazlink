@@ -27,10 +27,13 @@ const heroStages: [string, string, string][] = [
 ];
 
 const workflow: [string, string, string][] = [
-  ["01", "استخرج", "أدخل النشاط والمدينة وشغّل عملية واحدة."],
-  ["02", "راجع النتائج", "حدّد الشركات والحقول التي تحتاجها في ملفك."],
-  ["03", "اختر مسارك", "نزّل Excel وانتهى، أو اختر CRM عند الحاجة للمبيعات."],
-  ["04", "فعّل وتابع", "فعّل الباقة المناسبة محليًا ثم أكمل خطوتك التالية."],
+  ["01", "اكتشف", "ابحث عن الشركات والعملاء المحتملين من مصدر واضح."],
+  ["02", "حلل", "اقرأ درجة الفرصة والأدلة والتوصية التالية."],
+  ["03", "أدر", "حوّل الشركة إلى عميل محتمل داخل CRM."],
+  ["04", "تواصل", "افتح المحادثة وراجع سياق العميل قبل الرد."],
+  ["05", "تابع", "دع مساعد المبيعات يقترح المهمة والخطوة القادمة."],
+  ["06", "أغلق", "حرّك الصفقة مع القيمة والاحتمال وموعد الإغلاق."],
+  ["07", "قِس", "اربط المصدر بالمسار والإيراد والإسناد."],
 ];
 
 const integrations: [string, string][] = [
@@ -84,51 +87,46 @@ export function Landing() {
       </nav>
 
       <main>
-        <section className="hero landing-hero" id="platform">
-          <div className="hero-copy">
-            <p className="eyebrow">الخطوة ١ من ٤ · ابدأ بالاستخراج</p>
-            <h1>ابحث عن الشركات أولًا، ولا تقرر الباقة الآن</h1>
+        <section className="hero landing-hero unified-hero" id="platform">
+          <div className="hero-copy unified-hero-copy">
+            <p className="eyebrow">منصة WazLink المتكاملة للمبيعات والذكاء الاصطناعي</p>
+            <h1>اعثر على عملائك، تواصل معهم بذكاء، وأغلق المزيد من الصفقات</h1>
             <p className="lead">
-              أدخل القطاع والموقع، ثم راجع النتائج. بعد أن ترى البيانات، ستختار ببساطة: Excel فقط أو CRM wazlink للمبيعات.
+              منصة واحدة تجمع اكتشاف العملاء المحتملين، CRM، واتساب، والذكاء الاصطناعي لتدير رحلة المبيعات من أول فرصة حتى الإيراد.
             </p>
             <div className="hero-actions">
               <button className="button primary" type="button" onClick={() => go("discovery")}>
-                ابدأ استخراج الشركات
+                ابدأ الآن
               </button>
+              <a className="button ghost" href="#workflow">استكشف المنصة</a>
             </div>
-            <p className="hero-next">الخطوة التالية: راجع الشركات والحقول قبل اختيار مسارك.</p>
-            <p className="hero-note">
-              <i />
-              نموذج تفاعلي ببيانات تجريبية؛ لا توجد عمليات بحث أو رسائل أو تكاملات حقيقية.
-            </p>
+            <p className="hero-note"><i />واجهة تجريبية ببيانات محلية؛ لا توجد تكاملات خارجية أو عمليات إنتاجية حقيقية.</p>
           </div>
 
-          <div className="hero-visual source-revenue-visual">
-            <div className="source-revenue-head">
-              <span>حقيقة تجريبية مشتركة</span>
-              <b>{PERIOD}</b>
-            </div>
-            <div className="source-query">
-              <span>قمع الاكتساب</span>
-              <b>مشتق من محرك التحليلات</b>
-              <small>لا يعاد احتسابه داخل Landing</small>
-            </div>
-            <div className="source-flow">
-              {heroStages.map(([id, label, stageLabel], index) => (
-                <div key={id} className={`source-flow-row ${id === "won" ? "revenue-row" : ""}`}>
-                  <i>{index + 1}</i>
-                  <div>
-                    <span>{stageLabel}</span>
-                    <b>{label}</b>
+          <div className="hero-visual unified-flow-visual" aria-label="رحلة العميل من الاكتشاف إلى الإيراد">
+            <div className="unified-visual-topline"><span>رحلة مبيعات واحدة</span><b>WazLink Complete</b></div>
+            <div className="unified-flow-line">
+              {[
+                ["01", "اكتشف", "Google Maps"],
+                ["02", "حلل", "AI Score"],
+                ["03", "أدر", "CRM Lead"],
+                ["04", "تواصل", "WhatsApp"],
+                ["05", "أغلق", "Deal Won"],
+              ].map(([number, title, detail], index) => (
+                <Fragment key={number}>
+                  <div className={`unified-flow-node node-${index + 1}`}>
+                    <span>{number}</span>
+                    <b>{title}</b>
+                    <small>{detail}</small>
                   </div>
-                  <strong>{arabicNumber(stage(id).count)}</strong>
-                </div>
+                  {index < 4 ? <i className="flow-arrow">←</i> : null}
+                </Fragment>
               ))}
             </div>
-            <div className="source-revenue-footer">
-              <span>الإيراد المنسوب</span>
-              <b>{sarLabel(metrics.attributedRevenue.value)}</b>
-              <small>{PERIOD} · يظهر عند اختيار CRM فقط ومشتق من S10</small>
+            <div className="unified-visual-insight">
+              <div><span>فرصة اليوم</span><b>{arabicNumber(score)}/100</b></div>
+              <div><span>مسار مفتوح</span><b>{sarLabel(metrics.openPipeline.value)}</b></div>
+              <div><span>الحالة</span><b className="text-green">مراجعة بشرية</b></div>
             </div>
           </div>
         </section>
@@ -175,9 +173,9 @@ export function Landing() {
 
         <section className="workflow-strip" id="workflow">
           <div className="landing-section-title">
-            <p className="eyebrow">سير العمل</p>
-            <h2>كيف تعمل المنصة؟</h2>
-            <p>لا تبدأ من قائمة أسماء؛ بل من إشارة يمكن تتبعها حتى نتيجة بيع واضحة.</p>
+            <p className="eyebrow">رحلة العميل كاملة</p>
+            <h2>كيف تعمل WazLink؟</h2>
+            <p>من اكتشاف العميل إلى إغلاق الصفقة وقياس الإيراد — كل خطوة لها سياقها والخطوة التالية الواضحة.</p>
           </div>
           <div className="workflow-steps product-workflow">
             {workflow.map(([number, title, detail]) => (
@@ -187,6 +185,42 @@ export function Landing() {
                 <small>{detail}</small>
               </article>
             ))}
+          </div>
+        </section>
+
+        <section className="landing-section platform-modules-section" id="uses" aria-label="مكونات منصة WazLink">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">منصة واحدة، نتائج متصلة</p>
+              <h2>استخدم WazLink كاملة أو اختر ما تحتاجه</h2>
+            </div>
+            <p>يمكن لكل وحدة أن تبدأ وحدها، لكن القيمة الأكبر تظهر عندما تعمل معًا داخل رحلة عميل واحدة.</p>
+          </div>
+          <div className="platform-module-grid">
+            <article className="platform-module-card data">
+              <span className="module-kicker">WazLink Discover</span>
+              <h3>اكتشاف العملاء المحتملين</h3>
+              <p>استخرج بيانات الشركات، ثم حوّل النتائج إلى فرص قابلة للتحليل والمتابعة.</p>
+              <button className="button ghost" type="button" onClick={() => go("discovery")}>ابدأ الاكتشاف ←</button>
+            </article>
+            <article className="platform-module-card crm">
+              <span className="module-kicker">WazLink CRM</span>
+              <h3>إدارة العملاء ومسار المبيعات</h3>
+              <p>احفظ هوية العميل، المالك، الحالة، النشاط التالي، والصفقة في سياق واحد.</p>
+              <button className="button ghost" type="button" onClick={() => go("crm")}>افتح CRM ←</button>
+            </article>
+            <article className="platform-module-card engage">
+              <span className="module-kicker">WazLink Engage</span>
+              <h3>واتساب ومساعد المبيعات</h3>
+              <p>راجع سياق المحادثة، ثم استخدم اقتراحات الذكاء الاصطناعي مع بقاء الإرسال بيد الإنسان.</p>
+              <button className="button ghost" type="button" onClick={() => go("inbox")}>افتح صندوق الوارد ←</button>
+            </article>
+            <article className="platform-module-card complete featured">
+              <span className="module-kicker">موصى به · WazLink Complete</span>
+              <h3>رحلة مبيعات واحدة من المصدر إلى الإيراد</h3>
+              <p>Discover + CRM + Engage + Automate + Analytics داخل منصة متكاملة، دون فقدان مصدر العميل أو سياقه.</p>
+              <button className="button primary" type="button" onClick={() => go("onboarding")}>ابدأ تجربة المنصة</button>
+            </article>
           </div>
         </section>
 

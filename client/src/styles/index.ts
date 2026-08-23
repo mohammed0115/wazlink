@@ -29,4 +29,5 @@ import "./scraper-data-visibility.css";
 import "./scraper-reference.css";
 import "./payment-checkout.css";
 import "./sidebar-semantic-icons.css";
+import "./wazlink-experience.css";
 import "./responsive.css";

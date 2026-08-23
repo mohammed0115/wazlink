@@ -227,6 +227,27 @@ export function Dashboard() {
         </div>
       </header>
 
+      <section className="dashboard-journey-card" aria-label="رحلة المبيعات اليوم">
+        <div className="dashboard-journey-copy">
+          <p className="eyebrow">منصة واحدة · سياق واحد</p>
+          <h2>ماذا يحدث في رحلة المبيعات اليوم؟</h2>
+          <p>تابع انتقال الشركة من الاكتشاف إلى العميل المحتمل، ثم المحادثة والصفقة والإيراد.</p>
+        </div>
+        <div className="dashboard-journey-path">
+          {["اكتشاف", "تحليل AI", "CRM", "واتساب", "صفقة", "إيراد"].map((step, index) => (
+            <span key={step} className={index < 4 ? "complete" : index === 4 ? "current" : ""}>
+              <i>{index + 1}</i>{step}
+            </span>
+          ))}
+        </div>
+        <div className="dashboard-quick-actions" aria-label="الإجراءات التالية">
+          <button type="button" onClick={() => go("discovery")}>اكتشاف عميل</button>
+          <button type="button" onClick={() => go("inbox")}>فتح Inbox</button>
+          <button type="button" onClick={() => go("crm")}>إضافة Lead</button>
+          <button type="button" onClick={() => go("pipeline")}>إنشاء صفقة</button>
+        </div>
+      </section>
+
       <div className="mock-strip">
         <b>بيانات تجريبية ثابتة</b>
         <span>تطبق الفترة على event metrics؛ أما Pipeline واللقطات الحالية فتظهر كلقطات حالية صراحة.</span>
