@@ -29,7 +29,7 @@ export function DecisionRail({ label = "متابعة القيمة" }: { label?: 
   return (
     <section className="s6-decision-rail" aria-label="نمو — سكة القرار">
       <div className="s6-brand-mark">
-        <img src="/manus-storage/leadflow-orbit-mark_f6c27956.png" alt="نمو" />
+        <img src="/leadflow-orbit-mark.svg" alt="نمو" />
         <span>
           <b>نمو</b>
           <small>سكة القرار</small>

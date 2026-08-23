@@ -140,7 +140,7 @@ export function Inbox({ conversationId }: { conversationId?: string }) {
 
       <section className="decision-rail s7-decision-rail" aria-label="سكة قرار التواصل">
         <div className="decision-brand">
-          <img src="/manus-storage/leadflow-orbit-mark_f6c27956.png" alt="نمو" />
+          <img src="/leadflow-orbit-mark.svg" alt="نمو" />
           سكة القرار
         </div>
         <div className="decision-steps">

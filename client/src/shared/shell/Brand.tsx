@@ -2,7 +2,7 @@
 export function Brand() {
   return (
     <a className="brand" href="#/">
-      <img src="/manus-storage/leadflow-orbit-mark_f6c27956.png" alt="نمو" />
+      <img src="/leadflow-orbit-mark.svg" alt="نمو" />
       <span>
         <b>نمو</b>
         <small>منصة مبيعات ذكية</small>

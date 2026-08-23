@@ -218,6 +218,7 @@ export default defineConfig({
     },
   },
   envDir: path.resolve(import.meta.dirname),
+  base: process.env.GITHUB_ACTIONS ? "/wazlink/" : "/",
   root: path.resolve(import.meta.dirname, "client"),
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),

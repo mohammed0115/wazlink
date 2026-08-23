@@ -39,7 +39,7 @@ export function Topbar({ route, onToggleSidebar }: { route: string; onToggleSide
           ☰
         </button>
         <a className="topbar-brand-lock" href="#/dashboard" aria-label="نمو — الرئيسية">
-          <img src="/manus-storage/leadflow-orbit-mark_f6c27956.png" alt="" />
+          <img src="/leadflow-orbit-mark.svg" alt="" />
           <span>
             <b>نمو</b>
             <small>مسار القرار</small>

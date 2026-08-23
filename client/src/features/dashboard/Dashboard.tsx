@@ -181,7 +181,7 @@ export function Dashboard() {
     <div className="exec-dashboard">
       <section className="decision-rail" aria-label="مسار القرار">
         <div className="decision-brand">
-          <img src="/manus-storage/leadflow-orbit-mark_f6c27956.png" alt="نمو" />
+          <img src="/leadflow-orbit-mark.svg" alt="نمو" />
           مسار القرار
         </div>
         <div className="decision-steps">
