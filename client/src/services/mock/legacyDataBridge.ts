@@ -1,9 +1,15 @@
 /**
- * Explicit feature-facing mock service surface.
- * Replace this module with the composition root when remote services arrive.
+ * Controlled mock bridge. This is the only frontend layer allowed to know
+ * about the legacy domain data module during V2-S0-FIX.
  */
+import { state as legacyState, mockModel as legacyRecords } from "@domain/data.js";
+
+const legacyAutomationRecords = legacyRecords as unknown as { automationConditionGroups?: unknown[]; automationActions?: unknown[] };
+export const getAutomationConditionGroups = () => [...(legacyAutomationRecords.automationConditionGroups || [])];
+export const getAutomationActions = () => [...(legacyAutomationRecords.automationActions || [])];
+
 export {
-  uiState,
+  state as uiState,
   scraperCrmPackages,
   checkoutOffers,
   scraperExportColumns,
@@ -17,7 +23,7 @@ export {
   navItems,
   metrics,
   dashboardData,
-  mockRecords,
+  mockModel as mockRecords,
   getUpcomingActivities,
   getRevenueAttribution,
   getRevenueSummary,
@@ -199,7 +205,5 @@ export {
   finishMockCheckoutJourney,
   closeMockCheckout,
   getPaymentCheckoutIntegrityReport,
-  getS11IntegrityReport,
-  getAutomationConditionGroups,
-  getAutomationActions
-} from "./mock/legacyDataBridge";
+  getS11IntegrityReport
+} from "@domain/data.js";
