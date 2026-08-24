@@ -6,8 +6,8 @@
  * لا يُدخل رقم بطاقة أو CVV، ولا يُنشئ نجاحُ الدفع `RevenueEvent` ولا
  * `AttributionTouchpoint` — الفوترة منفصلة عن إيراد العملاء في S10.
  */
-import type { FormEvent } from "react";
-import { closeMockCheckout, completeMockCheckout, continueMockCheckoutPayment, failMockCheckout, finishMockCheckoutJourney, getMockCheckoutPreview, updateMockCheckoutInvoice } from "@services";
+import { useEffect, useState, type FormEvent } from "react";
+import { closeMockCheckout, completeMockCheckout, continueMockCheckoutPayment, failMockCheckout, finishMockCheckoutJourney, getMockCheckoutPreview, listPlans, openMockCheckout, updateMockCheckoutInvoice } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
@@ -35,12 +35,23 @@ function Steps({ step }: { step: string }) {
   );
 }
 
-export function Checkout() {
+export function Checkout({ routeMode = false }: { routeMode?: boolean }) {
   const toast = useToast();
-  const preview = getMockCheckoutPreview() as Row | null;
+  const [routeReady, setRouteReady] = useState(!routeMode);
+  useEffect(() => {
+    if (!routeMode) return;
+    if (!getMockCheckoutPreview()) {
+      void listPlans();
+      openMockCheckout({ context: "billing" });
+    }
+    setRouteReady(true);
+  }, [routeMode]);
+  const [localStep, setLocalStep] = useState<string | null>(null);
+  const preview = routeReady ? (getMockCheckoutPreview() as Row | null) : null;
   if (!preview?.checkout?.open) return null;
 
   const { checkout, plan, offer, subtotal, tax, total, payment } = preview;
+  const step = localStep || checkout.step;
   const invoice = checkout.invoice || {};
 
   const close = () => {
@@ -58,7 +69,7 @@ export function Checkout() {
           </div>
           <button type="button" className="top-icon" aria-label="إغلاق Checkout" onClick={close}>×</button>
         </header>
-        <Steps step={checkout.step} />
+        <Steps step={step} />
         {children}
         <footer className="checkout-disclosure">
           <b>محاكاة محلية</b>
@@ -68,7 +79,7 @@ export function Checkout() {
     </div>
   );
 
-  if (checkout.step === "invoice") {
+  if (step === "invoice") {
     const submit = (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       const data = new FormData(event.currentTarget);
@@ -80,6 +91,7 @@ export function Checkout() {
         }),
       );
       if (!result) toast("أكمل اسم الجهة وبريدًا تجريبيًا صالحًا.", "error");
+      else setLocalStep("payment");
     };
 
     return (
@@ -120,7 +132,7 @@ export function Checkout() {
     );
   }
 
-  if (checkout.step === "payment") {
+  if (step === "payment") {
     return (
       <Shell title="اختر وسيلة الدفع" description="استخدم وسيلة الدفع المقنّعة الظاهرة لتكملة السيناريو فقط.">
         <form
@@ -128,6 +140,7 @@ export function Checkout() {
           onSubmit={(event) => {
             event.preventDefault();
             mutate(() => continueMockCheckoutPayment(payment?.id || ""));
+            setLocalStep("review");
           }}
         >
           <section className="checkout-payment-choice">
@@ -153,6 +166,7 @@ export function Checkout() {
               onClick={() => {
                 checkout.step = "invoice";
                 notifyStateChanged();
+                setLocalStep("invoice");
               }}
             >
               العودة
@@ -164,7 +178,7 @@ export function Checkout() {
     );
   }
 
-  if (checkout.step === "review") {
+  if (step === "review") {
     return (
       <Shell title="راجع طلبك" description="هذه آخر خطوة قبل إنشاء فاتورة وإيصال تجريبيين.">
         <section className="checkout-review">
@@ -190,11 +204,15 @@ export function Checkout() {
               onClick={() => {
                 checkout.step = "payment";
                 notifyStateChanged();
+                setLocalStep("payment");
               }}
             >
               العودة
             </button>
-            <button type="button" className="button" onClick={() => mutate(() => failMockCheckout("فشل تجريبي مقصود"))}>
+            <button type="button" className="button" onClick={() => {
+                mutate(() => failMockCheckout("فشل تجريبي مقصود"));
+                setLocalStep("failed");
+              }}>
               محاكاة فشل
             </button>
             <button
@@ -202,6 +220,7 @@ export function Checkout() {
               className="button primary checkout-primary"
               onClick={() => {
                 mutate(() => completeMockCheckout());
+                setLocalStep("success");
                 toast("اكتمل الدفع التجريبي محليًا؛ لم يُنشأ إيراد عملاء أو إسناد.", "success");
               }}
             >
@@ -213,7 +232,7 @@ export function Checkout() {
     );
   }
 
-  if (checkout.step === "failed") {
+  if (step === "failed") {
     return (
       <Shell title="حالة دفع تجريبية" description="يمكنك مراجعة وسيلة الدفع أو إعادة المحاولة داخل النموذج فقط.">
         <section className="checkout-result failed">
@@ -227,6 +246,7 @@ export function Checkout() {
             onClick={() => {
               checkout.step = "review";
               notifyStateChanged();
+              setLocalStep("review");
             }}
           >
             حاول مجددًا

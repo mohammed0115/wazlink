@@ -100,6 +100,7 @@ function Page({ path, query }: { path: string; query: URLSearchParams }) {
   if (path === "integrations" || path === "settings/integrations") return <Integrations />;
   if (path === "billing" || path === "settings/billing") return <Billing />;
   if (path === "settings") return <Settings />;
+  if (path === "settings/billing/checkout") return <Checkout routeMode />;
   if (path.startsWith("settings/")) return <Settings section={path.split("/")[1]} />;
   if (productPlaceholders.has(path)) return <Placeholder route={path} />;
 
@@ -168,7 +169,6 @@ export default function App() {
       <AutomationModal />
       <AppointmentModal />
       <AnalyticsModal />
-      <Checkout />
     </ToastProvider>
   );
 }

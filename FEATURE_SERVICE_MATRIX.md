@@ -1,4 +1,4 @@
-# WazLink Final Feature Service Matrix — V2-S0-FIX.2-D
+# WazLink Final Feature Service Matrix — V2-S0-FIX.2-E
 
 All runtime Feature/shared/App rows are **PASS**. No row is PARTIAL. UI state is local React state or route/hash/query state; domain reads and mutations cross explicit service/selector boundaries.
 
@@ -24,8 +24,9 @@ All runtime Feature/shared/App rows are **PASS**. No row is PARTIAL. UI state is
 | Settings | local subsection/form state | canonical settings routes | settings/workspace services | PASS |
 | Integrations | local selection/config state | settings/integrations | integrationService | PASS |
 | Billing | local plan/preview/confirmation state | settings/billing | billingService | PASS |
+| Checkout | local invoice/payment/review/result state | settings/billing/checkout | typed BillingService + internal mock bridge | PASS |
 | Shared Shell/App | AppShell local drawer; providers own session/workspace/theme | hash router | session/workspace/theme/notification services | PASS |
 
 ## Final status
 
-`getUiState`, `uiState`, `mockRecords`, and `mockModel` are absent from runtime Feature/shared/App consumers. The only direct legacy domain importer is the internal controlled bridge. No Backend or production integration is included.
+`getUiState`, `uiState`, `mockRecords`, and `mockModel` are absent from runtime Feature/shared/App consumers. The only direct legacy domain importer is the internal controlled bridge. Checkout supports direct fresh-load initialization through a local mock session, and the public service facade does not expose the legacy bridge. No Backend or production integration is included.

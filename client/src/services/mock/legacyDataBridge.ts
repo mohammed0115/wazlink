@@ -2,7 +2,7 @@
  * Controlled mock bridge. This is the only frontend layer allowed to know
  * about the legacy domain data module during V2-S0-FIX.
  */
-import { state as legacyState, mockModel as legacyRecords } from "@domain/data.js";
+import { state as legacyState, mockModel as legacyRecords, openMockCheckout as legacyOpenMockCheckout, getCurrentSubscription as legacyGetCurrentSubscription } from "@domain/data.js";
 
 const legacyAutomationRecords = legacyRecords as unknown as { automationConditionGroups?: unknown[]; automationActions?: unknown[] };
 export const getAutomationConditionGroups = () => [...(legacyAutomationRecords.automationConditionGroups || [])];
@@ -196,7 +196,6 @@ export {
   getCheckoutOffer,
   getMockCheckout,
   isMockCheckoutPaid,
-  openMockCheckout,
   updateMockCheckoutInvoice,
   continueMockCheckoutPayment,
   getMockCheckoutPreview,
@@ -207,3 +206,13 @@ export {
   getPaymentCheckoutIntegrityReport,
   getS11IntegrityReport
 } from "@domain/data.js";
+
+type CheckoutStartInput = { planId?: string; context?: string; jobId?: string | null; businessIds?: string[] };
+type LegacyCheckoutStarter = (input: CheckoutStartInput) => unknown;
+
+export const openMockCheckout = (input: CheckoutStartInput = {}) => {
+  const subscription = legacyGetCurrentSubscription() as { planId?: string } | null;
+  const firstPlan = (legacyRecords.plans?.[0] as { id?: string } | undefined)?.id;
+  const defaultPlanId = String(subscription?.planId || firstPlan || "PLAN-GROWTH");
+  return (legacyOpenMockCheckout as unknown as LegacyCheckoutStarter)({ ...input, planId: input.planId || defaultPlanId });
+};

@@ -1,4 +1,4 @@
-# WazLink Final Service Consumer Audit — V2-S0-FIX.2-D
+# WazLink Final Service Consumer Audit — V2-S0-FIX.2-E
 
 ## Scope
 
@@ -19,12 +19,12 @@ This audit covers the complete frontend service-boundary migration. The legacy d
 | Analytics | mixed analytics context and drilldown | Analytics hooks | hash/query | analyticsService and typed read models | PASS |
 | Settings | mixed subsection and forms | Settings hooks | canonical settings routes | settings/workspace services | PASS |
 | Integrations | mixed detail/config state | Integrations hooks | settings/integrations | integrationService | PASS |
-| Billing / Checkout | mixed plan/checkout state | Billing/Checkout hooks | settings/billing | billingService | PASS |
+| Billing / Checkout | mixed plan/checkout state | Billing/Checkout hooks | settings/billing and settings/billing/checkout | typed BillingService + internal mock bridge | PASS |
 | Shared Shell / App | mixed shell/session/workspace/theme | AppShell and explicit providers | hash router | session/workspace/theme/notification services | PASS |
 
 ## Final measurements
 
-Runtime Feature/shared/App consumers contain zero `getUiState`, `uiState`, `mockRecords`, `mockModel`, and direct `@domain/data.js` imports. The only direct legacy domain importer is `services/mock/legacyDataBridge.ts`, which is internal to the service implementation. No public service export returns the whole legacy store or a generic mixed snapshot.
+Runtime Feature/shared/App consumers contain zero `getUiState`, `uiState`, `mockRecords`, `mockModel`, and direct `@domain/data.js` imports. The only direct legacy domain importer is `services/mock/legacyDataBridge.ts`, which is internal to the service implementation. No public service export returns the whole legacy store or a generic mixed snapshot. Checkout is directly loadable at `#/settings/billing/checkout`, initializes a local mock session, and keeps invoice/payment/review/result state inside the component.
 
 ## Final verdict
 

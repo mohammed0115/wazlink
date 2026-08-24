@@ -1,4 +1,4 @@
-# WazLink Final State Ownership Audit — V2-S0-FIX.2-D
+# WazLink Final State Ownership Audit — V2-S0-FIX.2-E
 
 ## Final global result
 
@@ -36,7 +36,7 @@ The runtime scan across `client/src/features`, `client/src/shared`, and `client/
 | Settings workspace/team/preferences forms | mixed app state | local forms + settings/workspace services | local/service boundary | PASS |
 | Integration selection/config/retry | mixed app state | Integrations local state + integration service | local/service boundary | PASS |
 | Billing plan/preview/confirmation | mixed app state | Billing local state + billing service | local/service boundary | PASS |
-| Checkout steps | mixed app state | Checkout local state + mock billing methods | local/service boundary | PASS |
+| Checkout steps | mixed app state | Checkout local state + typed BillingService/mock bridge | local/service boundary; direct canonical route | PASS |
 | domain records and calculations | mixed store exposure | typed selectors/read models/services | domain boundary | PASS |
 
 ## Locked behavioral contracts
@@ -45,4 +45,4 @@ RevenueEvent truth, AttributionTouchpoint conservation, Pipeline and Weighted Pi
 
 ## Final status
 
-All prior fields are assigned to a new owner. No unresolved field remains.
+All prior fields are assigned to a new owner. No unresolved field remains. The direct Checkout route initializes a mock session locally, while transient invoice/payment/review/result state remains feature-owned.

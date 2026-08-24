@@ -9,6 +9,7 @@ import { useState } from "react";
 import { changeSubscriptionPlanMock, getBillingActivities, getBillingUsage, getCurrentSubscription, getPlanChangePreview, previewPlanChange, setSubscriptionCancelAtPeriodEnd, listPlans, listInvoices, listPaymentMethods } from "@services";
 import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
+import { go } from "../../shared/router/useHashRoute";
 import { PageHead } from "../../shared/components/PageHead";
 import { AuditList, GovernanceRail, fmtDate, sar } from "./shared";
 
@@ -56,6 +57,7 @@ export function Billing() {
             </p>
           </div>
           <div className="s11-cancel-control">
+            <button className="button primary" type="button" onClick={() => go("settings/billing/checkout")}>فتح Checkout التجريبي</button>
             {subscription.cancelAtPeriodEnd ? (
               <button
                 className="button"
