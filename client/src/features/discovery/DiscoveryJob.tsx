@@ -3,14 +3,12 @@
  * منقولة عن `renderDiscoveryJob()`: ملخص، تقدم، أعداد، ومراحل معالجة.
  * المراحل تمثل تجربة محلية ثابتة لا Scraping ولا Enrichment فعليًا.
  */
-import { completeDiscoveryJob, formatDiscoveryJobCreatedAt, getDiscoveryJob, getJobStatusLabel, isDiscoveryResultsAvailable, retryDiscoveryJob, getUiState } from "@services";
+import { completeDiscoveryJob, formatDiscoveryJobCreatedAt, getDiscoveryJob, getJobStatusLabel, isDiscoveryResultsAvailable, retryDiscoveryJob } from "@services";
 import { go } from "../../shared/router/useHashRoute";
-import { notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { runDiscoverySimulation, stopDiscoverySimulation } from "./simulation";
 import { PageHead } from "../../shared/components/PageHead";
 import { Mono, StatusBadge, fmt, isProcessing, sourceName } from "./shared";
-import type { DiscoveryModalState } from "../../domain/types";
 
 const stages = [
   "تهيئة البحث",
@@ -62,8 +60,7 @@ export function DiscoveryJob({ jobId }: { jobId: string }) {
   const canResults = isDiscoveryResultsAvailable(job);
 
   const requestCancel = () => {
-    (getUiState() as { discoveryModal: DiscoveryModalState }).discoveryModal = { type: "cancel", jobId: job.id };
-    notifyStateChanged();
+    go(`discovery/jobs/${encodeURIComponent(job.id)}?modal=cancel&job=${encodeURIComponent(job.id)}`);
   };
 
   const retry = () => {
@@ -76,7 +73,6 @@ export function DiscoveryJob({ jobId }: { jobId: string }) {
     completeDiscoveryJob(job.id);
     stopDiscoverySimulation(job.id);
     toast("اكتملت المحاكاة التجريبية.", "success");
-    notifyStateChanged();
   };
 
   const headAction = canResults ? (

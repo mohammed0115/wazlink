@@ -8,25 +8,38 @@
  * لا عند فقاعة حدث من زر بداخل النافذة.
  */
 import type { MouseEvent } from "react";
-import { businesses, convertBusinessToLead, getDiscoveryJob, scraperCrmPackages, getUiState } from "@services";
-import { notifyStateChanged } from "../../shared/store/appStore";
+import { businesses, convertBusinessToLead, getDiscoveryJob, scraperCrmPackages } from "@services";
 import { useToast } from "../../shared/store/toast";
 import { stopDiscoverySimulation } from "./simulation";
 import { Mono, fmt, sourceName } from "./shared";
 import { downloadScraperCsv } from "../intelligence/export";
-import { go } from "../../shared/router/useHashRoute";
+import { go, useHashRoute } from "../../shared/router/useHashRoute";
 import { cancelDiscoveryJob } from "@services";
-import type { DiscoveryModalState } from "../../domain/types";
 import { useModalDismiss } from "../../shared/components/useModalDismiss";
 
 export function DiscoveryModal() {
   const toast = useToast();
-  const modal = getUiState().discoveryModal as DiscoveryModalState;
+  const { path, query } = useHashRoute();
+  const modalType = query.get("modal");
+  const jobId = query.get("job") || "";
+  const businessId = query.get("businessId") || "";
+  const businessIds = (query.get("businessIds") || "").split(",").filter(Boolean);
+  const exportColumnIds = (query.get("columns") || "").split(",").filter(Boolean);
+  const modal = modalType && ["cancel", "business", "scraper-crm-decision", "scraper-export-success"].includes(modalType)
+    ? { type: modalType, jobId, businessId, businessIds }
+    : null;
   if (!modal) return null;
 
   const close = () => {
-    (getUiState() as { discoveryModal: DiscoveryModalState }).discoveryModal = null;
-    notifyStateChanged();
+    if (path === "discovery/results") {
+      go(`discovery/results?job=${encodeURIComponent(jobId)}`);
+    } else if (path.startsWith("discovery/jobs/")) {
+      go(path);
+    } else if (path === "discovery/jobs") {
+      go("discovery/jobs");
+    } else {
+      go(path);
+    }
   };
 
   /** الخلفية تُغلق عند النقر عليها فقط. */
@@ -37,7 +50,7 @@ export function DiscoveryModal() {
   };
 
   if (modal.type === "cancel") {
-    const job = getDiscoveryJob(modal.jobId);
+    const job = getDiscoveryJob(jobId);
     return (
       <div className="modal-backdrop" onClick={onBackdrop}>
         <section ref={panelRef as never} tabIndex={-1} className="modal" role="dialog" aria-modal="true" aria-labelledby="cancelDiscoveryTitle">
@@ -60,8 +73,8 @@ export function DiscoveryModal() {
               className="button danger"
               type="button"
               onClick={() => {
-                cancelDiscoveryJob(modal.jobId);
-                stopDiscoverySimulation(modal.jobId);
+                cancelDiscoveryJob(jobId);
+                stopDiscoverySimulation(jobId);
                 close();
                 toast("تم إلغاء عملية الاكتشاف مع الاحتفاظ بها في السجل.", "info");
               }}
@@ -75,7 +88,7 @@ export function DiscoveryModal() {
   }
 
   if (modal.type === "business") {
-    const business = businesses.find((item: { id: string }) => item.id === modal.businessId);
+    const business = businesses.find((item: { id: string }) => item.id === businessId);
     if (!business) return null;
     const job = getDiscoveryJob(business.discoveryJobId);
 
@@ -114,8 +127,8 @@ export function DiscoveryModal() {
   }
 
   if (modal.type === "scraper-crm-decision") {
-    const job = getDiscoveryJob(modal.jobId || getUiState().selectedJobId);
-    const ids = modal.businessIds || [];
+    const job = getDiscoveryJob(jobId);
+    const ids = businessIds;
     return (
       <div className="modal-backdrop" onClick={onBackdrop}>
         <section className="modal scraper-crm-modal" role="dialog" aria-modal="true" aria-labelledby="scraperCrmDecisionTitle">
@@ -146,14 +159,8 @@ export function DiscoveryModal() {
                 className="button primary"
                 type="button"
                 onClick={() => {
-                  const count = downloadScraperCsv(modal.jobId || getUiState().selectedJobId, ids);
-                  getUiState().scraperCrmUi = { ...getUiState().scraperCrmUi, exportCount: count };
-                  (getUiState() as { discoveryModal: DiscoveryModalState }).discoveryModal = {
-                    type: "scraper-export-success",
-                    jobId: modal.jobId,
-                    businessIds: ids,
-                  };
-                  notifyStateChanged();
+                  const count = downloadScraperCsv(jobId, ids, exportColumnIds);
+                  go(`discovery/results?job=${encodeURIComponent(jobId)}&modal=scraper-export-success&exportCount=${count}`);
                   toast(`تم تنزيل ${count} صفًا بصيغة CSV متوافقة مع Excel محليًا.`, "success");
                 }}
               >
@@ -176,8 +183,8 @@ export function DiscoveryModal() {
                 className="button"
                 type="button"
                 onClick={() => {
-                  const outcomes = ids.map((businessId) =>
-                    convertBusinessToLead(businessId, {
+                  const outcomes = ids.map((selectedBusinessId) =>
+                    convertBusinessToLead(selectedBusinessId, {
                       status: "new",
                       priority: "medium",
                       tags: ["من باقة Scraper", "ترقية CRM تجريبية"],
@@ -185,11 +192,6 @@ export function DiscoveryModal() {
                   );
                   const created = outcomes.filter((result: { kind: string }) => result.kind === "created").length;
                   const duplicates = outcomes.filter((result: { kind: string }) => result.kind === "duplicate").length;
-                  getUiState().scraperCrmUi = {
-                    ...getUiState().scraperCrmUi,
-                    convertedLeadIds: outcomes.map((result: any) => result.lead?.id).filter(Boolean) as never[],
-                  };
-                  (getUiState() as { selectedResultIds: string[] }).selectedResultIds = [];
                   close();
                   toast(
                     `تمت ترقية CRM محليًا: ${created} Lead جديدة${duplicates ? `، و${duplicates} موجودة مسبقًا لم تتكرر` : ""}. لا توجد دفعة أو اتصال خارجي.`,
@@ -223,7 +225,7 @@ export function DiscoveryModal() {
               <p className="eyebrow">اكتمل التصدير</p>
               <h2 id="exportSuccessTitle">تم تنزيل ملف Excel محليًا</h2>
               <p>
-                {fmt(getUiState().scraperCrmUi.exportCount || 0)} صفًا بالأعمدة التي اخترتها. لم يُنشأ Lead أو Deal، ولم يحدث أي
+                {fmt(Number(query.get("exportCount") || 0))} صفًا بالأعمدة التي اخترتها. لم يُنشأ Lead أو Deal، ولم يحدث أي
                 اتصال خارجي.
               </p>
             </div>

@@ -5,10 +5,8 @@
  * وسلسلة الثقة. `unknown` ليست إشارة سلبية: السجل بلا أدلة كافية يظهر
  * بحالة `insufficient_data` بلا درجة مضللة.
  */
-import {  getUiState } from "@services";
 import { SCORING_VERSION, getBusinessIntelligence, tierLabels as rawTierLabels } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
-import { notifyStateChanged } from "../../shared/store/appStore";
 import { PageHead } from "../../shared/components/PageHead";
 import {
   AnalysisStatusBadge,
@@ -22,14 +20,11 @@ import {
 
 const tierLabels = rawTierLabels as Record<string, string>;
 
-type IntelligenceModalState = { type: "breakdown"; businessId: string } | { type: "evidence"; signalId: string } | null;
-
 export function Intelligence({ businessId }: { businessId: string }) {
   const record = getBusinessIntelligence(businessId);
 
   const openEvidence = (signalId: string) => {
-    (getUiState() as { intelligenceModal: IntelligenceModalState }).intelligenceModal = { type: "evidence", signalId };
-    notifyStateChanged();
+    go(`intelligence?business=${encodeURIComponent(businessId)}&modal=evidence&signalId=${encodeURIComponent(signalId)}`);
   };
 
   if (!record) {
@@ -49,7 +44,7 @@ export function Intelligence({ businessId }: { businessId: string }) {
 
   const { business, analysis, job, source } = record;
   const backToResults = (
-    <button className="button" type="button" onClick={() => go(`discovery/results?job=${job?.id || getUiState().selectedJobId}`)}>
+    <button className="button" type="button" onClick={() => go(`discovery/results?job=${encodeURIComponent(job?.id || "")}`)}>
       العودة إلى النتائج
     </button>
   );
@@ -69,7 +64,7 @@ export function Intelligence({ businessId }: { businessId: string }) {
           actions={backToResults}
         />
         <DecisionRail stage="intelligence" job={job} source={source} />
-        <section className="s4-insufficient-getUiState() card">
+        <section className="s4-insufficient-state-card card">
           <span className="status warning">بيانات غير كافية</span>
           <h2>نحتاج إشارات إضافية قبل تقييم الفرصة بثقة.</h2>
           <p>
@@ -97,7 +92,7 @@ export function Intelligence({ businessId }: { businessId: string }) {
           actions={backToResults}
         />
         <DecisionRail stage="intelligence" job={job} source={source} />
-        <section className="s4-insufficient-getUiState() card s4-error-getUiState()">
+        <section className="s4-insufficient-state-card card s4-error-state-card">
           <span className="status danger">تعذر التحليل</span>
           <h2>لا نعرض نتيجة غير مكتملة على أنها فرصة.</h2>
           <p>
@@ -177,13 +172,7 @@ export function Intelligence({ businessId }: { businessId: string }) {
             <button
               type="button"
               className="button ghost"
-              onClick={() => {
-                (getUiState() as { intelligenceModal: IntelligenceModalState }).intelligenceModal = {
-                  type: "breakdown",
-                  businessId: business.id,
-                };
-                notifyStateChanged();
-              }}
+              onClick={() => go(`intelligence?business=${encodeURIComponent(business.id)}&modal=breakdown`)}
             >
               عرض المعادلة
             </button>
@@ -280,12 +269,7 @@ export function Intelligence({ businessId }: { businessId: string }) {
             <button
               type="button"
               className="button primary"
-              onClick={() => {
-                getUiState().selectedBusinessId = business.id;
-                (getUiState() as { crmModal: unknown }).crmModal = { type: "conversion", businessId: business.id };
-                notifyStateChanged();
-                go("crm");
-              }}
+              onClick={() => go(`intelligence?business=${encodeURIComponent(business.id)}&modal=conversion&businessId=${encodeURIComponent(business.id)}`)}
             >
               مراجعة الإضافة إلى CRM
             </button>

@@ -3,10 +3,10 @@
  * منقولة عن `renderDeals()`: 10 فلاتر وجدول تشغيلي.
  * القيمة المرجحة = القيمة × احتمال الصفقة ÷ 100 وفق `ENTITY_MODEL §8`.
  */
-import { getDealBusiness, getDealLead, getDealProbability, getDealStage, getPipelineMetrics, getPipelineStageSummary, listUsers, listDeals, getUiState } from "@services";
+import { useState } from "react";
+import { getDealBusiness, getDealFiltersSnapshot, getDealLead, getDealProbability, getDealStage, getPipelineMetrics, getPipelineStageSummary, listUsers, listDeals } from "@services";
 import { getBusinessIntelligence, tierLabels as rawTiers } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
-import { notifyStateChanged } from "../../shared/store/appStore";
 import { PageHead } from "../../shared/components/PageHead";
 import { DecisionRail, MetricStrip, Mono, dateLabel, dealStatusLabels, fmt, money, ownerName, statusTone } from "./shared";
 
@@ -24,8 +24,7 @@ function dealRecord(deal: Row): Row {
   };
 }
 
-function dealRows(): Row[] {
-  const filters = getUiState().dealFilters;
+function dealRows(filters: Record<string, string>): Row[] {
   return listDeals()
     .map(dealRecord)
     .filter((row: Row) => {
@@ -58,15 +57,14 @@ function dealRows(): Row[] {
 }
 
 export function Deals() {
-  const filters = getUiState().dealFilters;
-  const rows = dealRows();
+  const [filters, setFilters] = useState<Record<string, string>>(() => getDealFiltersSnapshot());
+  const rows = dealRows(filters);
   const metrics = getPipelineMetrics();
   const stages = getPipelineStageSummary("PIPE-1001").map(({ stage }: Row) => stage);
   const jobIds = [...new Set(listDeals().map((deal: Row) => getDealLead(deal)?.sourceJobId).filter(Boolean))] as string[];
 
   const setFilter = (key: string, value: string) => {
-    (getUiState().dealFilters as Record<string, string>)[key] = value;
-    notifyStateChanged();
+    setFilters((current) => ({ ...current, [key]: value }));
   };
 
   return (
@@ -82,8 +80,7 @@ export function Deals() {
               className="button primary"
               type="button"
               onClick={() => {
-                (getUiState() as { dealModal: unknown }).dealModal = { type: "create" };
-                notifyStateChanged();
+                go("deals?modal=create");
               }}
             >
               إنشاء صفقة
@@ -186,8 +183,7 @@ export function Deals() {
                         type="button"
                         className="row-link"
                         onClick={() => {
-                          getUiState().selectedDealId = deal.id;
-                          go(`deals/${deal.id}`);
+                          go(`deals/${encodeURIComponent(deal.id)}`);
                         }}
                       >
                         <b>{deal.title}</b>
@@ -200,8 +196,7 @@ export function Deals() {
                         className="row-link"
                         onClick={() => {
                           if (lead?.id) {
-                            getUiState().selectedLeadId = lead.id;
-                            go(`crm/leads/${lead.id}`);
+                            go(`crm/leads/${encodeURIComponent(lead.id)}`);
                           }
                         }}
                       >
@@ -223,8 +218,7 @@ export function Deals() {
                         type="button"
                         className="button ghost compact"
                         onClick={() => {
-                          getUiState().selectedDealId = deal.id;
-                          go(`deals/${deal.id}`);
+                          go(`deals/${encodeURIComponent(deal.id)}`);
                         }}
                       >
                         فتح

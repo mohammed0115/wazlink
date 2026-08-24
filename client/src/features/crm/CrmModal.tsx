@@ -5,10 +5,9 @@
  * ويعيد المستخدم إلى Lead القائمة، وفق قاعدة «Lead واحدة لكل Business».
  */
 import type { MouseEvent } from "react";
-import { businesses, convertBusinessToLead, getDiscoveryJob, getLeadByBusinessId, getUiState } from "@services";
+import { businesses, convertBusinessToLead, getDiscoveryJob, getLeadByBusinessId } from "@services";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
-import { go } from "../../shared/router/useHashRoute";
-import { notifyStateChanged } from "../../shared/store/appStore";
+import { go, useHashRoute } from "../../shared/router/useHashRoute";
 import { useToast } from "../../shared/store/toast";
 import { Mono, ScoreBadge } from "./shared";
 import { useModalDismiss } from "../../shared/components/useModalDismiss";
@@ -17,12 +16,13 @@ type CrmModalState = { type: "conversion"; businessId: string } | null;
 
 export function CrmModal() {
   const toast = useToast();
-  const modal = getUiState().crmModal as CrmModalState;
+  const { path, query } = useHashRoute();
+  const businessId = query.get("businessId") || query.get("business");
+  const modal = query.get("modal") === "conversion" && businessId ? { type: "conversion" as const, businessId } : null;
   if (!modal) return null;
 
   const close = () => {
-    (getUiState() as { crmModal: CrmModalState }).crmModal = null;
-    notifyStateChanged();
+    go(path === "intelligence" && businessId ? `intelligence?business=${encodeURIComponent(businessId)}` : path);
   };
   const panelRef = useModalDismiss(close);
 
@@ -58,8 +58,7 @@ export function CrmModal() {
               type="button"
               onClick={() => {
                 close();
-                getUiState().selectedLeadId = existing.id;
-                go(`crm/leads/${existing.id}`);
+                go(`crm/leads/${encodeURIComponent(existing.id)}`);
               }}
             >
               فتح Lead الحالية
@@ -117,8 +116,7 @@ export function CrmModal() {
                 toast("أُنشئت Lead محليًا مع حفظ مصدر الاكتشاف وسياق Intelligence.", "success");
               }
               if (result.lead?.id) {
-                getUiState().selectedLeadId = result.lead.id;
-                go(`crm/leads/${result.lead.id}`);
+                go(`crm/leads/${encodeURIComponent(result.lead.id)}`);
               }
             }}
           >

@@ -5,10 +5,10 @@
  * **لا** يضيف `RevenueEvent` ولا `AttributionTouchpoint`.
  */
 import type { FormEvent } from "react";
-import { getDeal, getDealActivities, getDealBusiness, getDealLead, getDealProbability, getDealStage, getLeadActivitySummary, isDealProbabilityManual, updateDeal, listUsers, getUiState } from "@services";
+import { getDeal, getDealActivities, getDealBusiness, getDealLead, getDealProbability, getDealStage, getLeadActivitySummary, isDealProbabilityManual, updateDeal, listUsers } from "@services";
 import { getBusinessIntelligence, tierLabels as rawTiers } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
-import { mutate, notifyStateChanged } from "../../shared/store/appStore";
+import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { PageHead } from "../../shared/components/PageHead";
 import { DecisionRail, Mono, dateTimeLabel, dealStatusLabels, fmt, money, ownerName, statusTone } from "./shared";
@@ -67,8 +67,7 @@ export function Deal360({ dealId }: { dealId: string }) {
   }
 
   const openModal = (type: string) => {
-    (getUiState() as { dealModal: unknown }).dealModal = { type, dealId: deal.id };
-    notifyStateChanged();
+    go(`deals/${encodeURIComponent(deal.id)}?modal=${encodeURIComponent(type)}&dealId=${encodeURIComponent(deal.id)}`);
   };
 
   return (
@@ -228,8 +227,7 @@ export function Deal360({ dealId }: { dealId: string }) {
                     type="button"
                     onClick={() => {
                       if (lead?.id) {
-                        getUiState().selectedLeadId = lead.id;
-                        go(`crm/leads/${lead.id}`);
+                        go(`crm/leads/${encodeURIComponent(lead.id)}`);
                       }
                     }}
                   >

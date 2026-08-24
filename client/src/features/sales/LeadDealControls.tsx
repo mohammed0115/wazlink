@@ -2,9 +2,8 @@
  * لوحة الصفقات داخل Lead 360 — S6.
  * تسمح S6 بصفقات متعددة لنفس Lead عند اختلاف الخدمة أو العنوان.
  */
-import { getDealProbability, getDealStage, getLeadDeals, getOpenDealsForLead, getUiState } from "@services";
+import { getDealProbability, getDealStage, getLeadDeals, getOpenDealsForLead } from "@services";
 import { go } from "../../shared/router/useHashRoute";
-import { notifyStateChanged } from "../../shared/store/appStore";
 import { fmt } from "./shared";
 
 export function LeadDealControls({ leadId }: { leadId: string }) {
@@ -12,8 +11,7 @@ export function LeadDealControls({ leadId }: { leadId: string }) {
   const openDeals = getOpenDealsForLead(leadId);
 
   const openForm = () => {
-    (getUiState() as { dealModal: unknown }).dealModal = { type: "create", leadId };
-    notifyStateChanged();
+    go(`deals?modal=create&leadId=${encodeURIComponent(leadId)}`);
   };
 
   if (openDeals.length) {
@@ -33,8 +31,7 @@ export function LeadDealControls({ leadId }: { leadId: string }) {
                 type="button"
                 className="button primary compact"
                 onClick={() => {
-                  getUiState().selectedDealId = deal.id;
-                  go(`deals/${deal.id}`);
+                  go(`deals/${encodeURIComponent(deal.id)}`);
                 }}
               >
                 فتح الصفقة

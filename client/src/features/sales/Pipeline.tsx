@@ -6,9 +6,9 @@
  * أزرار النقل تبقى بديلًا كاملًا للوحة المفاتيح.
  */
 import { useState } from "react";
-import { getDealBusiness, getDealLead, getDealProbability, getDealStage, getLeadActivitySummary, getPipeline, getPipelineMetrics, getPipelineStageSummary, moveDealStage, getUiState } from "@services";
+import { getDealBusiness, getDealLead, getDealProbability, getDealStage, getLeadActivitySummary, getPipeline, getPipelineMetrics, getPipelineStageSummary, moveDealStage } from "@services";
 import { go } from "../../shared/router/useHashRoute";
-import { mutate, notifyStateChanged } from "../../shared/store/appStore";
+import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { PageHead } from "../../shared/components/PageHead";
 import { DecisionRail, MetricStrip, Mono, fmt, money, ownerName, stageTone } from "./shared";
@@ -43,8 +43,7 @@ function DealCard({ row, stages, onMove }: { row: Row; stages: Row[]; onMove: (d
         type="button"
         className="deal-card-main"
         onClick={() => {
-          getUiState().selectedDealId = deal.id;
-          go(`deals/${deal.id}`);
+          go(`deals/${encodeURIComponent(deal.id)}`);
         }}
       >
         <header>
@@ -87,8 +86,7 @@ function DealCard({ row, stages, onMove }: { row: Row; stages: Row[]; onMove: (d
             type="button"
             className="button primary compact"
             onClick={() => {
-              (getUiState() as { dealModal: unknown }).dealModal = { type: "won", dealId: deal.id };
-              notifyStateChanged();
+              go(`deals/${encodeURIComponent(deal.id)}?modal=won&dealId=${encodeURIComponent(deal.id)}`);
             }}
           >
             إغلاق كرابحة
@@ -127,8 +125,7 @@ export function Pipeline() {
               className="button primary"
               type="button"
               onClick={() => {
-                (getUiState() as { dealModal: unknown }).dealModal = { type: "create" };
-                notifyStateChanged();
+                go("deals?modal=create");
               }}
             >
               إنشاء صفقة

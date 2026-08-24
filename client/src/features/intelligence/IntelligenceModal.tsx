@@ -3,21 +3,24 @@
  * كلاهما عرض تفسيري فقط ولا يغيّر أي كيان.
  */
 import type { MouseEvent } from "react";
-import { businesses, listSignals, getUiState } from "@services";
+import { businesses, listSignals } from "@services";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
-import { notifyStateChanged } from "../../shared/store/appStore";
 import { DimensionRows } from "./shared";
+import { go, useHashRoute } from "../../shared/router/useHashRoute";
 import { useModalDismiss } from "../../shared/components/useModalDismiss";
 
-type IntelligenceModalState = { type: "breakdown"; businessId: string } | { type: "evidence"; signalId: string } | null;
-
 export function IntelligenceModal() {
-  const modal = getUiState().intelligenceModal as IntelligenceModalState;
+  const { path, query } = useHashRoute();
+  const modalType = query.get("modal");
+  const businessId = query.get("business") || query.get("businessId") || "";
+  const signalId = query.get("signalId") || "";
+  const modal = modalType && ["breakdown", "evidence"].includes(modalType)
+    ? { type: modalType, businessId, signalId }
+    : null;
   if (!modal) return null;
 
   const close = () => {
-    (getUiState() as { intelligenceModal: IntelligenceModalState }).intelligenceModal = null;
-    notifyStateChanged();
+    go(path === "intelligence" && businessId ? `intelligence?business=${encodeURIComponent(businessId)}` : path);
   };
   const panelRef = useModalDismiss(close);
 
@@ -26,7 +29,7 @@ export function IntelligenceModal() {
   };
 
   if (modal.type === "breakdown") {
-    const record = getBusinessIntelligence(modal.businessId);
+    const record = getBusinessIntelligence(businessId);
     if (!record) return null;
     return (
       <div className="modal-backdrop" onClick={onBackdrop}>
@@ -56,7 +59,7 @@ export function IntelligenceModal() {
     );
   }
 
-  const signal = listSignals().find((item: { id: string }) => item.id === modal.signalId);
+  const signal = listSignals().find((item: { id: string }) => item.id === signalId);
   if (!signal) return null;
   const business = businesses.find((item: { id: string }) => item.id === signal.businessId);
 

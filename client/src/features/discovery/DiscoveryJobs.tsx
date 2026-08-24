@@ -2,19 +2,18 @@
  * عمليات الاكتشاف — S3.
  * منقولة عن `renderDiscoveryJobs()` مع نفس الفلاتر والترتيب وأعمدة الجدول.
  */
-import { cancelDiscoveryJob, formatDiscoveryJobCreatedAt, getJobStatusLabel, isDiscoveryJobRecent, isDiscoveryJobToday, isDiscoveryResultsAvailable, jobs, retryDiscoveryJob, listDiscoverySources, getUiState } from "@services";
+import { useState } from "react";
+import { cancelDiscoveryJob, formatDiscoveryJobCreatedAt, getDiscoveryListFiltersSnapshot, getJobStatusLabel, isDiscoveryJobRecent, isDiscoveryJobToday, isDiscoveryResultsAvailable, jobs, retryDiscoveryJob, listDiscoverySources } from "@services";
 import { go } from "../../shared/router/useHashRoute";
-import { notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { runDiscoverySimulation, stopDiscoverySimulation } from "./simulation";
 import { PageHead } from "../../shared/components/PageHead";
 import { StatusBadge, fmt, isProcessing, sourceName } from "./shared";
-import type { DiscoveryListFilters, DiscoveryModalState } from "../../domain/types";
+import type { DiscoveryListFilters } from "../../domain/types";
 
 type Job = Record<string, any>;
 
-function applyJobFilters(): Job[] {
-  const filters = getUiState().discoveryListFilters;
+function applyJobFilters(filters: DiscoveryListFilters): Job[] {
   const matchesDate = (job: Job) =>
     filters.date === "all" ||
     (filters.date === "today" && isDiscoveryJobToday(job)) ||
@@ -39,12 +38,11 @@ function applyJobFilters(): Job[] {
 
 export function DiscoveryJobs() {
   const toast = useToast();
-  const filters = getUiState().discoveryListFilters;
-  const visible = applyJobFilters();
+  const [filters, setFilters] = useState<DiscoveryListFilters>(() => getDiscoveryListFiltersSnapshot() as DiscoveryListFilters);
+  const visible = applyJobFilters(filters);
 
   const setFilter = (key: string, value: string) => {
-    (getUiState().discoveryListFilters as DiscoveryListFilters)[key] = value;
-    notifyStateChanged();
+    setFilters((current) => ({ ...current, [key]: value }));
   };
 
   function retry(jobId: string) {
@@ -155,8 +153,7 @@ export function DiscoveryJobs() {
                             type="button"
                             className="button ghost danger-action"
                             onClick={() => {
-                              (getUiState() as { discoveryModal: DiscoveryModalState }).discoveryModal = { type: "cancel", jobId: job.id };
-                              notifyStateChanged();
+                              go(`discovery/jobs?modal=cancel&job=${encodeURIComponent(job.id)}`);
                             }}
                           >
                             إلغاء

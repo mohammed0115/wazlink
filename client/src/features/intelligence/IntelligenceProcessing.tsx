@@ -3,9 +3,9 @@
  * منقولة عن `renderIntelligenceProcessing()`: مراحل، دفعة، ثم كشف تدريجي.
  * تُفصح صراحة أنها محاكاة ولا تتصل بنموذج AI خارجي.
  */
-import {  getUiState } from "@services";
 import { getBusinessIntelligence, tierLabels as rawTierLabels } from "@domain/intelligence.js";
 import type { ProcessingState } from "./simulation";
+import { useIntelligenceProcessing } from "./processingStore";
 import { fmt } from "./shared";
 
 const tierLabels = rawTierLabels as Record<string, string>;
@@ -129,7 +129,7 @@ function Reveal({ processing }: { processing: ProcessingState }) {
 }
 
 export function IntelligenceProcessing() {
-  const processing = getUiState().intelligenceProcessing as ProcessingState | null;
+  const processing = useIntelligenceProcessing() as ProcessingState | null;
   if (!processing) return null;
 
   const stageLabel =

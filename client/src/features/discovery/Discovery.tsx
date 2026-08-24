@@ -5,10 +5,9 @@
  * من الكلمات والمواقع والفلاتر. لا Google Maps ولا Scraping ولا مصدر خارجي،
  * ولا تنشئ Lead أو Score أو CRM.
  */
-import { useRef, type FormEvent } from "react";
-import { createDiscoveryJob, discoverySourceOptions, getDiscoveryCombinations, getUiState } from "@services";
+import { useRef, useState, type FormEvent } from "react";
+import { createDiscoveryJob, discoverySourceOptions, getDiscoveryCombinations, getDiscoveryDraftSnapshot } from "@services";
 import { go } from "../../shared/router/useHashRoute";
-import { notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { runDiscoverySimulation } from "./simulation";
 import { PageHead } from "../../shared/components/PageHead";
@@ -17,7 +16,7 @@ import { fmt } from "./shared";
 
 type ChipType = "keyword" | "location";
 
-function ChipList({ items, type }: { items: string[]; type: ChipType }) {
+function ChipList({ items, type, onRemove }: { items: string[]; type: ChipType; onRemove: (item: string) => void }) {
   const key = type === "keyword" ? "keywords" : "locations";
   return (
     <div className="discovery-chip-list" aria-label={type === "keyword" ? "الكلمات المختارة" : "المواقع المختارة"}>
@@ -27,10 +26,7 @@ function ChipList({ items, type }: { items: string[]; type: ChipType }) {
           <button
             type="button"
             aria-label={`حذف ${item}`}
-            onClick={() => {
-              getUiState().discoveryDraft[key] = getUiState().discoveryDraft[key].filter((value: string) => value !== item);
-              notifyStateChanged();
-            }}
+            onClick={() => onRemove(item)}
           >
             ×
           </button>
@@ -40,8 +36,9 @@ function ChipList({ items, type }: { items: string[]; type: ChipType }) {
   );
 }
 
-function CombinationsPreview() {
-  const draft = getUiState().discoveryDraft;
+type DiscoveryDraft = ReturnType<typeof getDiscoveryDraftSnapshot>;
+
+function CombinationsPreview({ draft, onToggle }: { draft: DiscoveryDraft; onToggle: () => void }) {
   const combinations = getDiscoveryCombinations(draft.keywords, draft.locations);
   const visible = draft.showCombinations ? combinations : combinations.slice(0, 4);
 
@@ -68,10 +65,7 @@ function CombinationsPreview() {
         <button
           type="button"
           className="button ghost inline-button"
-          onClick={() => {
-            draft.showCombinations = !draft.showCombinations;
-            notifyStateChanged();
-          }}
+          onClick={onToggle}
         >
           {draft.showCombinations ? "إخفاء التفاصيل" : "عرض التفاصيل"}
         </button>
@@ -156,9 +150,8 @@ export function Discovery() {
   const toast = useToast();
   const keywordInput = useRef<HTMLInputElement>(null);
   const locationInput = useRef<HTMLInputElement>(null);
-
-  const draft = getUiState().discoveryDraft;
-  const hasValues = draft.keywords.length && draft.locations.length;
+  const [draft, setDraft] = useState<DiscoveryDraft>(() => getDiscoveryDraftSnapshot());
+  const hasValues = Boolean(draft.keywords.length && draft.locations.length);
 
   function addItem(type: ChipType) {
     const input = type === "keyword" ? keywordInput.current : locationInput.current;
@@ -168,9 +161,10 @@ export function Discovery() {
       toast(`أدخل ${type === "keyword" ? "كلمة مفتاحية" : "موقعًا"} لإضافته.`, "error");
       return;
     }
-    if (!draft[key].includes(value)) draft[key].push(value);
+    if (!draft[key].includes(value)) {
+      setDraft((current) => ({ ...current, [key]: [...current[key], value] }));
+    }
     if (input) input.value = "";
-    notifyStateChanged();
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -188,8 +182,12 @@ export function Discovery() {
       whatsapp: data.get("whatsapp") === "on",
       instagram: data.get("instagram") === "on",
     };
-    draft.filters = filters;
-    draft.sourceId = String(data.get("sourceId") || draft.sourceId);
+    const nextDraft = {
+      ...draft,
+      filters,
+      sourceId: String(data.get("sourceId") || draft.sourceId),
+    };
+    setDraft(nextDraft);
 
     if (!draft.keywords.length || !draft.locations.length) {
       toast("أضف كلمة مفتاحية وموقعًا واحدًا على الأقل قبل بدء الاكتشاف.", "error");
@@ -256,7 +254,11 @@ export function Discovery() {
                     إضافة
                   </button>
                 </div>
-                <ChipList items={draft.keywords} type="keyword" />
+                <ChipList
+                  items={draft.keywords}
+                  type="keyword"
+                  onRemove={(item) => setDraft((current) => ({ ...current, keywords: current.keywords.filter((value) => value !== item) }))}
+                />
                 <small className="field-helper">يمكنك إضافة أكثر من كلمة؛ كل كلمة ستقترن بكل موقع محدد.</small>
               </div>
 
@@ -278,7 +280,11 @@ export function Discovery() {
                     إضافة
                   </button>
                 </div>
-                <ChipList items={draft.locations} type="location" />
+                <ChipList
+                  items={draft.locations}
+                  type="location"
+                  onRemove={(item) => setDraft((current) => ({ ...current, locations: current.locations.filter((value) => value !== item) }))}
+                />
                 <small className="field-helper">يمكنك إضافة مدينة أو نطاق جغرافي واحد في كل مرة.</small>
               </div>
 
@@ -306,7 +312,10 @@ export function Discovery() {
               </div>
             </div>
 
-            <CombinationsPreview />
+            <CombinationsPreview
+              draft={draft}
+              onToggle={() => setDraft((current) => ({ ...current, showCombinations: !current.showCombinations }))}
+            />
             <AdvancedFilters filters={draft.filters} />
 
             <footer className="discovery-form-footer">

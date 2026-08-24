@@ -4,10 +4,10 @@
  * منقولة عن `renderCrm()`. Lead تُنشأ فقط بعد تأكيد مستخدم صريح، ولا تنسخ
  * Business أو Score أو Opportunity — تُقرأ بالمرجع عند العرض فقط.
  */
-import { businesses, getCrmSummary, getDiscoveryJob, getLeadActivitySummary, getLeadOwner, listUsers, listLeads, getUiState } from "@services";
+import { useState } from "react";
+import { businesses, getCrmFiltersSnapshot, getCrmSummary, getDiscoveryJob, getLeadActivitySummary, getLeadOwner, listUsers, listLeads } from "@services";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
-import { notifyStateChanged } from "../../shared/store/appStore";
 import { PageHead } from "../../shared/components/PageHead";
 import {
   LeadRail,
@@ -24,8 +24,7 @@ import {
 
 type Row = Record<string, any>;
 
-function leadRows(): Row[] {
-  const filters = getUiState().crmFilters;
+function leadRows(filters: Record<string, string>): Row[] {
   return listLeads()
     .map((lead: Row) => ({
       lead,
@@ -62,25 +61,21 @@ function leadRows(): Row[] {
     });
 }
 
-const selectedLeadIds = () => getUiState().selectedLeadIds as string[];
-const setSelectedLeadIds = (ids: string[]) => {
-  (getUiState() as { selectedLeadIds: string[] }).selectedLeadIds = ids;
-};
-
 export function Crm() {
-  const filters = getUiState().crmFilters;
+  const [filters, setFilters] = useState<Record<string, string>>(() => getCrmFiltersSnapshot());
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [view, setView] = useState<"ready" | "loading" | "empty" | "error">("ready");
 
   const setFilter = (key: string, value: string) => {
-    (getUiState().crmFilters as Record<string, string>)[key] = value;
-    notifyStateChanged();
+    setFilters((current) => ({ ...current, [key]: value }));
   };
 
   // حالات عرض الواجهة الأربع — محاكاة محلية بلا Backend
-  if (getUiState().crmView === "loading") {
+  if (view === "loading") {
     return (
       <>
         <PageHead kicker="إدارة العملاء" title="جارٍ تحميل Leads" description="محاكاة محلية لحالة التحميل؛ لا يوجد Backend." />
-        <section className="crm-getUiState() card">
+        <section className="crm-state-card card">
           <span className="status info">جارٍ التحميل</span>
           <h2>نجهز سياق العملاء وملكية السجلات.</h2>
           <div className="crm-skeleton" />
@@ -88,7 +83,7 @@ export function Crm() {
       </>
     );
   }
-  if (getUiState().crmView === "empty") {
+  if (view === "empty") {
     return (
       <>
         <PageHead
@@ -101,7 +96,7 @@ export function Crm() {
             </button>
           }
         />
-        <section className="crm-getUiState() card">
+        <section className="crm-state-card card">
           <span className="status neutral">قائمة فارغة</span>
           <h2>لم تُضف أي Business إلى CRM في هذه الجلسة.</h2>
           <p>التحويل فعل مستخدم صريح ويحفظ مصدر الاكتشاف وسياق Intelligence.</p>
@@ -109,7 +104,7 @@ export function Crm() {
       </>
     );
   }
-  if (getUiState().crmView === "error") {
+  if (view === "error") {
     return (
       <>
         <PageHead
@@ -121,15 +116,14 @@ export function Crm() {
               className="button primary"
               type="button"
               onClick={() => {
-                getUiState().crmView = "ready";
-                notifyStateChanged();
+                setView("ready");
               }}
             >
               إعادة المحاولة
             </button>
           }
         />
-        <section className="crm-getUiState() card">
+        <section className="crm-state-card card">
           <span className="status danger">تعذر العرض</span>
           <h2>يمكنك العودة إلى الحالة الجاهزة بأمان.</h2>
         </section>
@@ -137,9 +131,9 @@ export function Crm() {
     );
   }
 
-  const rows = leadRows();
+  const rows = leadRows(filters);
   const summary = getCrmSummary();
-  const selected = selectedLeadIds().filter((id) => rows.some((row) => row.lead.id === id));
+  const selected = selectedIds.filter((id) => rows.some((row) => row.lead.id === id));
 
   const jobsList = [...new Map(listLeads().map((lead: Row) => [lead.sourceJobId, getDiscoveryJob(lead.sourceJobId)])).values()].filter(Boolean) as Row[];
   const cities = [...new Set(listLeads().map((lead: Row) => businesses.find((b: Row) => b.id === lead.businessId)?.city).filter(Boolean))] as string[];
@@ -249,7 +243,7 @@ export function Crm() {
             <input
               type="checkbox"
               checked={Boolean(rows.length) && selected.length === rows.length}
-              onChange={() => setSelectedLeadIds(selected.length === rows.length ? [] : rows.map((row) => row.lead.id))}
+              onChange={() => setSelectedIds(selected.length === rows.length ? [] : rows.map((row) => row.lead.id))}
             />{" "}
             تحديد الظاهر
           </label>
@@ -284,11 +278,9 @@ export function Crm() {
                         aria-label={`تحديد ${business?.name || lead.id}`}
                         checked={selected.includes(lead.id)}
                         onChange={() => {
-                          const current = selectedLeadIds();
-                          setSelectedLeadIds(
+                          setSelectedIds((current) =>
                             current.includes(lead.id) ? current.filter((id) => id !== lead.id) : [...current, lead.id],
                           );
-                          notifyStateChanged();
                         }}
                       />
                     </td>
@@ -297,8 +289,7 @@ export function Crm() {
                         type="button"
                         className="row-link company-cell"
                         onClick={() => {
-                          getUiState().selectedLeadId = lead.id;
-                          go(`crm/leads/${lead.id}`);
+                          go(`crm/leads/${encodeURIComponent(lead.id)}`);
                         }}
                       >
                         <i className="company-mark">{business?.short?.slice(0, 1) || "ع"}</i>
@@ -326,8 +317,7 @@ export function Crm() {
                         type="button"
                         className="button ghost compact"
                         onClick={() => {
-                          getUiState().selectedLeadId = lead.id;
-                          go(`crm/leads/${lead.id}`);
+                          go(`crm/leads/${encodeURIComponent(lead.id)}`);
                         }}
                       >
                         فتح 360

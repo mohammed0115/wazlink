@@ -6,9 +6,8 @@
  * تحترم `prefers-reduced-motion` كما تفرض قواعد S8.
  * التحليل نفسه حتمي ويأتي من `completeBusinessAnalysis`؛ الأنيميشن عرض فقط.
  */
-import {  getUiState } from "@services";
 import { beginBusinessAnalysis, completeBusinessAnalysis, intelligenceProcessingStages } from "@domain/intelligence.js";
-import { notifyStateChanged } from "../../shared/store/appStore";
+import { setProcessingSnapshot } from "./processingStore";
 
 export type ProcessingState = {
   mode: "single" | "batch";
@@ -43,8 +42,7 @@ function schedule(callback: () => void, delay: number) {
 }
 
 const setProcessing = (value: ProcessingState | null) => {
-  (getUiState() as { intelligenceProcessing: ProcessingState | null }).intelligenceProcessing = value;
-  notifyStateChanged();
+  setProcessingSnapshot(value);
 };
 
 export function runIntelligenceSimulation(
@@ -94,7 +92,7 @@ export function runIntelligenceSimulation(
     processing.revealScore = 1;
     processing.revealConfidence = 1;
     processing.revealedSignals = 99;
-    notifyStateChanged();
+    setProcessingSnapshot(processing);
     schedule(() => {
       setProcessing(null);
       toast(`${toastLabel} ضمن محاكاة محلية ثابتة.`, "success");
@@ -107,13 +105,13 @@ export function runIntelligenceSimulation(
 
     const revealSignals = () => {
       processing.revealedSignals += 1;
-      notifyStateChanged();
+      setProcessingSnapshot(processing);
       if (processing.revealedSignals < 6) {
         schedule(revealSignals, 55);
         return;
       }
       processing.phase = "recommendations";
-      notifyStateChanged();
+      setProcessingSnapshot(processing);
       schedule(finish, 160);
     };
 
@@ -122,14 +120,14 @@ export function runIntelligenceSimulation(
       processing.phase = "confidence";
       processing.revealScore = 1;
       processing.revealConfidence = tick / steps;
-      notifyStateChanged();
+      setProcessingSnapshot(processing);
       if (tick < steps) {
         schedule(revealConfidence, 35);
         return;
       }
       processing.phase = "signals";
       processing.revealedSignals = 2;
-      notifyStateChanged();
+      setProcessingSnapshot(processing);
       schedule(revealSignals, 55);
     };
 
@@ -137,7 +135,7 @@ export function runIntelligenceSimulation(
       scoreTick += 1;
       processing.phase = "score";
       processing.revealScore = scoreTick / steps;
-      notifyStateChanged();
+      setProcessingSnapshot(processing);
       if (scoreTick < steps) {
         schedule(revealScore, 35);
         return;
@@ -157,7 +155,7 @@ export function runIntelligenceSimulation(
         processing.currentId = id;
         completeBusinessAnalysis(id);
         processing.completedIds.push(id);
-        notifyStateChanged();
+        setProcessingSnapshot(processing);
         schedule(next, 90);
         return;
       }
@@ -171,13 +169,13 @@ export function runIntelligenceSimulation(
     const stageLimit = processing.outcome === "insufficient" ? 2 : processing.stages.length - 1;
     if (processing.stageIndex < stageLimit) {
       processing.stageIndex += 1;
-      notifyStateChanged();
+      setProcessingSnapshot(processing);
       schedule(runStages, 180);
       return;
     }
     if (processing.outcome === "insufficient") {
       processing.phase = "complete";
-      notifyStateChanged();
+      setProcessingSnapshot(processing);
       schedule(() => {
         setProcessing(null);
         toast("فحص الاكتمال أكد أن البيانات غير كافية؛ لم تُمنح درجة.", "success");

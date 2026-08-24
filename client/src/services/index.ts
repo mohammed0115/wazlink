@@ -94,6 +94,20 @@ export const themeService = {
 export const notificationService = {
   unreadCount: () => Number(uiState.notifications || 0),
 };
+
+// Initial snapshots only: target Features own all subsequent UI mutations locally.
+export const getDiscoveryDraftSnapshot = () => ({
+  ...uiState.discoveryDraft,
+  keywords: [...uiState.discoveryDraft.keywords],
+  locations: [...uiState.discoveryDraft.locations],
+  filters: { ...uiState.discoveryDraft.filters },
+});
+export const getDiscoveryListFiltersSnapshot = () => ({ ...uiState.discoveryListFilters });
+export const getResultFiltersSnapshot = () => ({ ...uiState.resultFilters });
+export const getCrmFiltersSnapshot = () => ({ ...uiState.crmFilters });
+export const getDealFiltersSnapshot = () => ({ ...uiState.dealFilters });
+export const getScraperExportColumnsSnapshot = () => [...uiState.scraperCrmUi.exportColumns];
+
 export const integrationService = { async list() { return mockRecords.integrations || []; } };
 export const billingService = { async plans() { return mockRecords.plans || []; } };
 

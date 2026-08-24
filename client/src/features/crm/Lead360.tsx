@@ -5,7 +5,7 @@
  * ولا ينسخ Score أو Opportunity داخل Lead. الصفقات والمحادثات عرض سياقي فقط.
  */
 import type { FormEvent } from "react";
-import { addLeadNote, addLeadTask, assignLeadOwner, businesses, completeLeadTask, getDiscoveryJob, getDiscoverySource, getLead, getLeadActivities, getLeadContacts, getLeadConversations, getLeadDeals, getLeadNotes, getLeadOwner, getLeadTasks, updateLeadPriority, updateLeadStatus, listUsers, getUiState } from "@services";
+import { addLeadNote, addLeadTask, assignLeadOwner, businesses, completeLeadTask, getDiscoveryJob, getDiscoverySource, getLead, getLeadActivities, getLeadContacts, getLeadConversations, getLeadDeals, getLeadNotes, getLeadOwner, getLeadTasks, updateLeadPriority, updateLeadStatus, listUsers } from "@services";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate } from "../../shared/store/appStore";
@@ -108,8 +108,7 @@ export function Lead360({ leadId }: { leadId: string }) {
               className="button primary"
               type="button"
               onClick={() => {
-                if (business?.id) getUiState().selectedBusinessId = business.id;
-                go(`intelligence?business=${business?.id}`);
+                if (business?.id) go(`intelligence?business=${encodeURIComponent(business.id)}`);
               }}
             >
               فتح ذكاء Business
@@ -133,7 +132,7 @@ export function Lead360({ leadId }: { leadId: string }) {
             </p>
           </div>
         </div>
-        <div className="lead-quick-getUiState()">
+        <div className="lead-quick-controls">
           <div>
             <span>الحالة</span>
             <select value={lead.status} onChange={(e) => mutate(() => updateLeadStatus(lead.id, e.target.value))}>

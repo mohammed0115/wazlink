@@ -5,26 +5,18 @@
  * `S4-MOCK-v1` ولا ينشئ Lead أو Deal أو CRM. النتائج تظهر فقط لعملية
  * حالتها `completed` وفق عقد S3.
  */
-import { getDiscoveryJob, getDiscoverySource, scraperCrmPackages, scraperExportColumns, getUiState } from "@services";
+import { useState } from "react";
+import { getDiscoveryJob, getDiscoverySource, getResultFiltersSnapshot, getScraperExportColumnsSnapshot, scraperCrmPackages, scraperExportColumns } from "@services";
 import { SCORING_VERSION, getBusinessIntelligence, getIntelligenceSummary } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
-import { notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { PageHead } from "../../shared/components/PageHead";
 import { runIntelligenceSimulation } from "./simulation";
 import { AnalysisStatusBadge, DecisionRail, Mono, ScoreDisplay, fmt, percent } from "./shared";
-import type { DiscoveryModalState } from "../../domain/types";
 
 type Record_ = Record<string, any>;
 
-/** `selectedResultIds` يبدأ `[]` في الـfixture فيستنتجه TS كـnever[]. */
-const selectedIds = () => getUiState().selectedResultIds as string[];
-const setSelectedIds = (ids: string[]) => {
-  (getUiState() as { selectedResultIds: string[] }).selectedResultIds = ids;
-};
-
-function filteredRecords(jobId: string): Record_[] {
-  const filters = getUiState().resultFilters;
+function filteredRecords(jobId: string, filters: Record<string, any>): Record_[] {
   const job = getDiscoveryJob(jobId);
   const records = (job?.resultBusinessIds || []).map(getBusinessIntelligence).filter(Boolean) as Record_[];
 
@@ -95,33 +87,27 @@ export function DiscoveryResults({ jobId }: { jobId: string }) {
     );
   }
 
+  const [filters, setFilters] = useState<Record<string, any>>(() => getResultFiltersSnapshot());
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [exportColumns, setExportColumns] = useState<string[]>(() => getScraperExportColumnsSnapshot());
   const allRecords = (job.resultBusinessIds.map(getBusinessIntelligence).filter(Boolean) as Record_[]) ?? [];
-  const rows = filteredRecords(job.id);
-  const selected = selectedIds().filter((id: string) => rows.some((record) => record.business.id === id));
+  const rows = filteredRecords(job.id, filters);
+  const selected = selectedIds.filter((id: string) => rows.some((record) => record.business.id === id));
   const summary = getIntelligenceSummary(allRecords.map((record) => record.business.id));
-  const filters = getUiState().resultFilters;
 
   const categories = [...new Set(allRecords.map((record) => record.business.category))];
   const cities = [...new Set(allRecords.map((record) => record.business.city))];
 
   const setFilter = (key: string, value: string | boolean) => {
-    (getUiState().resultFilters as Record<string, unknown>)[key] = value;
-    notifyStateChanged();
+    setFilters((current) => ({ ...current, [key]: value }));
   };
 
   const toggleSelect = (businessId: string) => {
-    const current = selectedIds();
-    setSelectedIds(current.includes(businessId) ? current.filter((id) => id !== businessId) : [...current, businessId]);
-    notifyStateChanged();
+    setSelectedIds((current) => current.includes(businessId) ? current.filter((id) => id !== businessId) : [...current, businessId]);
   };
 
   const toggleColumn = (columnId: string) => {
-    const current: string[] = getUiState().scraperCrmUi.exportColumns;
-    getUiState().scraperCrmUi = {
-      ...getUiState().scraperCrmUi,
-      exportColumns: current.includes(columnId) ? current.filter((id) => id !== columnId) : [...current, columnId],
-    };
-    notifyStateChanged();
+    setExportColumns((current) => current.includes(columnId) ? current.filter((id) => id !== columnId) : [...current, columnId]);
   };
 
   const openDecision = () => {
@@ -129,13 +115,7 @@ export function DiscoveryResults({ jobId }: { jobId: string }) {
       toast("حدد نتيجة واحدة على الأقل ثم اختر Excel أو CRM wazlink.", "error");
       return;
     }
-    getUiState().scraperCrmUi = { ...getUiState().scraperCrmUi, jobId: job.id };
-    (getUiState() as { discoveryModal: DiscoveryModalState }).discoveryModal = {
-      type: "scraper-crm-decision",
-      jobId: job.id,
-      businessIds: selected,
-    };
-    notifyStateChanged();
+    go(`discovery/results?job=${encodeURIComponent(job.id)}&modal=scraper-crm-decision&businessIds=${encodeURIComponent(selected.join(","))}&columns=${encodeURIComponent(exportColumns.join(","))}`);
   };
 
   const countWith = (key: string) => fmt(allRecords.filter((record) => record.business[key]).length);
@@ -199,7 +179,7 @@ export function DiscoveryResults({ jobId }: { jobId: string }) {
             <h2>بيانات Scraper قابلة للتحديد والتصدير</h2>
             <p>اختر الأعمدة التي تحتاجها قبل تنزيل Excel التجريبي. القيم المتاحة أدناه من العينة المحلية فقط.</p>
           </div>
-          <span className="package-chip">{getUiState().scraperCrmUi.exportColumns.length} أعمدة مختارة</span>
+          <span className="package-chip">{exportColumns.length} أعمدة مختارة</span>
         </header>
         <div className="scraper-availability-grid">
           <span><b>{countWith("phone")}</b> هاتف</span>
@@ -214,7 +194,7 @@ export function DiscoveryResults({ jobId }: { jobId: string }) {
             <label className="check" key={column.id}>
               <input
                 type="checkbox"
-                checked={getUiState().scraperCrmUi.exportColumns.includes(column.id)}
+                checked={exportColumns.includes(column.id)}
                 onChange={() => toggleColumn(column.id)}
               />{" "}
               {column.label}
@@ -313,7 +293,6 @@ export function DiscoveryResults({ jobId }: { jobId: string }) {
               checked={Boolean(rows.length) && selected.length === rows.length}
               onChange={() => {
                 setSelectedIds(selected.length === rows.length ? [] : rows.map((record) => record.business.id));
-                notifyStateChanged();
               }}
             />{" "}
             تحديد النتائج الظاهرة
@@ -386,8 +365,7 @@ export function DiscoveryResults({ jobId }: { jobId: string }) {
                           type="button"
                           className="row-link company-cell"
                           onClick={() => {
-                            getUiState().selectedBusinessId = b.id;
-                            go(`intelligence?business=${b.id}`);
+                            go(`intelligence?business=${encodeURIComponent(b.id)}`);
                           }}
                         >
                           <i className="company-mark">{b.short.slice(0, 1)}</i>
@@ -416,8 +394,7 @@ export function DiscoveryResults({ jobId }: { jobId: string }) {
                             type="button"
                             className="button compact"
                             onClick={() => {
-                              getUiState().selectedBusinessId = b.id;
-                              go(`intelligence?business=${b.id}`);
+                              go(`intelligence?business=${encodeURIComponent(b.id)}`);
                             }}
                           >
                             {record.status === "insufficient_data" ? "عرض سبب عدم الكفاية" : "فتح الذكاء"}

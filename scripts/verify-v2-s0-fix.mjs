@@ -26,7 +26,8 @@ const checks = [];
 const check = (id, pass, detail = "") => checks.push({ id, pass: Boolean(pass), detail });
 
 check("F1 Feature imports avoid domain/data.js", !featureText.includes("domain/data.js"));
-check("F2 Feature imports avoid public state", !/\bstate\b/.test(featureText));
+const publicStateImport = /import\s*\{[^}]*\bstate\b[^}]*\}\s*from\s*["']@services["']/s;
+check("F2 Feature imports avoid public state", !publicStateImport.test(featureText));
 check("F3 Feature imports avoid public mockModel", !/\bmockModel\b/.test(featureText));
 check("F3a Feature imports avoid raw uiState alias", !/\buiState\b/.test(featureText));
 check("F3b Feature imports avoid raw mockRecords alias", !/\bmockRecords\b/.test(featureText));

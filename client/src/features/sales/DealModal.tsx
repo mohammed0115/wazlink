@@ -5,9 +5,9 @@
  * الإغلاق كخاسرة يتطلب سببًا صريحًا.
  */
 import type { FormEvent, MouseEvent } from "react";
-import { businesses, closeDealAsLost, closeDealAsWon, createDeal, getDeal, getDealLead, getPipelineStageSummary, listUsers, listLeads, listServiceCatalog, getUiState } from "@services";
-import { go } from "../../shared/router/useHashRoute";
-import { mutate, notifyStateChanged } from "../../shared/store/appStore";
+import { businesses, closeDealAsLost, closeDealAsWon, createDeal, getDeal, getDealLead, getPipelineStageSummary, listUsers, listLeads, listServiceCatalog } from "@services";
+import { go, useHashRoute } from "../../shared/router/useHashRoute";
+import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { money } from "./shared";
 import { useModalDismiss } from "../../shared/components/useModalDismiss";
@@ -16,12 +16,16 @@ type DealModalState = { type: "create"; leadId?: string } | { type: "won" | "los
 
 export function DealModal() {
   const toast = useToast();
-  const modal = getUiState().dealModal as DealModalState;
+  const { path, query } = useHashRoute();
+  const modalType = query.get("modal");
+  const modal = modalType === "create" || modalType === "won" || modalType === "lost"
+    ? { type: modalType as "create" | "won" | "lost", leadId: query.get("leadId") || undefined, dealId: query.get("dealId") || undefined }
+    : null;
   if (!modal) return null;
 
   const close = () => {
-    (getUiState() as { dealModal: DealModalState }).dealModal = null;
-    notifyStateChanged();
+    if (path.startsWith("deals/")) go(path);
+    else go("deals");
   };
   const panelRef = useModalDismiss(close);
 
@@ -57,8 +61,7 @@ export function DealModal() {
         toast("توجد صفقة مفتوحة مطابقة لنفس Lead والخدمة؛ لم تُنشأ نسخة ثانية.", "info");
       } else if (result?.deal) {
         toast("أُنشئت الصفقة محليًا وسُجل الأثر.", "success");
-        getUiState().selectedDealId = result.deal.id;
-        go(`deals/${result.deal.id}`);
+        go(`deals/${encodeURIComponent(result.deal.id)}`);
       } else {
         toast("تعذر إنشاء الصفقة؛ راجع القيمة والمرحلة.", "error");
       }
