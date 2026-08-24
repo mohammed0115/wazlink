@@ -5,7 +5,7 @@
  * الإغلاق كخاسرة يتطلب سببًا صريحًا.
  */
 import type { FormEvent, MouseEvent } from "react";
-import { businesses, closeDealAsLost, closeDealAsWon, createDeal, getDeal, getDealLead, getPipelineStageSummary, listUsers, listLeads, listServiceCatalog } from "@services";
+import { listBusinesses, closeDealAsLost, closeDealAsWon, createDeal, getDeal, getDealLead, getPipelineStageSummary, listUsers, listLeads, listServiceCatalog } from "@services";
 import { go, useHashRoute } from "../../shared/router/useHashRoute";
 import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
@@ -36,7 +36,7 @@ export function DealModal() {
   if (modal.type === "create") {
     const selectedLead = modal.leadId || listLeads()[0]?.id || "";
     const lead = getDealLead({ leadId: selectedLead });
-    const business = lead && businesses.find((item: any) => item.id === lead.businessId);
+    const business = lead && listBusinesses().find((item: any) => item.id === lead.businessId);
     const openStages = getPipelineStageSummary("PIPE-1001")
       .filter(({ stage }: any) => stage.kind === "open")
       .map(({ stage }: any) => stage);
@@ -87,7 +87,7 @@ export function DealModal() {
               <span>Lead</span>
               <select name="leadId" defaultValue={selectedLead} required>
                 {listLeads().map((item: any) => {
-                  const itemBusiness = businesses.find((b: any) => b.id === item.businessId);
+                  const itemBusiness = listBusinesses().find((b: any) => b.id === item.businessId);
                   return (
                     <option value={item.id} key={item.id}>
                       {itemBusiness?.name || item.id} · {item.id}

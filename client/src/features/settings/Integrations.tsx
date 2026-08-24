@@ -6,7 +6,7 @@
  * `hasConfiguredSecret` فقط ولا تُخزَّن أو تُعرض أي قيمة سرية.
  */
 import { useState, type FormEvent } from "react";
-import { connectIntegrationMock, disconnectIntegrationMock, getIntegration, getIntegrationActivities, integrationStatusLabels as rawStatusLabels, retryIntegrationMock, updateIntegrationConfiguration, listIntegrations } from "@services";
+import { connectIntegration, disconnectIntegration, getIntegration, getIntegrationActivities, integrationStatusLabels as rawStatusLabels, retryIntegration, updateIntegrationConfiguration, listIntegrations } from "@services";
 import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { PageHead } from "../../shared/components/PageHead";
@@ -32,21 +32,21 @@ function IntegrationAction({ integration, toast, onOpen }: { integration: Row; t
 
   if (integration.status === "mock_connected") {
     return (
-      <button className="button" type="button" onClick={() => act(() => disconnectIntegrationMock(integration.id), "فُصل التكامل تجريبيًا؛ لا طلب شبكة.")}>
+      <button className="button" type="button" onClick={() => act(() => disconnectIntegration(integration.id), "فُصل التكامل تجريبيًا؛ لا طلب شبكة.")}>
         فصل تجريبي
       </button>
     );
   }
   if (integration.status === "error") {
     return (
-      <button className="button" type="button" onClick={() => act(() => retryIntegrationMock(integration.id), "أُعيدت المحاولة محليًا.")}>
+      <button className="button" type="button" onClick={() => act(() => retryIntegration(integration.id), "أُعيدت المحاولة محليًا.")}>
         إعادة محاولة محلية
       </button>
     );
   }
   if (integration.status === "not_connected") {
     return (
-      <button className="button primary" type="button" onClick={() => act(() => connectIntegrationMock(integration.id), "اتصال تجريبي / Mock — لم يُرسل أي طلب.")}>
+      <button className="button primary" type="button" onClick={() => act(() => connectIntegration(integration.id), "اتصال تجريبي / Mock — لم يُرسل أي طلب.")}>
         ربط تجريبي
       </button>
     );

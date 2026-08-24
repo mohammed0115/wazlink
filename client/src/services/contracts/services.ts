@@ -1,4 +1,4 @@
-import type { Business, Conversation, Deal, Lead, Message } from "../../domain/types";
+import type { Conversation, Deal, Lead, Message } from "@domain/types.js";
 
 export type SortDirection = "asc" | "desc";
 export type LeadFilters = { search?: string; status?: string; ownerId?: string; sortBy?: "updatedAt" | "score"; sortDirection?: SortDirection };
@@ -17,6 +17,17 @@ export type ConversationDetail = Conversation & { messages: Message[] };
 export type DashboardSnapshot = { metrics: Record<string, number>; updatedAt: string };
 export type AnalyticsSnapshot = { funnel: Array<{ label: string; count: number }>; revenue: number; attributedRevenue: number };
 
+export type BillingPlan = { id: string; name: string; price: number; interval?: string; features?: string[] };
+export type BillingSubscription = { planId: string; status?: string; renewsAt?: string | null; cancelAtPeriodEnd?: boolean };
+export type BillingUsageItem = { key: string; label: string; used: number; limit: number; remaining: number };
+export type BillingInvoice = { id: string; amount: number; status?: string; period?: string; issuedAt?: string };
+export type BillingPaymentMethod = { id: string; brand: string; last4: string; label?: string };
+export type CheckoutSession = { id: string; planId: string; step: "invoice" | "payment" | "review" | "success" | "failed"; invoice?: Record<string, unknown>; paymentMethodId?: string; error?: string | null; receiptId?: string | null };
+export type CheckoutStartInput = { planId?: string; context?: string; jobId?: string | null; businessIds?: string[] };
+export type CheckoutInvoiceInput = { companyName: string; billingEmail: string; taxNumber?: string };
+export type PlanPreviewInput = { planId: string };
+export type ServiceResult<T> = T | Promise<T>;
+
 export interface BusinessService { list(filters?: DiscoveryFilters): Promise<BusinessSummary[]>; getById(id: string): Promise<BusinessSummary | null>; }
 export interface LeadService { list(filters?: LeadFilters): Promise<LeadListItem[]>; getById(id: string): Promise<LeadDetail | null>; updateStatus(input: { id: string; status: string }): Promise<LeadDetail | null>; }
 export interface DealService { list(filters?: DealFilters): Promise<DealListItem[]>; getById(id: string): Promise<DealDetail | null>; updateStatus(input: { id: string; status: string }): Promise<DealDetail | null>; }
@@ -28,4 +39,22 @@ export interface AnalyticsService { dashboard(): Promise<DashboardSnapshot>; ove
 export interface AutomationService { list(): Promise<unknown[]>; run(id: string): Promise<unknown>; }
 export interface SettingsService { workspace(): Promise<unknown>; update(input: Record<string, unknown>): Promise<unknown>; }
 export interface IntegrationService { list(): Promise<unknown[]>; }
-export interface BillingService { plans(): Promise<unknown[]>; }
+export interface BillingService {
+  plans(): ServiceResult<BillingPlan[]>;
+  currentSubscription(): ServiceResult<BillingSubscription | null>;
+  usage(): ServiceResult<BillingUsageItem[]>;
+  activities(): ServiceResult<unknown[]>;
+  invoices(): ServiceResult<BillingInvoice[]>;
+  paymentMethods(): ServiceResult<BillingPaymentMethod[]>;
+  previewPlanChange(input: PlanPreviewInput): ServiceResult<unknown>;
+  changePlan(planId: string): ServiceResult<unknown>;
+  setCancelAtPeriodEnd(value: boolean): ServiceResult<unknown>;
+  startCheckout(input?: CheckoutStartInput): ServiceResult<CheckoutSession | null>;
+  getCheckout(): ServiceResult<CheckoutSession | null>;
+  updateCheckoutInvoice(input: CheckoutInvoiceInput): ServiceResult<CheckoutSession | null>;
+  continueCheckoutPayment(paymentMethodId: string): ServiceResult<CheckoutSession | null>;
+  confirmCheckout(): ServiceResult<CheckoutSession | null>;
+  failCheckout(reason?: string): ServiceResult<CheckoutSession | null>;
+  cancelCheckout(): ServiceResult<void>;
+  finishCheckoutJourney(): ServiceResult<unknown>;
+}

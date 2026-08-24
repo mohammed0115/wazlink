@@ -5,7 +5,7 @@
  * ويعيد المستخدم إلى Lead القائمة، وفق قاعدة «Lead واحدة لكل Business».
  */
 import type { MouseEvent } from "react";
-import { businesses, convertBusinessToLead, getDiscoveryJob, getLeadByBusinessId } from "@services";
+import { listBusinesses, convertBusinessToLead, getDiscoveryJob, getLeadByBusinessId } from "@services";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { go, useHashRoute } from "../../shared/router/useHashRoute";
 import { useToast } from "../../shared/store/toast";
@@ -30,7 +30,7 @@ export function CrmModal() {
     if (event.target === event.currentTarget) close();
   };
 
-  const business = businesses.find((item: any) => item.id === modal.businessId);
+  const business = listBusinesses().find((item: any) => item.id === modal.businessId);
   if (!business) return null;
 
   const record = getBusinessIntelligence(business.id) as any;

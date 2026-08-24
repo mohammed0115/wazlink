@@ -7,7 +7,7 @@
  */
 import { useState, type CSSProperties } from "react";
 import { appConfig } from "@config/env";
-import { businesses, dashboardData, getAutomationMetrics, getInboxConversations, getPipelineStageSummary, getUpcomingActivities, jobs } from "@services";
+import { listBusinesses, getDashboardOverview, getAutomationMetrics, getInboxConversations, getPipelineStageSummary, getUpcomingActivities, listDiscoveryJobs } from "@services";
 import { getAgentActions } from "@domain/sales-ai.js";
 import { analyticsService } from "@services";
 
@@ -91,13 +91,13 @@ export function Dashboard() {
   const toast = useToast();
   const [dashboardTimeframe, setDashboardTimeframe] = useState("اليوم");
   const [dashboardView, setDashboardView] = useState("ready");
-  const data = dashboardData;
+  const data = getDashboardOverview();
 
   const dashboardDateRange = dateRangeByTimeframe[dashboardTimeframe] || "all";
   const analytics = getAnalyticsOverview({ dateRange: dashboardDateRange });
   const analyticsFunnel = analytics.funnel.stages;
   const analyticsSources = getSourcePerformance();
-  const business = (id: string) => businesses.find((item: { id: string }) => item.id === id);
+  const business = (id: string) => listBusinesses().find((item: { id: string }) => item.id === id);
   const maxFunnel = analyticsFunnel[0]?.count || 1;
 
   const dashboardMetrics = [
@@ -488,7 +488,7 @@ export function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {jobs.slice(0, 3).map((job: any) => (
+                {listDiscoveryJobs().slice(0, 3).map((job: any) => (
                   <tr key={job.id}>
                     <td className="mono">
                       {job.id}

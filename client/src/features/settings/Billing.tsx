@@ -6,7 +6,7 @@
  * لا بوابة دفع ولا معالجة بطاقات؛ وسيلة الدفع مرجع عرض مقنّع فقط.
  */
 import { useState } from "react";
-import { changeSubscriptionPlanMock, getBillingActivities, getBillingUsage, getCurrentSubscription, getPlanChangePreview, previewPlanChange, setSubscriptionCancelAtPeriodEnd, listPlans, listInvoices, listPaymentMethods } from "@services";
+import { billingService } from "@services";
 import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { go } from "../../shared/router/useHashRoute";
@@ -14,6 +14,7 @@ import { PageHead } from "../../shared/components/PageHead";
 import { AuditList, GovernanceRail, fmtDate, sar } from "./shared";
 
 type Row = Record<string, any>;
+const { activities, changePlan, currentSubscription, invoices, paymentMethods, plans, previewPlanChange, setCancelAtPeriodEnd, usage } = billingService;
 
 const usageLabels: Record<string, string> = {
   leads: "العملاء المحتملون", discoveryRuns: "عمليات الاكتشاف", seats: "المقاعد النشطة",
@@ -29,11 +30,14 @@ const invoiceStatusLabel: Record<string, string> = {
 export function Billing() {
   const toast = useToast();
   const [previewPlanId, setPreviewPlanId] = useState<string | null>(null);
-  const subscription = getCurrentSubscription() as Row;
-  const plan = listPlans().find((item: Row) => item.id === subscription.planId) as Row;
-  const usage = getBillingUsage() as Row[];
-  const payment = listPaymentMethods()[0] as Row;
-  const preview = previewPlanId ? (getPlanChangePreview(previewPlanId) as Row) : null;
+  const subscription = currentSubscription() as Row;
+  const planRows = plans() as Row[];
+  const plan = planRows.find((item: Row) => item.id === subscription.planId) as Row;
+  const usageRows = usage() as Row[];
+  const paymentRows = paymentMethods() as Row[];
+  const payment = paymentRows[0] as Row;
+  const invoiceRows = invoices() as Row[];
+  const preview = previewPlanId ? (previewPlanChange({ planId: previewPlanId }) as Row) : null;
 
   return (
     <div className="s11-workspace">
@@ -63,7 +67,7 @@ export function Billing() {
                 className="button"
                 type="button"
                 onClick={() => {
-                  mutate(() => setSubscriptionCancelAtPeriodEnd(false));
+                  mutate(() => setCancelAtPeriodEnd(false));
                   toast("أُلغيت جدولة الإنهاء؛ لم يُحذف أي سجل.", "info");
                 }}
               >
@@ -74,7 +78,7 @@ export function Billing() {
                 className="button ghost"
                 type="button"
                 onClick={() => {
-                  mutate(() => setSubscriptionCancelAtPeriodEnd(true));
+                  mutate(() => setCancelAtPeriodEnd(true));
                   toast("جُدول إلغاء تجريبي في نهاية الدورة؛ لن يُحذف أي سجل.", "info");
                 }}
               >
@@ -125,7 +129,7 @@ export function Billing() {
               className="button primary"
               type="button"
               onClick={() => {
-                mutate(() => changeSubscriptionPlanMock(preview.target.id));
+                mutate(() => changePlan(preview.target.id));
                 setPreviewPlanId(null);
                 toast("غُيّرت الخطة محليًا؛ لا دفع ولا تغيير في توافر الميزات.", "success");
               }}
@@ -145,7 +149,7 @@ export function Billing() {
           <small>المستخدم · الحد · المتبقي</small>
         </header>
         <div className="s11-usage-grid">
-          {usage.map((item) => (
+          {usageRows.map((item) => (
             <article className={item.over ? "over" : ""} key={item.key}>
               <span>{usageLabels[item.key] || item.key}</span>
               <b>
@@ -175,7 +179,7 @@ export function Billing() {
           <small>لا تتغير ميزات S3–S10 فعليًا عند التبديل.</small>
         </header>
         <div className="s11-plan-grid">
-          {listPlans().map((item: Row) => (
+          {planRows.map((item: Row) => (
             <article className={item.id === plan?.id ? "current" : ""} key={item.id}>
               <div>
                 <p>{item.id === plan?.id ? "الخطة الحالية" : "تسعير تجريبي"}</p>
@@ -194,7 +198,7 @@ export function Billing() {
                 type="button"
                 disabled={item.id === plan?.id}
                 onClick={() => {
-                  previewPlanChange(item.id);
+                  previewPlanChange({ planId: item.id });
                 setPreviewPlanId(item.id);
                 }}
               >
@@ -224,7 +228,7 @@ export function Billing() {
               </tr>
             </thead>
             <tbody>
-              {listInvoices().map((invoice: Row) => (
+              {invoiceRows.map((invoice: Row) => (
                 <tr key={invoice.id}>
                   <td className="mono">{invoice.id}</td>
                   <td>
@@ -249,7 +253,7 @@ export function Billing() {
         </div>
         <section className="s11-subsection">
           <h3>سجل الفوترة</h3>
-          <AuditList rows={getBillingActivities() as Row[]} />
+          <AuditList rows={activities() as Row[]} />
         </section>
       </section>
     </div>

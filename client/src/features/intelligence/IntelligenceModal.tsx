@@ -3,7 +3,7 @@
  * كلاهما عرض تفسيري فقط ولا يغيّر أي كيان.
  */
 import type { MouseEvent } from "react";
-import { businesses, listSignals } from "@services";
+import { listBusinesses, listSignals } from "@services";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { DimensionRows } from "./shared";
 import { go, useHashRoute } from "../../shared/router/useHashRoute";
@@ -61,7 +61,7 @@ export function IntelligenceModal() {
 
   const signal = listSignals().find((item: { id: string }) => item.id === signalId);
   if (!signal) return null;
-  const business = businesses.find((item: { id: string }) => item.id === signal.businessId);
+  const business = listBusinesses().find((item: { id: string }) => item.id === signal.businessId);
 
   return (
     <div className="modal-backdrop" onClick={onBackdrop}>

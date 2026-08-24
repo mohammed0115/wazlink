@@ -8,7 +8,7 @@
  * لا عند فقاعة حدث من زر بداخل النافذة.
  */
 import type { MouseEvent } from "react";
-import { businesses, convertBusinessToLead, getDiscoveryJob, scraperCrmPackages } from "@services";
+import { listBusinesses, convertBusinessToLead, getDiscoveryJob, scraperCrmPackages } from "@services";
 import { useToast } from "../../shared/store/toast";
 import { stopDiscoverySimulation } from "./simulation";
 import { Mono, fmt, sourceName } from "./shared";
@@ -33,10 +33,10 @@ export function DiscoveryModal() {
   const close = () => {
     if (path === "discovery/results") {
       go(`discovery/results?job=${encodeURIComponent(jobId)}`);
-    } else if (path.startsWith("discovery/jobs/")) {
+    } else if (path.startsWith("discovery/listDiscoveryJobs/")) {
       go(path);
-    } else if (path === "discovery/jobs") {
-      go("discovery/jobs");
+    } else if (path === "discovery/listDiscoveryJobs") {
+      go("discovery/listDiscoveryJobs");
     } else {
       go(path);
     }
@@ -88,7 +88,7 @@ export function DiscoveryModal() {
   }
 
   if (modal.type === "business") {
-    const business = businesses.find((item: { id: string }) => item.id === businessId);
+    const business = listBusinesses().find((item: { id: string }) => item.id === businessId);
     if (!business) return null;
     const job = getDiscoveryJob(business.discoveryJobId);
 

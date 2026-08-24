@@ -3,7 +3,7 @@
  * منقولة عن `renderDiscoveryJobs()` مع نفس الفلاتر والترتيب وأعمدة الجدول.
  */
 import { useState } from "react";
-import { cancelDiscoveryJob, formatDiscoveryJobCreatedAt, getDiscoveryListFiltersSnapshot, getJobStatusLabel, isDiscoveryJobRecent, isDiscoveryJobToday, isDiscoveryResultsAvailable, jobs, retryDiscoveryJob, listDiscoverySources } from "@services";
+import { cancelDiscoveryJob, formatDiscoveryJobCreatedAt, getDiscoveryListFiltersSnapshot, getJobStatusLabel, isDiscoveryJobRecent, isDiscoveryJobToday, isDiscoveryResultsAvailable, listDiscoveryJobs, retryDiscoveryJob, listDiscoverySources } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { useToast } from "../../shared/store/toast";
 import { runDiscoverySimulation, stopDiscoverySimulation } from "./simulation";
@@ -19,7 +19,7 @@ function applyJobFilters(filters: DiscoveryListFilters): Job[] {
     (filters.date === "today" && isDiscoveryJobToday(job)) ||
     (filters.date === "recent" && isDiscoveryJobRecent(job));
 
-  return [...jobs]
+  return listDiscoveryJobs()
     .filter(
       (job: Job) =>
         (!filters.search || `${job.name} ${job.id}`.includes(filters.search)) &&
@@ -48,7 +48,7 @@ export function DiscoveryJobs() {
   function retry(jobId: string) {
     retryDiscoveryJob(jobId);
     runDiscoverySimulation(jobId, (id) => toast(`اكتملت العملية ${id} ببيانات تجريبية ثابتة.`, "success"));
-    go(`discovery/jobs/${jobId}`);
+    go(`discovery/listDiscoveryJobs/${jobId}`);
   }
 
   return (
@@ -103,7 +103,7 @@ export function DiscoveryJobs() {
         </div>
 
         <div className="table-wrap">
-          <table className="data-table discovery-jobs-table">
+          <table className="data-table discovery-listDiscoveryJobs-table">
             <thead>
               <tr>
                 <th>العملية</th>
@@ -121,7 +121,7 @@ export function DiscoveryJobs() {
                 visible.map((job) => (
                   <tr key={job.id}>
                     <td>
-                      <button className="row-link" type="button" onClick={() => go(`discovery/jobs/${job.id}`)}>
+                      <button className="row-link" type="button" onClick={() => go(`discovery/listDiscoveryJobs/${job.id}`)}>
                         <b>{job.name}</b>
                         <small className="mono ltr">{job.id}</small>
                       </button>
@@ -136,7 +136,7 @@ export function DiscoveryJobs() {
                     <td>{formatDiscoveryJobCreatedAt(job)}</td>
                     <td>
                       <div className="job-table-actions">
-                        <button type="button" className="button ghost" onClick={() => go(`discovery/jobs/${job.id}`)}>
+                        <button type="button" className="button ghost" onClick={() => go(`discovery/listDiscoveryJobs/${job.id}`)}>
                           {isProcessing(job) ? "متابعة التقدم" : "فتح"}
                         </button>
                         {isDiscoveryResultsAvailable(job) && (
@@ -153,7 +153,7 @@ export function DiscoveryJobs() {
                             type="button"
                             className="button ghost danger-action"
                             onClick={() => {
-                              go(`discovery/jobs?modal=cancel&job=${encodeURIComponent(job.id)}`);
+                              go(`discovery/listDiscoveryJobs?modal=cancel&job=${encodeURIComponent(job.id)}`);
                             }}
                           >
                             إلغاء

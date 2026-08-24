@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from "react";
 import { appConfig } from "@config/env";
-import { advanceMockMessageStatus, assignConversation, closeConversation, conversationStatusLabels as rawConvStatus, getConversation, getConversationBusiness, getConversationContact, getConversationContext, getConversationMessages, getConversationNeedsReply, getDealProbability, getDealStage, getInboxConversations, getInboxSummary, getLeadActivitySummary, getLeadOwner, leadPriorityLabels as rawPriority, leadStatusLabels as rawLeadStatus, messageDeliveryLabels as rawDelivery, reopenConversation, retryMockMessage, sendMockMessage, listUsers, listQuickReplyTemplates } from "@services";
+import { advanceMessageStatus, assignConversation, closeConversation, conversationStatusLabels as rawConvStatus, getConversation, getConversationBusiness, getConversationContact, getConversationContext, getConversationMessages, getConversationNeedsReply, getDealProbability, getDealStage, getInboxConversations, getInboxSummary, getLeadActivitySummary, getLeadOwner, leadPriorityLabels as rawPriority, leadStatusLabels as rawLeadStatus, messageDeliveryLabels as rawDelivery, reopenConversation, retryMessage, sendMessage, listUsers, listQuickReplyTemplates } from "@services";
 import { getBusinessIntelligence, tierLabels as rawTiers } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
@@ -69,7 +69,7 @@ export function Inbox({ conversationId }: { conversationId?: string }) {
   // انتقال حالة الرسالة محليًا: queued → sent → delivered
   useEffect(() => {
     const timer = window.setInterval(() => {
-      if (advanceMockMessageStatus()) notifyStateChanged();
+      if (advanceMessageStatus()) notifyStateChanged();
     }, 800);
     return () => window.clearInterval(timer);
   }, []);
@@ -345,7 +345,7 @@ function ConversationThread({ conversation, toast, drafts, setDrafts, attachment
                         type="button"
                         className="button danger compact"
                         onClick={() => {
-                          mutate(() => retryMockMessage(message.id));
+                          mutate(() => retryMessage(message.id));
                           toast("أُعيدت المحاولة على الرسالة نفسها بلا نسخة جديدة.", "info");
                         }}
                       >
@@ -390,7 +390,7 @@ function ConversationThread({ conversation, toast, drafts, setDrafts, attachment
               toast("اكتب نص الرسالة قبل الإرسال.", "error");
               return;
             }
-            const result = mutate(() => sendMockMessage(conversation.id, { body, attachment }));
+            const result = mutate(() => sendMessage(conversation.id, { body, attachment }));
             if (result) {
               setDrafts((current) => ({ ...current, [conversation.id]: "" }));
               setAttachment(null);

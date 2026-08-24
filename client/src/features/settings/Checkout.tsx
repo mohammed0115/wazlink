@@ -7,13 +7,14 @@
  * `AttributionTouchpoint` — الفوترة منفصلة عن إيراد العملاء في S10.
  */
 import { useEffect, useState, type FormEvent } from "react";
-import { closeMockCheckout, completeMockCheckout, continueMockCheckoutPayment, failMockCheckout, finishMockCheckoutJourney, getMockCheckoutPreview, listPlans, openMockCheckout, updateMockCheckoutInvoice } from "@services";
+import { billingService } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { sar } from "./shared";
 
 type Row = Record<string, any>;
+const { cancelCheckout, confirmCheckout, continueCheckoutPayment, failCheckout, finishCheckoutJourney, getCheckout, startCheckout, updateCheckoutInvoice } = billingService;
 
 const stepNames = ["بيانات الفاتورة", "وسيلة الدفع", "مراجعة الطلب", "الإيصال"];
 const stepIndex: Record<string, number> = { invoice: 0, payment: 1, review: 2, success: 3, failed: 2 };
@@ -40,14 +41,13 @@ export function Checkout({ routeMode = false }: { routeMode?: boolean }) {
   const [routeReady, setRouteReady] = useState(!routeMode);
   useEffect(() => {
     if (!routeMode) return;
-    if (!getMockCheckoutPreview()) {
-      void listPlans();
-      openMockCheckout({ context: "billing" });
+    if (!getCheckout()) {
+      startCheckout({ context: "billing" });
     }
     setRouteReady(true);
   }, [routeMode]);
   const [localStep, setLocalStep] = useState<string | null>(null);
-  const preview = routeReady ? (getMockCheckoutPreview() as Row | null) : null;
+  const preview = routeReady ? (getCheckout() as Row | null) : null;
   if (!preview?.checkout?.open) return null;
 
   const { checkout, plan, offer, subtotal, tax, total, payment } = preview;
@@ -55,7 +55,7 @@ export function Checkout({ routeMode = false }: { routeMode?: boolean }) {
   const invoice = checkout.invoice || {};
 
   const close = () => {
-    mutate(() => closeMockCheckout());
+    mutate(() => cancelCheckout());
   };
 
   const Shell = ({ title, description, children }: { title: string; description: string; children: React.ReactNode }) => (
@@ -84,10 +84,10 @@ export function Checkout({ routeMode = false }: { routeMode?: boolean }) {
       event.preventDefault();
       const data = new FormData(event.currentTarget);
       const result = mutate(() =>
-        updateMockCheckoutInvoice({
+        updateCheckoutInvoice({
           companyName: String(data.get("companyName") || ""),
-          email: String(data.get("email") || ""),
-          vatNumber: String(data.get("vatNumber") || ""),
+          billingEmail: String(data.get("email") || ""),
+          taxNumber: String(data.get("vatNumber") || ""),
         }),
       );
       if (!result) toast("أكمل اسم الجهة وبريدًا تجريبيًا صالحًا.", "error");
@@ -139,7 +139,7 @@ export function Checkout({ routeMode = false }: { routeMode?: boolean }) {
           className="checkout-form"
           onSubmit={(event) => {
             event.preventDefault();
-            mutate(() => continueMockCheckoutPayment(payment?.id || ""));
+            mutate(() => continueCheckoutPayment(payment?.id || ""));
             setLocalStep("review");
           }}
         >
@@ -210,7 +210,7 @@ export function Checkout({ routeMode = false }: { routeMode?: boolean }) {
               العودة
             </button>
             <button type="button" className="button" onClick={() => {
-                mutate(() => failMockCheckout("فشل تجريبي مقصود"));
+                mutate(() => failCheckout("فشل تجريبي مقصود"));
                 setLocalStep("failed");
               }}>
               محاكاة فشل
@@ -219,7 +219,7 @@ export function Checkout({ routeMode = false }: { routeMode?: boolean }) {
               type="button"
               className="button primary checkout-primary"
               onClick={() => {
-                mutate(() => completeMockCheckout());
+                mutate(() => confirmCheckout());
                 setLocalStep("success");
                 toast("اكتمل الدفع التجريبي محليًا؛ لم يُنشأ إيراد عملاء أو إسناد.", "success");
               }}
@@ -286,7 +286,7 @@ export function Checkout({ routeMode = false }: { routeMode?: boolean }) {
             type="button"
             className="button primary checkout-primary"
             onClick={() => {
-              const result = mutate(() => finishMockCheckoutJourney()) as Row | null;
+              const result = mutate(() => finishCheckoutJourney()) as Row | null;
               if (result?.context === "scraper_export") go(`discovery/results?job=${result.jobId}`);
               else if (result?.context === "crm_results") go("crm");
               else go("settings/billing");

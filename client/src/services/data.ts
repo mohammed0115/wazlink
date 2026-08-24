@@ -1,203 +1,205 @@
-/**
- * Explicit feature-facing mock service surface.
- * Replace this module with the composition root when remote services arrive.
- */
-export {
-  scraperCrmPackages,
-  checkoutOffers,
-  scraperExportColumns,
-  businesses,
-  conversations,
-  jobs,
-  discoverySourceOptions,
-  discoveryStatusLabels,
-  DISCOVERY_REFERENCE_DATE,
-  activities,
-  navItems,
-  metrics,
-  dashboardData,
-  getUpcomingActivities,
-  getRevenueAttribution,
-  getRevenueSummary,
-  getDashboardMetrics,
-  getAttributionIntegrityReport,
-  getDiscoveryJob,
-  getDiscoverySource,
-  isDiscoveryResultsAvailable,
-  isDiscoveryJobToday,
-  isDiscoveryJobRecent,
-  formatDiscoveryJobCreatedAt,
-  getJobResults,
-  getDiscoveryCombinations,
-  getNextDiscoveryJobId,
-  getNextBusinessId,
-  getJobStatusLabel,
-  createDiscoveryJob,
-  startDiscoveryJob,
-  progressDiscoveryJob,
-  completeDiscoveryJob,
-  cancelDiscoveryJob,
-  retryDiscoveryJob,
-  getDiscoveryIntegrityReport,
-  leadStatusLabels,
-  leadPriorityLabels,
-  CRM_REFERENCE_TIME,
-  CRM_ACTOR_ID,
-  getLead,
-  getLeadByBusinessId,
-  getLeadOwner,
-  getLeadCompany,
-  getLeadContacts,
-  getLeadNotes,
-  getLeadTasks,
-  getLeadActivities,
-  getLeadActivitySummary,
-  getLeadDeals,
-  getLeadConversations,
-  conversationStatusLabels,
-  messageDeliveryLabels,
-  S7_REFERENCE_TIME,
-  getConversation,
-  getConversationMessages,
-  getConversationLatestMessage,
-  getConversationUnreadCount,
-  getConversationNeedsReply,
-  getConversationContact,
-  getConversationLead,
-  getConversationBusiness,
-  getConversationActivities,
-  getConversationContext,
-  getInboxSummary,
-  getInboxConversations,
-  markConversationRead,
-  sendMockMessage,
-  advanceMockMessageStatus,
-  retryMockMessage,
-  closeConversation,
-  reopenConversation,
-  assignConversation,
-  refreshLeadActivityDates,
-  getCrmSummary,
-  convertBusinessToLead,
-  assignLeadOwner,
-  updateLeadStatus,
-  updateLeadPriority,
-  addLeadNote,
-  addLeadTask,
-  completeLeadTask,
-  getLeadIntegrityReport,
-  dealStatusLabels,
-  dealLossReasons,
-  getPipeline,
-  getPipelineStages,
-  getDeal,
-  getDealStage,
-  getDealProbability,
-  isDealProbabilityManual,
-  getOpenDealsForLead,
-  getOpenDealForLead,
-  getDealLead,
-  getDealBusiness,
-  getDealActivities,
-  getDealTasks,
-  getOpenPipelineMetrics,
-  getPipelineMetrics,
-  getPipelineStageSummary,
-  createDeal,
-  updateDeal,
-  moveDealStage,
-  closeDealAsWon,
-  closeDealAsLost,
-  getDealIntegrityReport,
-  automationRuleStatusLabels,
-  automationRunStatusLabels,
-  automationActionStatusLabels,
-  appointmentStatusLabels,
-  appointmentTypeLabels,
-  appointmentLocationLabels,
-  automationTriggerCatalog,
-  automationOperators,
-  automationConditionFieldCatalog,
-  automationOperatorLabels,
-  automationActionCatalog,
-  forbiddenAutomationActions,
-  automationApprovalPolicies,
-  AUTOMATION_REFERENCE_TIME,
-  getAutomationConditionField,
-  validateAutomationCondition,
-  validateAutomationConditionGroup,
-  formatAutomationCondition,
-  getAutomationRule,
-  getAutomationRules,
-  getAutomationRuns,
-  getAutomationRunActionExecutions,
-  getAutomationApprovalQueue,
-  getAutomationMetrics,
-  getAppointment,
-  getLeadAppointments,
-  getDealAppointments,
-  getAppointments,
-  getTasksWorkspace,
-  buildAutomationContext,
-  evaluateAutomationCondition,
-  evaluateAutomationConditions,
-  canAutomationExecute,
-  createAutomationRule,
-  updateAutomationRule,
-  setAutomationRuleStatus,
-  testAutomationRule,
-  evaluateAutomationRule,
-  runAutomationNow,
-  createAppointment,
-  executeAutomationAction,
-  approveAutomationAction,
-  rejectAutomationAction,
-  getAutomationIntegrityReport,
-  integrationStatusLabels,
-  notificationCategoryLabels,
-  notificationChannelLabels,
-  workspaceTimezones,
-  workspaceCurrencies,
-  workspaceLocales,
-  getWorkspace,
-  getCurrentWorkspaceUser,
-  getNotificationPreferences,
-  getSettingsActivities,
-  getSecuritySettings,
-  getTeamInvitations,
-  updateWorkspaceSettings,
-  updateCurrentUserSettings,
-  setTeamMemberStatus,
-  createTeamInvitation,
-  setNotificationPreference,
-  updateSecuritySettings,
-  getIntegration,
-  getIntegrationActivities,
-  connectIntegrationMock,
-  disconnectIntegrationMock,
-  updateIntegrationConfiguration,
-  retryIntegrationMock,
-  getCurrentSubscription,
-  getPlan,
-  getBillingActivities,
-  getBillingUsage,
-  getPlanChangePreview,
-  previewPlanChange,
-  changeSubscriptionPlanMock,
-  setSubscriptionCancelAtPeriodEnd,
-  getCheckoutOffer,
-  getMockCheckout,
-  isMockCheckoutPaid,
-  openMockCheckout,
-  updateMockCheckoutInvoice,
-  continueMockCheckoutPayment,
-  getMockCheckoutPreview,
-  failMockCheckout,
-  completeMockCheckout,
-  finishMockCheckoutJourney,
-  closeMockCheckout,
-  getPaymentCheckoutIntegrityReport,
-  getS11IntegrityReport,
-  getAutomationConditionGroups,
-  getAutomationActions
-} from "./mock/legacyDataBridge";
+/** Explicit implementation-neutral Feature service surface. */
+import * as legacy from "./mock/legacyDataBridge";
+
+type RecordRow = Record<string, any>;
+const cloneRows = (rows: readonly unknown[]): RecordRow[] => rows.map((row) => ({ ...(row as RecordRow) }));
+
+export type DashboardOverview = { attentionItems: RecordRow[]; aiRecommendations: RecordRow[]; nearClosingDeals: RecordRow[] };
+export const listBusinesses = (): any[] => cloneRows(legacy.businesses);
+export const listDiscoveryJobs = () => cloneRows(legacy.jobs);
+export const navItems = cloneRows(legacy.navItems);
+export const getDashboardOverview = (): DashboardOverview => ({
+  attentionItems: cloneRows(legacy.dashboardData.attentionItems),
+  aiRecommendations: cloneRows(legacy.dashboardData.aiRecommendations),
+  nearClosingDeals: cloneRows(legacy.dashboardData.nearClosingDeals),
+});
+
+export const scraperCrmPackages = legacy.scraperCrmPackages;
+export const checkoutOffers = legacy.checkoutOffers;
+export const scraperExportColumns = legacy.scraperExportColumns;
+export const discoverySourceOptions = legacy.discoverySourceOptions;
+export const discoveryStatusLabels = legacy.discoveryStatusLabels;
+export const DISCOVERY_REFERENCE_DATE = legacy.DISCOVERY_REFERENCE_DATE;
+export const getUpcomingActivities = legacy.getUpcomingActivities;
+export const getRevenueAttribution = legacy.getRevenueAttribution;
+export const getRevenueSummary = legacy.getRevenueSummary;
+export const getDashboardMetrics = legacy.getDashboardMetrics;
+export const getAttributionIntegrityReport = legacy.getAttributionIntegrityReport;
+export const getDiscoveryJob = legacy.getDiscoveryJob;
+export const getDiscoverySource = legacy.getDiscoverySource;
+export const isDiscoveryResultsAvailable = legacy.isDiscoveryResultsAvailable;
+export const isDiscoveryJobToday = legacy.isDiscoveryJobToday;
+export const isDiscoveryJobRecent = legacy.isDiscoveryJobRecent;
+export const formatDiscoveryJobCreatedAt = legacy.formatDiscoveryJobCreatedAt;
+export const getJobResults = legacy.getJobResults;
+export const getDiscoveryCombinations = legacy.getDiscoveryCombinations;
+export const getNextDiscoveryJobId = legacy.getNextDiscoveryJobId;
+export const getNextBusinessId = legacy.getNextBusinessId;
+export const getJobStatusLabel = legacy.getJobStatusLabel;
+export const createDiscoveryJob = legacy.createDiscoveryJob;
+export const startDiscoveryJob = legacy.startDiscoveryJob;
+export const progressDiscoveryJob = legacy.progressDiscoveryJob;
+export const completeDiscoveryJob = legacy.completeDiscoveryJob;
+export const cancelDiscoveryJob = legacy.cancelDiscoveryJob;
+export const retryDiscoveryJob = legacy.retryDiscoveryJob;
+export const getDiscoveryIntegrityReport = legacy.getDiscoveryIntegrityReport;
+export const leadStatusLabels = legacy.leadStatusLabels;
+export const leadPriorityLabels = legacy.leadPriorityLabels;
+export const CRM_REFERENCE_TIME = legacy.CRM_REFERENCE_TIME;
+export const CRM_ACTOR_ID = legacy.CRM_ACTOR_ID;
+export const getLead = legacy.getLead;
+export const getLeadByBusinessId = legacy.getLeadByBusinessId;
+export const getLeadOwner = legacy.getLeadOwner;
+export const getLeadCompany = legacy.getLeadCompany;
+export const getLeadContacts = legacy.getLeadContacts;
+export const getLeadNotes = legacy.getLeadNotes;
+export const getLeadTasks = legacy.getLeadTasks;
+export const getLeadActivities = legacy.getLeadActivities;
+export const getLeadActivitySummary = legacy.getLeadActivitySummary;
+export const getLeadDeals = legacy.getLeadDeals;
+export const getLeadConversations = legacy.getLeadConversations;
+export const conversationStatusLabels = legacy.conversationStatusLabels;
+export const messageDeliveryLabels = legacy.messageDeliveryLabels;
+export const S7_REFERENCE_TIME = legacy.S7_REFERENCE_TIME;
+export const getConversation = legacy.getConversation;
+export const getConversationMessages = legacy.getConversationMessages;
+export const getConversationLatestMessage = legacy.getConversationLatestMessage;
+export const getConversationUnreadCount = legacy.getConversationUnreadCount;
+export const getConversationNeedsReply = legacy.getConversationNeedsReply;
+export const getConversationContact = legacy.getConversationContact;
+export const getConversationLead = legacy.getConversationLead;
+export const getConversationBusiness = legacy.getConversationBusiness;
+export const getConversationActivities = legacy.getConversationActivities;
+export const getConversationContext = legacy.getConversationContext;
+export const getInboxSummary = legacy.getInboxSummary;
+export const getInboxConversations = legacy.getInboxConversations;
+export const markConversationRead = legacy.markConversationRead;
+export const sendMessage = legacy.sendMockMessage;
+export const advanceMessageStatus = legacy.advanceMockMessageStatus;
+export const retryMessage = legacy.retryMockMessage;
+export const closeConversation = legacy.closeConversation;
+export const reopenConversation = legacy.reopenConversation;
+export const assignConversation = legacy.assignConversation;
+export const refreshLeadActivityDates = legacy.refreshLeadActivityDates;
+export const getCrmSummary = legacy.getCrmSummary;
+export const convertBusinessToLead = legacy.convertBusinessToLead;
+export const assignLeadOwner = legacy.assignLeadOwner;
+export const updateLeadStatus = legacy.updateLeadStatus;
+export const updateLeadPriority = legacy.updateLeadPriority;
+export const addLeadNote = legacy.addLeadNote;
+export const addLeadTask = legacy.addLeadTask;
+export const completeLeadTask = legacy.completeLeadTask;
+export const getLeadIntegrityReport = legacy.getLeadIntegrityReport;
+export const dealStatusLabels = legacy.dealStatusLabels;
+export const dealLossReasons = legacy.dealLossReasons;
+export const getPipeline = legacy.getPipeline;
+export const getPipelineStages = legacy.getPipelineStages;
+export const getDeal = legacy.getDeal;
+export const getDealStage = legacy.getDealStage;
+export const getDealProbability = legacy.getDealProbability;
+export const isDealProbabilityManual = legacy.isDealProbabilityManual;
+export const getOpenDealsForLead = legacy.getOpenDealsForLead;
+export const getOpenDealForLead = legacy.getOpenDealForLead;
+export const getDealLead = legacy.getDealLead;
+export const getDealBusiness = legacy.getDealBusiness;
+export const getDealActivities = legacy.getDealActivities;
+export const getDealTasks = legacy.getDealTasks;
+export const getOpenPipelineMetrics = legacy.getOpenPipelineMetrics;
+export const getPipelineMetrics = legacy.getPipelineMetrics;
+export const getPipelineStageSummary = legacy.getPipelineStageSummary;
+export const createDeal = legacy.createDeal;
+export const updateDeal = legacy.updateDeal;
+export const moveDealStage = legacy.moveDealStage;
+export const closeDealAsWon = legacy.closeDealAsWon;
+export const closeDealAsLost = legacy.closeDealAsLost;
+export const getDealIntegrityReport = legacy.getDealIntegrityReport;
+export const automationRuleStatusLabels = legacy.automationRuleStatusLabels;
+export const automationRunStatusLabels = legacy.automationRunStatusLabels;
+export const automationActionStatusLabels = legacy.automationActionStatusLabels;
+export const appointmentStatusLabels = legacy.appointmentStatusLabels;
+export const appointmentTypeLabels = legacy.appointmentTypeLabels;
+export const appointmentLocationLabels = legacy.appointmentLocationLabels;
+export const automationTriggerCatalog = legacy.automationTriggerCatalog;
+export const automationOperators = legacy.automationOperators;
+export const automationConditionFieldCatalog = legacy.automationConditionFieldCatalog;
+export const automationOperatorLabels = legacy.automationOperatorLabels;
+export const automationActionCatalog = legacy.automationActionCatalog;
+export const forbiddenAutomationActions = legacy.forbiddenAutomationActions;
+export const automationApprovalPolicies = legacy.automationApprovalPolicies;
+export const AUTOMATION_REFERENCE_TIME = legacy.AUTOMATION_REFERENCE_TIME;
+export const getAutomationConditionField = legacy.getAutomationConditionField;
+export const validateAutomationCondition = legacy.validateAutomationCondition;
+export const validateAutomationConditionGroup = legacy.validateAutomationConditionGroup;
+export const formatAutomationCondition = legacy.formatAutomationCondition;
+export const getAutomationRule = legacy.getAutomationRule;
+export const getAutomationRules = legacy.getAutomationRules;
+export const getAutomationRuns = legacy.getAutomationRuns;
+export const getAutomationRunActionExecutions = legacy.getAutomationRunActionExecutions;
+export const getAutomationApprovalQueue = legacy.getAutomationApprovalQueue;
+export const getAutomationMetrics = legacy.getAutomationMetrics;
+export const getAppointment = legacy.getAppointment;
+export const getLeadAppointments = legacy.getLeadAppointments;
+export const getDealAppointments = legacy.getDealAppointments;
+export const getAppointments = legacy.getAppointments;
+export const getTasksWorkspace = legacy.getTasksWorkspace;
+export const buildAutomationContext = legacy.buildAutomationContext;
+export const evaluateAutomationCondition = legacy.evaluateAutomationCondition;
+export const evaluateAutomationConditions = legacy.evaluateAutomationConditions;
+export const canAutomationExecute = legacy.canAutomationExecute;
+export const createAutomationRule = legacy.createAutomationRule;
+export const updateAutomationRule = legacy.updateAutomationRule;
+export const setAutomationRuleStatus = legacy.setAutomationRuleStatus;
+export const testAutomationRule = legacy.testAutomationRule;
+export const evaluateAutomationRule = legacy.evaluateAutomationRule;
+export const runAutomationNow = legacy.runAutomationNow;
+export const createAppointment = legacy.createAppointment;
+export const executeAutomationAction = legacy.executeAutomationAction;
+export const approveAutomationAction = legacy.approveAutomationAction;
+export const rejectAutomationAction = legacy.rejectAutomationAction;
+export const getAutomationIntegrityReport = legacy.getAutomationIntegrityReport;
+export const integrationStatusLabels = legacy.integrationStatusLabels;
+export const notificationCategoryLabels = legacy.notificationCategoryLabels;
+export const notificationChannelLabels = legacy.notificationChannelLabels;
+export const workspaceTimezones = legacy.workspaceTimezones;
+export const workspaceCurrencies = legacy.workspaceCurrencies;
+export const workspaceLocales = legacy.workspaceLocales;
+export const getWorkspace = legacy.getWorkspace;
+export const getCurrentWorkspaceUser = legacy.getCurrentWorkspaceUser;
+export const getNotificationPreferences = legacy.getNotificationPreferences;
+export const getSettingsActivities = legacy.getSettingsActivities;
+export const getSecuritySettings = legacy.getSecuritySettings;
+export const getTeamInvitations = legacy.getTeamInvitations;
+export const updateWorkspaceSettings = legacy.updateWorkspaceSettings;
+export const updateCurrentUserSettings = legacy.updateCurrentUserSettings;
+export const setTeamMemberStatus = legacy.setTeamMemberStatus;
+export const createTeamInvitation = legacy.createTeamInvitation;
+export const setNotificationPreference = legacy.setNotificationPreference;
+export const updateSecuritySettings = legacy.updateSecuritySettings;
+export const getIntegration = legacy.getIntegration;
+export const getIntegrationActivities = legacy.getIntegrationActivities;
+export const connectIntegration = legacy.connectIntegrationMock;
+export const disconnectIntegration = legacy.disconnectIntegrationMock;
+export const updateIntegrationConfiguration = legacy.updateIntegrationConfiguration;
+export const retryIntegration = legacy.retryIntegrationMock;
+export const getCurrentSubscription = legacy.getCurrentSubscription;
+export const getPlan = legacy.getPlan;
+export const getBillingActivities = legacy.getBillingActivities;
+export const getBillingUsage = legacy.getBillingUsage;
+export const getPlanChangePreview = legacy.getPlanChangePreview;
+export const previewPlanChange = legacy.previewPlanChange;
+export const changeSubscriptionPlan = legacy.changeSubscriptionPlanMock;
+export const setSubscriptionCancelAtPeriodEnd = legacy.setSubscriptionCancelAtPeriodEnd;
+export const getCheckoutOffer = legacy.getCheckoutOffer;
+export const isCheckoutPaid = legacy.isMockCheckoutPaid;
+export const startCheckout = legacy.openMockCheckout;
+export const updateCheckoutInvoice = legacy.updateMockCheckoutInvoice;
+export const continueCheckoutPayment = legacy.continueMockCheckoutPayment;
+export const getCheckout = legacy.getMockCheckoutPreview;
+export const failCheckout = legacy.failMockCheckout;
+export const confirmCheckout = legacy.completeMockCheckout;
+export const finishCheckoutJourney = legacy.finishMockCheckoutJourney;
+export const cancelCheckout = legacy.closeMockCheckout;
+export const getPaymentCheckoutIntegrityReport = legacy.getPaymentCheckoutIntegrityReport;
+export const getS11IntegrityReport = legacy.getS11IntegrityReport;
+export const getAutomationConditionGroups = legacy.getAutomationConditionGroups;
+export const getAutomationActions = legacy.getAutomationActions;

@@ -5,7 +5,7 @@
  * ولا ينسخ Score أو Opportunity داخل Lead. الصفقات والمحادثات عرض سياقي فقط.
  */
 import type { FormEvent } from "react";
-import { addLeadNote, addLeadTask, assignLeadOwner, businesses, completeLeadTask, getDiscoveryJob, getDiscoverySource, getLead, getLeadActivities, getLeadContacts, getLeadConversations, getLeadDeals, getLeadNotes, getLeadOwner, getLeadTasks, updateLeadPriority, updateLeadStatus, listUsers } from "@services";
+import { addLeadNote, addLeadTask, assignLeadOwner, listBusinesses, completeLeadTask, getDiscoveryJob, getDiscoverySource, getLead, getLeadActivities, getLeadContacts, getLeadConversations, getLeadDeals, getLeadNotes, getLeadOwner, getLeadTasks, updateLeadPriority, updateLeadStatus, listUsers } from "@services";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate } from "../../shared/store/appStore";
@@ -58,7 +58,7 @@ export function Lead360({ leadId }: { leadId: string }) {
     );
   }
 
-  const business = businesses.find((item: any) => item.id === lead.businessId);
+  const business = listBusinesses().find((item: any) => item.id === lead.businessId);
   const owner = getLeadOwner(lead);
   const contacts = getLeadContacts(lead.id);
   const tasks = getLeadTasks(lead.id);

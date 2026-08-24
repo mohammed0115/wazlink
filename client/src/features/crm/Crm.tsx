@@ -5,7 +5,7 @@
  * Business أو Score أو Opportunity — تُقرأ بالمرجع عند العرض فقط.
  */
 import { useState } from "react";
-import { businesses, getCrmFiltersSnapshot, getCrmSummary, getDiscoveryJob, getLeadActivitySummary, getLeadOwner, listUsers, listLeads } from "@services";
+import { listBusinesses, getCrmFiltersSnapshot, getCrmSummary, getDiscoveryJob, getLeadActivitySummary, getLeadOwner, listUsers, listLeads } from "@services";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { PageHead } from "../../shared/components/PageHead";
@@ -28,7 +28,7 @@ function leadRows(filters: Record<string, string>): Row[] {
   return listLeads()
     .map((lead: Row) => ({
       lead,
-      business: businesses.find((item: Row) => item.id === lead.businessId),
+      business: listBusinesses().find((item: Row) => item.id === lead.businessId),
       owner: getLeadOwner(lead),
       intelligence: getBusinessIntelligence(lead.businessId),
       job: getDiscoveryJob(lead.sourceJobId),
@@ -136,7 +136,7 @@ export function Crm() {
   const selected = selectedIds.filter((id) => rows.some((row) => row.lead.id === id));
 
   const jobsList = [...new Map(listLeads().map((lead: Row) => [lead.sourceJobId, getDiscoveryJob(lead.sourceJobId)])).values()].filter(Boolean) as Row[];
-  const cities = [...new Set(listLeads().map((lead: Row) => businesses.find((b: Row) => b.id === lead.businessId)?.city).filter(Boolean))] as string[];
+  const cities = [...new Set(listLeads().map((lead: Row) => listBusinesses().find((b: Row) => b.id === lead.businessId)?.city).filter(Boolean))] as string[];
   const tags = [...new Set(listLeads().flatMap((lead: Row) => lead.tags || []))] as string[];
 
   return (
