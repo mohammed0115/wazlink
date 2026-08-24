@@ -10,7 +10,6 @@ import { markConversationRead } from "@services";
 import { useTheme } from "./shared/context/AppProviders";
 import { appConfig } from "./config/env";
 import { isPublicRoute, useHashRoute } from "./shared/router/useHashRoute";
-import { useAppState } from "./shared/store/appStore";
 import { ToastProvider } from "./shared/store/toast";
 import { AppShell } from "./shared/shell/AppShell";
 import { settingsRouteLabels } from "./shared/shell/routeMeta";
@@ -119,7 +118,6 @@ export default function App() {
   const { path, query } = useHashRoute();
   const queryString = query.toString();
   const { theme } = useTheme();
-  useAppState();
 
   useEffect(() => {
     syncRouteContext(path);

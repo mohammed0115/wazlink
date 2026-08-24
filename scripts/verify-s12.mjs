@@ -27,7 +27,7 @@ const analyticsOverview=getAnalyticsOverview(state.analyticsContext);
 const traces=getAttributionTraces(analyticsOverview.context);
 
 check("A routes",app.includes('path === "settings/integrations"')&&app.includes('path === "settings/billing"')&&app.includes('path.startsWith("crm/leads/")')&&app.includes('path.startsWith("inbox/")'),"المسارات الأساسية والتفصيلية معرفة صراحة.");
-check("B deep links",app.includes('path.startsWith("settings/")')&&app.includes("settingsSection: section")&&settings.includes("go(`settings/${id}`)"),"Settings deep links تعيد القسم الصحيح من المصدر الحالي.");
+check("B deep links",app.includes('path.startsWith("settings/")')&&app.includes('<Settings section={path.split("/")[1]} />')&&settings.includes("go(`settings/${id}`)"),"Settings deep links تعيد القسم الصحيح من المصدر الحالي.");
 check("C navigation state",app.includes('route.startsWith("settings/")) return "settings"')&&app.includes('route.startsWith("crm/leads/")) return "crm"')&&app.includes('route.startsWith("deals/")) return "deals"'),"Sidebar يبقى نشطًا في المسارات العميقة الرئيسية.");
 check("D dashboard truth",dashboard.includes("getAnalyticsOverview")&&dashboard.includes("getAttributionTraces")&&dashboard.includes("getPipelineStageSummary"),"Dashboard يعتمد selectors S10/S6 المشتركة بدل إعادة حساب مستقلة.");
 check("E discovery lifecycle",getDiscoveryIntegrityReport().pass,"إنشاء Job ومعالجة واكتمال وفشل/إعادة محاولة محكومة بعقد S3.");

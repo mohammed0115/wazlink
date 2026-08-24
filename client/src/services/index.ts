@@ -14,8 +14,8 @@ import {
   getDashboardMetrics,
   getRevenueSummary,
   completeLeadTask,
-} from "./data";
-import { getAnalyticsOverview } from "@domain/analytics-engine.js";
+} from "./mock/legacyDataBridge";
+import * as analyticsEngine from "@domain/analytics-engine.js";
 import type {
   AnalyticsService, AnalyticsSnapshot, AppointmentService, BusinessService, BusinessSummary,
   ConversationDetail, ConversationService, ConversationSummary, DealDetail, DealService,
@@ -58,9 +58,27 @@ export const messageService: MessageService = {
 
 export const taskService: TaskService = { async list(_filters) { return getTasksWorkspace() as unknown[]; }, async complete(id) { return completeLeadTask(id) || id; } };
 export const appointmentService: AppointmentService = { async list(_filters) { return getAppointments() as unknown[]; } };
-export const analyticsService: AnalyticsService = {
+export const analyticsService: AnalyticsService & Record<string, unknown> = {
+  metricDefinitions: analyticsEngine.analyticsMetricDefinitions,
+  referenceDate: analyticsEngine.ANALYTICS_REFERENCE_DATE,
+  activeFilters: analyticsEngine.activeAnalyticsFilters,
+  normalizeContext: analyticsEngine.normalizeAnalyticsContext,
+  getOptions: analyticsEngine.getAnalyticsOptions,
+  getOverview: analyticsEngine.getAnalyticsOverview,
+  getFunnel: analyticsEngine.getAnalyticsFunnel,
+  getAttributionTraces: analyticsEngine.getAttributionTraces,
+  getMetricDrilldown: analyticsEngine.getMetricDrilldown,
+  getSourcePerformance: analyticsEngine.getSourcePerformance,
+  getDataQuality: analyticsEngine.getDataQuality,
+  getJobPerformance: analyticsEngine.getJobPerformance,
+  getConversationAnalytics: analyticsEngine.getConversationAnalytics,
+  getAppointmentAnalytics: analyticsEngine.getAppointmentAnalytics,
+  getTaskAnalytics: analyticsEngine.getTaskAnalytics,
+  getAutomationAnalytics: analyticsEngine.getAutomationAnalytics,
+  getIntelligenceAnalytics: analyticsEngine.getIntelligenceAnalytics,
+  getAnalyticsExportRows: analyticsEngine.getAnalyticsExportRows,
   async dashboard(): Promise<DashboardSnapshot> { return { metrics: getDashboardMetrics() as unknown as Record<string, number>, updatedAt: new Date().toISOString() }; },
-  async overview(): Promise<AnalyticsSnapshot> { const overview = getAnalyticsOverview({ dateRange: "all" }); return { funnel: [], revenue: overview.metrics.revenue.value, attributedRevenue: overview.metrics.attributedRevenue.value }; },
+  async overview(): Promise<AnalyticsSnapshot> { const overview = analyticsEngine.getAnalyticsOverview({ dateRange: "all" }); return { funnel: [], revenue: overview.metrics.revenue.value, attributedRevenue: overview.metrics.attributedRevenue.value }; },
 };
 export const automationService = { async list() { return mockRecords.automations || []; }, async run(id: string) { return id; } };
 export const settingsService = { async workspace() { return uiState.workspace; }, async update(input: Record<string, unknown>) { uiState.workspace = { ...uiState.workspace, ...input }; return uiState.workspace; } };
@@ -102,6 +120,15 @@ export const getDiscoveryDraftSnapshot = () => ({
   locations: [...uiState.discoveryDraft.locations],
   filters: { ...uiState.discoveryDraft.filters },
 });
+
+export const updateDiscoveryDraft = (patch: { keywords?: string[]; locations?: string[] }) => {
+  uiState.discoveryDraft = {
+    ...uiState.discoveryDraft,
+    ...(patch.keywords ? { keywords: [...patch.keywords] } : {}),
+    ...(patch.locations ? { locations: [...patch.locations] } : {}),
+  };
+  return getDiscoveryDraftSnapshot();
+};
 export const getDiscoveryListFiltersSnapshot = () => ({ ...uiState.discoveryListFilters });
 export const getResultFiltersSnapshot = () => ({ ...uiState.resultFilters });
 export const getCrmFiltersSnapshot = () => ({ ...uiState.crmFilters });
@@ -113,7 +140,6 @@ export const billingService = { async plans() { return mockRecords.plans || []; 
 
 // Compatibility selectors: consumers receive snapshots through named service functions,
 // while the legacy bridge remains the only source of mutable mock truth.
-export const getUiState = () => uiState;
 export const listUsers = () => [...(mockRecords.users || [])];
 export const listLeads = () => [...(mockRecords.leads || [])];
 export const listDeals = () => [...(mockRecords.deals || [])];

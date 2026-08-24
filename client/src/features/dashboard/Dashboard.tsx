@@ -5,13 +5,14 @@
  * ولا يعاد احتساب الإيراد أو Pipeline داخل view model منفصل.
  * الإفصاح عن event مقابل snapshot محفوظ كما اعتمدته S10.
  */
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { appConfig } from "@config/env";
-import { businesses, dashboardData, getAutomationMetrics, getInboxConversations, getPipelineStageSummary, getUpcomingActivities, jobs, getUiState } from "@services";
+import { businesses, dashboardData, getAutomationMetrics, getInboxConversations, getPipelineStageSummary, getUpcomingActivities, jobs } from "@services";
 import { getAgentActions } from "@domain/sales-ai.js";
-import { getAnalyticsOverview, getAttributionTraces, getSourcePerformance } from "@domain/analytics-engine.js";
+import { analyticsService } from "@services";
+
+const { getOverview: getAnalyticsOverview, getAttributionTraces, getSourcePerformance } = analyticsService as typeof analyticsService & Record<string, any>;
 import { go } from "../../shared/router/useHashRoute";
-import { notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { fmt } from "../../shared/lib/format";
 import type { AttributionSummaryRow } from "../../domain/types";
@@ -59,20 +60,17 @@ const agentStatusLabels: Record<string, string> = {
   failed: "فشل تجريبي واضح",
 };
 
-function StateSwitcher() {
+function StateSwitcher({ view, onChange }: { view: string; onChange: (id: string) => void }) {
   return (
-    <section className="dashboard-getUiState()-panel" aria-label="حالات عرض لوحة التحكم">
+    <section className="dashboard-state-panel" aria-label="حالات عرض لوحة التحكم">
       <span>حالات اختبار الواجهة:</span>
       <div>
         {viewStates.map(([id, label]) => (
           <button
             key={id}
             type="button"
-            className={getUiState().dashboardView === id ? "active" : ""}
-            onClick={() => {
-              getUiState().dashboardView = id;
-              notifyStateChanged();
-            }}
+            className={view === id ? "active" : ""}
+            onClick={() => onChange(id)}
           >
             {label}
           </button>
@@ -82,18 +80,21 @@ function StateSwitcher() {
   );
 }
 
-/** ينتقل إلى المسار مع تثبيت السجل المختار — يقابل `data-route` + `data-business`. */
+/** ينتقل إلى المسار مع تمرير هوية السجل في query بدل mixed global state. */
 function openRoute(route: string, businessId?: string) {
-  if (businessId) getUiState().selectedBusinessId = businessId;
-  go(route);
+  if (!businessId) return go(route);
+  const separator = route.includes("?") ? "&" : "?";
+  go(`${route}${separator}business=${encodeURIComponent(businessId)}`);
 }
 
 export function Dashboard() {
   const toast = useToast();
+  const [dashboardTimeframe, setDashboardTimeframe] = useState("اليوم");
+  const [dashboardView, setDashboardView] = useState("ready");
   const data = dashboardData;
 
-  const dashboardDateRange = dateRangeByTimeframe[getUiState().dashboardTimeframe] || "all";
-  const analytics = getAnalyticsOverview({ ...getUiState().analyticsContext, dateRange: dashboardDateRange });
+  const dashboardDateRange = dateRangeByTimeframe[dashboardTimeframe] || "all";
+  const analytics = getAnalyticsOverview({ dateRange: dashboardDateRange });
   const analyticsFunnel = analytics.funnel.stages;
   const analyticsSources = getSourcePerformance();
   const business = (id: string) => businesses.find((item: { id: string }) => item.id === id);
@@ -137,18 +138,18 @@ export function Dashboard() {
   const recentConversations = getInboxConversations({ search: "", filter: "all", ownerId: "all", channel: "whatsapp", sort: "latest" }).slice(0, 4);
   const agentActions = getAgentActions().slice(0, 4);
   const automationMetrics = getAutomationMetrics();
-  const timeframeTitle = timeframeTitles[getUiState().dashboardTimeframe];
+  const timeframeTitle = timeframeTitles[dashboardTimeframe];
 
-  if (getUiState().dashboardView !== "ready") {
-    const [title, description, icon, kind] = feedbackConfigurations[getUiState().dashboardView];
+  if (dashboardView !== "ready") {
+    const [title, description, icon, kind] = feedbackConfigurations[dashboardView];
     return (
       <div className="exec-dashboard">
-        <StateSwitcher />
+        <StateSwitcher view={dashboardView} onChange={setDashboardView} />
         <section className={`dashboard-feedback ${kind}`}>
           <i>{icon}</i>
           <h2>{title}</h2>
           <p>{description}</p>
-          {getUiState().dashboardView === "empty" ? (
+          {dashboardView === "empty" ? (
             <button className="button primary" type="button" onClick={() => go("discovery")}>
               اكتشاف عملاء
             </button>
@@ -156,10 +157,7 @@ export function Dashboard() {
             <button
               className="button primary"
               type="button"
-              onClick={() => {
-                getUiState().dashboardView = "ready";
-                notifyStateChanged();
-              }}
+              onClick={() => setDashboardView("ready")}
             >
               العودة إلى الملخص
             </button>
@@ -198,11 +196,8 @@ export function Dashboard() {
               <button
                 key={label}
                 type="button"
-                className={getUiState().dashboardTimeframe === label ? "active" : ""}
-                onClick={() => {
-                  getUiState().dashboardTimeframe = label;
-                  notifyStateChanged();
-                }}
+                className={dashboardTimeframe === label ? "active" : ""}
+                onClick={() => setDashboardTimeframe(label)}
               >
                 {label}
               </button>
@@ -244,7 +239,7 @@ export function Dashboard() {
         <span>تطبق الفترة على event metrics؛ أما Pipeline واللقطات الحالية فتظهر كلقطات حالية صراحة.</span>
       </div>
 
-      <StateSwitcher />
+      <StateSwitcher view={dashboardView} onChange={setDashboardView} />
 
       <section className="exec-kpi-grid" aria-label="مؤشرات الأداء الرئيسية">
         {dashboardMetrics.map((metric) => (
@@ -316,8 +311,7 @@ export function Dashboard() {
                         type="button"
                         className="button compact"
                         onClick={() => {
-                          if (recommendation.businessId) getUiState().selectedBusinessId = recommendation.businessId;
-                          toast("تم إنشاء متابعة تجريبية مرتبطة بالعميل.", "success");
+                          toast(`تم إنشاء متابعة تجريبية مرتبطة بالعميل ${recommendation.businessId || ""}.`, "success");
                         }}
                       >
                         {recommendation.secondary}

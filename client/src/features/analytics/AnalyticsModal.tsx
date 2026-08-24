@@ -3,14 +3,15 @@
  * كلها عرض تفسيري فقط ولا تغيّر أي كيان.
  */
 import type { MouseEvent } from "react";
-import {  getUiState } from "@services";
-import {
-  getAnalyticsFunnel,
+import { useHashRoute, go } from "../../shared/router/useHashRoute";
+import { analyticsService } from "@services";
+
+const {
+  getFunnel: getAnalyticsFunnel,
   getAttributionTraces,
   getMetricDrilldown,
-  normalizeAnalyticsContext,
-} from "@domain/analytics-engine.js";
-import { notifyStateChanged } from "../../shared/store/appStore";
+  normalizeContext: normalizeAnalyticsContext,
+} = analyticsService as typeof analyticsService & Record<string, any>;
 import { useModalDismiss } from "../../shared/components/useModalDismiss";
 
 type Row = Record<string, any>;
@@ -36,16 +37,29 @@ function IdsList({ ids }: { ids: string[] }) {
 }
 
 export function AnalyticsModal() {
-  const modal = getUiState().analyticsUi?.drilldown as DrilldownState;
+  const { path, query } = useHashRoute();
+  const modalType = query.get("modal");
+  const modal: DrilldownState = modalType === "metric" && query.get("metricId")
+    ? { type: "metric", metricId: query.get("metricId") as string }
+    : modalType === "funnel" && query.get("stageId")
+      ? { type: "funnel", stageId: query.get("stageId") as string }
+      : modalType === "trace" && query.get("revenueId")
+        ? { type: "trace", revenueId: query.get("revenueId") as string }
+        : null;
+
+  const close = () => go(path.replace(/\\?.*$/, ""));
+  const panelRef = useModalDismiss(close);
   if (!modal) return null;
 
-  const ctx = normalizeAnalyticsContext(getUiState().analyticsContext);
-
-  const close = () => {
-    getUiState().analyticsUi = { ...getUiState().analyticsUi, drilldown: null };
-    notifyStateChanged();
-  };
-  const panelRef = useModalDismiss(close);
+  let ctx: Row = normalizeAnalyticsContext({});
+  const encodedFilters = query.get("filters");
+  if (encodedFilters) {
+    try {
+      ctx = normalizeAnalyticsContext(JSON.parse(encodedFilters)) as Row;
+    } catch {
+      ctx = normalizeAnalyticsContext({}) as Row;
+    }
+  }
 
   const onBackdrop = (event: MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) close();

@@ -5,8 +5,9 @@
  * أو BillingActivity إلى `RevenueEvent` أو `AttributionTouchpoint`.
  * لا بوابة دفع ولا معالجة بطاقات؛ وسيلة الدفع مرجع عرض مقنّع فقط.
  */
-import { changeSubscriptionPlanMock, getBillingActivities, getBillingUsage, getCurrentSubscription, getPlanChangePreview, previewPlanChange, setSubscriptionCancelAtPeriodEnd, listPlans, listInvoices, listPaymentMethods, getUiState } from "@services";
-import { mutate, notifyStateChanged } from "../../shared/store/appStore";
+import { useState } from "react";
+import { changeSubscriptionPlanMock, getBillingActivities, getBillingUsage, getCurrentSubscription, getPlanChangePreview, previewPlanChange, setSubscriptionCancelAtPeriodEnd, listPlans, listInvoices, listPaymentMethods } from "@services";
+import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { PageHead } from "../../shared/components/PageHead";
 import { AuditList, GovernanceRail, fmtDate, sar } from "./shared";
@@ -26,11 +27,11 @@ const invoiceStatusLabel: Record<string, string> = {
 
 export function Billing() {
   const toast = useToast();
+  const [previewPlanId, setPreviewPlanId] = useState<string | null>(null);
   const subscription = getCurrentSubscription() as Row;
   const plan = listPlans().find((item: Row) => item.id === subscription.planId) as Row;
   const usage = getBillingUsage() as Row[];
   const payment = listPaymentMethods()[0] as Row;
-  const previewPlanId = getUiState().s11Ui.billingPreviewPlanId;
   const preview = previewPlanId ? (getPlanChangePreview(previewPlanId) as Row) : null;
 
   return (
@@ -100,8 +101,7 @@ export function Billing() {
               type="button"
               aria-label="إغلاق المعاينة"
               onClick={() => {
-                getUiState().s11Ui = { ...getUiState().s11Ui, billingPreviewPlanId: null };
-                notifyStateChanged();
+                setPreviewPlanId(null);
               }}
             >
               ×
@@ -124,8 +124,7 @@ export function Billing() {
               type="button"
               onClick={() => {
                 mutate(() => changeSubscriptionPlanMock(preview.target.id));
-                getUiState().s11Ui = { ...getUiState().s11Ui, billingPreviewPlanId: null };
-                notifyStateChanged();
+                setPreviewPlanId(null);
                 toast("غُيّرت الخطة محليًا؛ لا دفع ولا تغيير في توافر الميزات.", "success");
               }}
             >
@@ -194,8 +193,7 @@ export function Billing() {
                 disabled={item.id === plan?.id}
                 onClick={() => {
                   previewPlanChange(item.id);
-                  getUiState().s11Ui = { ...getUiState().s11Ui, billingPreviewPlanId: item.id };
-                  notifyStateChanged();
+                setPreviewPlanId(item.id);
                 }}
               >
                 {item.id === plan?.id ? "الخطة الحالية" : "معاينة التغيير"}

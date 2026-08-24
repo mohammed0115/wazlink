@@ -1,42 +1,48 @@
-# getUiState Migration Audit — V2-S0-FIX.2-C
+# WazLink Final State Ownership Audit — V2-S0-FIX.2-D
 
-## Scope
+## Final global result
 
-This phase covers only Inbox, Conversations, Messages, Copilot, Agent, Automation, Tasks, and Appointments. Analytics, Settings, Product Entitlements, Backend, HTTP, scheduler, worker, and redesign are explicitly out of scope.
+The runtime scan across `client/src/features`, `client/src/shared`, and `client/src/App.tsx` reports zero occurrences of `getUiState`, `uiState`, `mockRecords`, `mockModel`, renamed mixed-state accessors, and direct Feature/shared/App imports of `@domain/data.js`. The only direct legacy domain importer is the internal controlled bridge.
 
-## Target inventory before FIX.2-C
+| Previous field / concern | Old owner | New owner | Migration category | Final status |
+|---|---|---|---|---|
+| shell drawer/collapse | mixed app state | AppShell local React state | local UI state | PASS |
+| workspace identity | mixed app state | WorkspaceContext + workspace service | typed workspace boundary | PASS |
+| session/sign-in/onboarding flags | mixed app state | SessionContext + session service | session boundary | PASS |
+| theme | mixed app state | ThemeContext + theme service | theme boundary | PASS |
+| notification count | mixed app state | notification service | explicit read selector | PASS |
+| login errors | mixed app state | Login local state | local form state | PASS |
+| onboarding step/errors/draft | mixed app state | Onboarding local state + workspace/session services | local form state | PASS |
+| Discovery draft | mixed app state | Discovery local state + explicit draft service mutation | local form/service mutation | PASS |
+| discovery/job filters | mixed app state | feature-local state | local filter state | PASS |
+| discovery/results selection and export columns | mixed app state | feature-local state + query/export arguments | local/route state | PASS |
+| discovery and CRM modal identity | mixed app state | hash/query route state | route state | PASS |
+| Intelligence evidence/breakdown | mixed app state | local state + query identity | local/route state | PASS |
+| Intelligence processing | mixed app state | feature-scoped processing store | feature-scoped state | PASS |
+| CRM filters/view/selection | mixed app state | CRM local state | local UI state | PASS |
+| Lead/Deal detail identity | mixed app state | canonical hash routes | route state | PASS |
+| Deals/Pipeline filters and modals | mixed app state | local state + query state | local/route state | PASS |
+| Inbox filters/selection/drafts/attachment/context | mixed app state | Inbox local state + route conversation ID | local/route state | PASS |
+| Copilot tab/mode/selected conversation | mixed app state | Copilot local state + explicit conversation route | local/route state | PASS |
+| Agent mode | mixed app state | Agent local state | local UI state | PASS |
+| Automation filters/rule modal | mixed app state | Automation local state + query route | local/route state | PASS |
+| Tasks filters | mixed app state | Tasks local state | local UI state | PASS |
+| Appointments filters/modal | mixed app state | local state + query route | local/route state | PASS |
+| Analytics filters/tabs | mixed app state | Analytics local typed state | local filter state | PASS |
+| Analytics drilldown | mixed app state | query route state + analytics service reads | route/service boundary | PASS |
+| Analytics export columns | mixed app state | local state passed to local exporter | explicit argument | PASS |
+| Dashboard view/timeframe/selection | mixed app state | Dashboard local state + query state | local/route state | PASS |
+| Settings subsection | mixed app state | Settings local state + canonical route | local/route state | PASS |
+| Settings workspace/team/preferences forms | mixed app state | local forms + settings/workspace services | local/service boundary | PASS |
+| Integration selection/config/retry | mixed app state | Integrations local state + integration service | local/service boundary | PASS |
+| Billing plan/preview/confirmation | mixed app state | Billing local state + billing service | local/service boundary | PASS |
+| Checkout steps | mixed app state | Checkout local state + mock billing methods | local/service boundary | PASS |
+| domain records and calculations | mixed store exposure | typed selectors/read models/services | domain boundary | PASS |
 
-| File / surface | Legacy field or accessor | Category | Target owner |
-|---|---|---|---|
-| `features/inbox/Inbox.tsx` | `inboxDrafts`, `inboxAttachment` | Composer/draft state | React local state |
-| `features/inbox/Inbox.tsx` | `inboxFilters` | Local UI/filter state | React local state |
-| `features/inbox/Inbox.tsx` | `selectedConversationId` | Route state | `#/inbox/:id` or canonical hash route |
-| `features/inbox/Inbox.tsx` | `inboxContextOpen` | Local panel state | React local state |
-| `features/automation/Automation.tsx` | `automationFilters` | Local UI/filter state | React local state |
-| `features/automation/Automation.tsx` | `selectedAutomationId` | Route/selection state | hash/query state or local selection |
-| `features/automation/Automation.tsx` | `automationModal` | Modal UI state | route/query state |
-| `features/automation/AutomationModal.tsx` | `automationModal` | Modal UI state | route/query state |
-| `features/automation/Tasks.tsx` | `taskFilters` | Local UI/filter state | React local state |
-| `features/automation/Appointments.tsx` | `appointmentFilters` | Local UI/filter state | React local state |
-| `features/automation/Appointments.tsx` | `appointmentModal` | Modal UI state | route/query state |
-| `features/automation/AppointmentModal.tsx` | `appointmentModal` | Modal UI state | route/query state |
-| `features/automation` | rules/runs/approvals | Domain/service data | typed automation service/read models |
-| `features/intelligence` | Copilot tab, analysis, evidence, export | Local UI/composer state | feature-local React state and explicit service arguments |
+## Locked behavioral contracts
 
-## Required end state
+RevenueEvent truth, AttributionTouchpoint conservation, Pipeline and Weighted Pipeline formulas, Business-versus-Lead identity, duplicate gates, Discovery lifecycle, human-only outbound sending, Copilot insert-only behavior, Agent restrictions, Automation idempotency/approval/manual-only/loop guard rules, appointment relationships and overlap validation, Analytics truth, and Billing/revenue separation are preserved.
 
-Target runtime consumers must contain zero `getUiState`, `uiState`, `mockRecords`, `mockModel`, direct `domain/data.js`, and renamed mixed-state accessor usage. Domain records and mutations must remain behind stable typed services.
+## Final status
 
-## Locked contracts
-
-Conversation identity, read/unread behavior, retry semantics, human-only outbound sending, Copilot insert-only behavior, Agent proposal-versus-execution safety, automation idempotency and approval rules, `manual_only` semantics, task/appointment relationships, time validation, and overlap warnings must remain unchanged.
-
-No Backend, HTTP, fetch, Axios, real WhatsApp API, real OpenAI API, scheduler, worker, cron, webhook, redesign, or new product feature is permitted in this phase.
-
-## Prior completion retained
-
-FIX.2-A remains complete for AppShell, Sidebar, Topbar, Session, Workspace, Theme, Login, and Onboarding. FIX.2-B remains complete for Discovery, Intelligence, CRM, Lead 360, Deals, and Pipeline. The present audit is additive and records the next target scope only.
-
-## Verification requirements
-
-The final phase must run TypeScript, production build, V2-S0, architecture, React shell, S8/S9, FIX.2-C-specific checks, forbidden-identifier scans, and browser smoke checks for Inbox, Copilot, Agent, Automation, Tasks, and Appointments. Commit and push are allowed only when the file-specific acceptance gates pass.
+All prior fields are assigned to a new owner. No unresolved field remains.

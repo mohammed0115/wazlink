@@ -5,13 +5,16 @@
  * حساب أي رقم ولا تنفذ mutation على أي كيان. الإيراد من
  * `RevenueEvent.status = recognized` فقط، والإسناد لا يتجاوز مبلغ الحدث.
  */
-import {
-  ANALYTICS_REFERENCE_DATE as _refDate,
-  activeAnalyticsFilters,
-  analyticsMetricDefinitions as rawMetricDefs,
-  getAnalyticsFunnel,
-  getAnalyticsOptions,
-  getAnalyticsOverview,
+import { useState } from "react";
+import { analyticsService } from "@services";
+
+const {
+  referenceDate: _refDate,
+  activeFilters: activeAnalyticsFilters,
+  metricDefinitions: rawMetricDefs,
+  getFunnel: getAnalyticsFunnel,
+  getOptions: getAnalyticsOptions,
+  getOverview: getAnalyticsOverview,
   getAppointmentAnalytics,
   getAttributionTraces,
   getAutomationAnalytics,
@@ -21,11 +24,9 @@ import {
   getJobPerformance,
   getSourcePerformance,
   getTaskAnalytics,
-  normalizeAnalyticsContext,
-} from "@domain/analytics-engine.js";
-import {  getUiState } from "@services";
+  normalizeContext: normalizeAnalyticsContext,
+} = analyticsService as typeof analyticsService & Record<string, any>;
 import { go } from "../../shared/router/useHashRoute";
-import { notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { PageHead } from "../../shared/components/PageHead";
 import { exportAnalyticsCsv } from "./export";
@@ -40,15 +41,27 @@ const fmt = (value: unknown) =>
 const money = (value: unknown) => (value === null || value === undefined ? "—" : `${fmt(value)} ر.س`);
 const pct = (value: unknown) => (value === null || value === undefined ? "—" : `${fmt(value)}٪`);
 
-const context = () => normalizeAnalyticsContext(getUiState().analyticsContext);
+type AnalyticsDrilldown =
+  | { type: "metric"; metricId: string }
+  | { type: "funnel"; stageId: string }
+  | { type: "trace"; revenueId: string };
+
+const defaultAnalyticsContext = () => normalizeAnalyticsContext({}) as Row;
 const metric = (id: string) => metricDefinitions.find((item) => item.id === id);
+const drilldownRoute = (drilldown: AnalyticsDrilldown, ctx: Row) => {
+  const params = new URLSearchParams({ modal: drilldown.type, filters: JSON.stringify(ctx) });
+  if (drilldown.type === "metric") params.set("metricId", drilldown.metricId);
+  if (drilldown.type === "funnel") params.set("stageId", drilldown.stageId);
+  if (drilldown.type === "trace") params.set("revenueId", drilldown.revenueId);
+  return `analytics?${params.toString()}`;
+};
 
 const tabs: [string, string][] = [
   ["overview", "ملخص تنفيذي"], ["funnel", "قمع الاكتساب"], ["revenue", "الإيراد والإسناد"],
   ["sources", "المصادر والعمليات"], ["sales", "المبيعات"], ["ai", "الذكاء والتواصل"],
 ];
 
-function MetricCard({ id, value, unit = "number" }: { id: string; value: unknown; unit?: string }) {
+function MetricCard({ id, value, unit = "number", onDrilldown }: { id: string; value: unknown; unit?: string; onDrilldown: (id: string) => void }) {
   const definition = metric(id);
   const visible = unit === "money" ? money(value) : unit === "percent" ? pct(value) : fmt(value);
   return (
@@ -58,8 +71,7 @@ function MetricCard({ id, value, unit = "number" }: { id: string; value: unknown
       tabIndex={0}
       aria-label={`عرض تفاصيل ${definition?.label || id}`}
       onClick={() => {
-        getUiState().analyticsUi = { ...getUiState().analyticsUi, drilldown: { type: "metric", metricId: id } as never };
-        notifyStateChanged();
+        onDrilldown(id);
       }}
     >
       <span>{definition?.label || id}</span>
@@ -145,19 +157,18 @@ function funnelConversionCopy(stage: Row, index: number) {
 
 export function Analytics({ section = "overview" }: { section?: string }) {
   const toast = useToast();
-  const ctx = context();
+  const [ctx, setCtx] = useState<Row>(defaultAnalyticsContext);
   const options = getAnalyticsOptions() as Row;
   const chips = activeAnalyticsFilters(ctx) as Row[];
   const tab = tabs.some(([id]) => id === section) ? section : "overview";
 
   const setFilter = (key: string, value: string) => {
-    getUiState().analyticsContext = { ...getUiState().analyticsContext, [key]: value };
-    notifyStateChanged();
+    setCtx((current) => normalizeAnalyticsContext({ ...current, [key]: value }) as Row);
   };
-  const resetFilters = () => {
-    getUiState().analyticsContext = normalizeAnalyticsContext({});
-    notifyStateChanged();
-  };
+  const resetFilters = () => setCtx(defaultAnalyticsContext());
+  const onMetricDrilldown = (id: string) => go(drilldownRoute({ type: "metric", metricId: id }, ctx));
+  const onFunnelDrilldown = (stageId: string) => go(drilldownRoute({ type: "funnel", stageId }, ctx));
+  const onTraceDrilldown = (revenueId: string) => go(drilldownRoute({ type: "trace", revenueId }, ctx));
 
   const dateOptions: [string, string][] = [
     ["all", "كل الفترة التجريبية"], ["today", "اليوم"], ["last7", "آخر 7 أيام"],
@@ -265,17 +276,17 @@ export function Analytics({ section = "overview" }: { section?: string }) {
         )}
       </section>
 
-      {tab === "overview" && <Overview ctx={ctx} onReset={resetFilters} />}
-      {tab === "funnel" && <Funnel ctx={ctx} onReset={resetFilters} />}
-      {tab === "revenue" && <Revenue ctx={ctx} onReset={resetFilters} />}
+      {tab === "overview" && <Overview ctx={ctx} onReset={resetFilters} onMetricDrilldown={onMetricDrilldown} onFunnelDrilldown={onFunnelDrilldown} />}
+      {tab === "funnel" && <Funnel ctx={ctx} onReset={resetFilters} onFunnelDrilldown={onFunnelDrilldown} />}
+      {tab === "revenue" && <Revenue ctx={ctx} onReset={resetFilters} onTraceDrilldown={onTraceDrilldown} />}
       {tab === "sources" && <Sources ctx={ctx} onReset={resetFilters} />}
-      {tab === "sales" && <Sales ctx={ctx} />}
+      {tab === "sales" && <Sales ctx={ctx} onMetricDrilldown={onMetricDrilldown} />}
       {tab === "ai" && <AiAnalytics ctx={ctx} />}
     </>
   );
 }
 
-function Overview({ ctx, onReset }: { ctx: Row; onReset: () => void }) {
+function Overview({ ctx, onReset, onMetricDrilldown, onFunnelDrilldown }: { ctx: Row; onReset: () => void; onMetricDrilldown: (id: string) => void; onFunnelDrilldown: (id: string) => void }) {
   const overview = getAnalyticsOverview(ctx) as Row;
   const quality = getDataQuality(ctx) as Row;
   if (!overview.metrics.businessesDiscovered.value) return <EmptyState onReset={onReset} />;
@@ -283,12 +294,12 @@ function Overview({ ctx, onReset }: { ctx: Row; onReset: () => void }) {
   return (
     <>
       <section className="analytics-kpis">
-        <MetricCard id="revenue_total" value={overview.metrics.revenue.value} unit="money" />
-        <MetricCard id="attributed_revenue" value={overview.metrics.attributedRevenue.value} unit="money" />
-        <MetricCard id="open_pipeline" value={overview.metrics.openPipeline.value} unit="money" />
-        <MetricCard id="weighted_pipeline" value={overview.metrics.weightedPipeline.value} unit="money" />
-        <MetricCard id="won_deals" value={overview.metrics.wonDeals.value} />
-        <MetricCard id="leads_created" value={overview.metrics.leadsCreated.value} />
+        <MetricCard id="revenue_total" value={overview.metrics.revenue.value} unit="money" onDrilldown={onMetricDrilldown} />
+        <MetricCard id="attributed_revenue" value={overview.metrics.attributedRevenue.value} unit="money" onDrilldown={onMetricDrilldown} />
+        <MetricCard id="open_pipeline" value={overview.metrics.openPipeline.value} unit="money" onDrilldown={onMetricDrilldown} />
+        <MetricCard id="weighted_pipeline" value={overview.metrics.weightedPipeline.value} unit="money" onDrilldown={onMetricDrilldown} />
+        <MetricCard id="won_deals" value={overview.metrics.wonDeals.value} onDrilldown={onMetricDrilldown} />
+        <MetricCard id="leads_created" value={overview.metrics.leadsCreated.value} onDrilldown={onMetricDrilldown} />
       </section>
       <div className="analytics-split">
         <ReconciliationPanel revenue={overview.revenue} />
@@ -308,8 +319,7 @@ function Overview({ ctx, onReset }: { ctx: Row; onReset: () => void }) {
               key={stage.id}
               type="button"
               onClick={() => {
-                getUiState().analyticsUi = { ...getUiState().analyticsUi, drilldown: { type: "funnel", stageId: stage.id } as never };
-                notifyStateChanged();
+                onFunnelDrilldown(stage.id);
               }}
             >
               <span>{String(index + 1).padStart(2, "0")}</span>
@@ -326,7 +336,7 @@ function Overview({ ctx, onReset }: { ctx: Row; onReset: () => void }) {
   );
 }
 
-function Funnel({ ctx, onReset }: { ctx: Row; onReset: () => void }) {
+function Funnel({ ctx, onReset, onFunnelDrilldown }: { ctx: Row; onReset: () => void; onFunnelDrilldown: (id: string) => void }) {
   const funnel = getAnalyticsFunnel(ctx) as Row;
   if (!funnel.stages[0].count) return <EmptyState onReset={onReset} />;
   return (
@@ -344,8 +354,7 @@ function Funnel({ ctx, onReset }: { ctx: Row; onReset: () => void }) {
             <button
               type="button"
               onClick={() => {
-                getUiState().analyticsUi = { ...getUiState().analyticsUi, drilldown: { type: "funnel", stageId: stage.id } as never };
-                notifyStateChanged();
+                onFunnelDrilldown(stage.id);
               }}
             >
               <span>{index + 1}</span>
@@ -369,7 +378,7 @@ function Funnel({ ctx, onReset }: { ctx: Row; onReset: () => void }) {
   );
 }
 
-function Revenue({ ctx, onReset }: { ctx: Row; onReset: () => void }) {
+function Revenue({ ctx, onReset, onTraceDrilldown }: { ctx: Row; onReset: () => void; onTraceDrilldown: (id: string) => void }) {
   const revenue = (getAnalyticsOverview(ctx) as Row).revenue;
   const traces = getAttributionTraces(ctx) as Row[];
   if (!traces.length) return <EmptyState onReset={onReset} />;
@@ -416,11 +425,7 @@ function Revenue({ ctx, onReset }: { ctx: Row; onReset: () => void }) {
                       className="button compact"
                       type="button"
                       onClick={() => {
-                        getUiState().analyticsUi = {
-                          ...getUiState().analyticsUi,
-                          drilldown: { type: "trace", revenueId: trace.event.id } as never,
-                        };
-                        notifyStateChanged();
+                        onTraceDrilldown(trace.event.id);
                       }}
                     >
                       التتبع
@@ -514,7 +519,7 @@ function Sources({ ctx, onReset }: { ctx: Row; onReset: () => void }) {
   );
 }
 
-function Sales({ ctx }: { ctx: Row }) {
+function Sales({ ctx, onMetricDrilldown }: { ctx: Row; onMetricDrilldown: (id: string) => void }) {
   const overview = getAnalyticsOverview(ctx) as Row;
   const options = getAnalyticsOptions() as Row;
   const grouped: Record<string, Row[]> = {};
@@ -525,10 +530,10 @@ function Sales({ ctx }: { ctx: Row }) {
   return (
     <>
       <section className="analytics-kpis">
-        <MetricCard id="open_deals" value={overview.metrics.openDeals.value} />
-        <MetricCard id="open_pipeline" value={overview.metrics.openPipeline.value} unit="money" />
-        <MetricCard id="weighted_pipeline" value={overview.metrics.weightedPipeline.value} unit="money" />
-        <MetricCard id="won_deals" value={overview.metrics.wonDeals.value} />
+        <MetricCard id="open_deals" value={overview.metrics.openDeals.value} onDrilldown={onMetricDrilldown} />
+        <MetricCard id="open_pipeline" value={overview.metrics.openPipeline.value} unit="money" onDrilldown={onMetricDrilldown} />
+        <MetricCard id="weighted_pipeline" value={overview.metrics.weightedPipeline.value} unit="money" onDrilldown={onMetricDrilldown} />
+        <MetricCard id="won_deals" value={overview.metrics.wonDeals.value} onDrilldown={onMetricDrilldown} />
       </section>
 
       <section className="analytics-panel">

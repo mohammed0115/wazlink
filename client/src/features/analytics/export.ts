@@ -2,7 +2,9 @@
  * تصدير CSV محلي للتحليلات — S10.
  * يعيد صفوف الإسناد المشتقة فقط عبر Blob محلي؛ لا نقل بيانات إلى خدمة خارجية.
  */
-import { getAnalyticsExportRows } from "@domain/analytics-engine.js";
+import { analyticsService } from "@services";
+
+const getAnalyticsExportRows = analyticsService.getAnalyticsExportRows as (context: Record<string, unknown>) => unknown[];
 
 const quote = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
 

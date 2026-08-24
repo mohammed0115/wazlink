@@ -3,7 +3,6 @@
  * Replace this module with the composition root when remote services arrive.
  */
 export {
-  uiState,
   scraperCrmPackages,
   checkoutOffers,
   scraperExportColumns,
@@ -17,7 +16,6 @@ export {
   navItems,
   metrics,
   dashboardData,
-  mockRecords,
   getUpcomingActivities,
   getRevenueAttribution,
   getRevenueSummary,

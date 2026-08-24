@@ -5,7 +5,7 @@ type StateProps = {
 
 export function LoadingState({ title = "جار التحميل", description = "يرجى الانتظار لحظات." }: Partial<StateProps> = {}) {
   return (
-    <section className="placeholder-card getUiState()-card" role="status" aria-live="polite">
+    <section className="placeholder-card state-card" role="status" aria-live="polite">
       <span aria-hidden="true">…</span>
       <div>
         <h2>{title}</h2>
@@ -17,7 +17,7 @@ export function LoadingState({ title = "جار التحميل", description = "�
 
 export function EmptyState({ title, description }: StateProps) {
   return (
-    <section className="placeholder-card getUiState()-card" role="status">
+    <section className="placeholder-card state-card" role="status">
       <span aria-hidden="true">—</span>
       <div>
         <h2>{title}</h2>
@@ -29,7 +29,7 @@ export function EmptyState({ title, description }: StateProps) {
 
 export function ErrorState({ title = "تعذر تحميل الشاشة", description = "حدث خطأ غير متوقع. حاول فتح المسار مرة أخرى." }: Partial<StateProps> = {}) {
   return (
-    <section className="placeholder-card getUiState()-card" role="alert">
+    <section className="placeholder-card state-card" role="alert">
       <span aria-hidden="true">!</span>
       <div>
         <h2>{title}</h2>

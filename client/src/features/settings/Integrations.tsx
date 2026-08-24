@@ -5,9 +5,9 @@
  * لا OAuth ولا API keys ولا provider request ولا Webhook. تُحفظ
  * `hasConfiguredSecret` فقط ولا تُخزَّن أو تُعرض أي قيمة سرية.
  */
-import type { FormEvent } from "react";
-import { connectIntegrationMock, disconnectIntegrationMock, getIntegration, getIntegrationActivities, integrationStatusLabels as rawStatusLabels, retryIntegrationMock, updateIntegrationConfiguration, listIntegrations, getUiState } from "@services";
-import { mutate, notifyStateChanged } from "../../shared/store/appStore";
+import { useState, type FormEvent } from "react";
+import { connectIntegrationMock, disconnectIntegrationMock, getIntegration, getIntegrationActivities, integrationStatusLabels as rawStatusLabels, retryIntegrationMock, updateIntegrationConfiguration, listIntegrations } from "@services";
+import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { PageHead } from "../../shared/components/PageHead";
 import {
@@ -24,7 +24,7 @@ import {
 type Row = Record<string, any>;
 const integrationStatusLabels = rawStatusLabels as Record<string, string>;
 
-function IntegrationAction({ integration, toast }: { integration: Row; toast: (m: string, t?: any) => void }) {
+function IntegrationAction({ integration, toast, onOpen }: { integration: Row; toast: (m: string, t?: any) => void; onOpen: (id: string) => void }) {
   const act = (fn: () => unknown, message: string) => {
     mutate(fn);
     toast(message, "info");
@@ -57,8 +57,7 @@ function IntegrationAction({ integration, toast }: { integration: Row; toast: (m
         className="button"
         type="button"
         onClick={() => {
-          getUiState().s11Ui = { ...getUiState().s11Ui, integrationDetailId: integration.id };
-          notifyStateChanged();
+          onOpen(integration.id);
         }}
       >
         إعداد محلي
@@ -74,7 +73,8 @@ function IntegrationAction({ integration, toast }: { integration: Row; toast: (m
 
 export function Integrations() {
   const toast = useToast();
-  const selected = getIntegration(getUiState().s11Ui.integrationDetailId);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = getIntegration(selectedId);
 
   return (
     <div className="s11-workspace">
@@ -93,7 +93,7 @@ export function Integrations() {
         </span>
       </div>
 
-      {selected && <IntegrationDetail integration={selected} toast={toast} />}
+      {selected && <IntegrationDetail integration={selected} toast={toast} onClose={() => setSelectedId(null)} />}
 
       <section className="s11-integration-grid">
         {listIntegrations().map((integration: Row) => (
@@ -121,13 +121,12 @@ export function Integrations() {
                 className="button ghost"
                 type="button"
                 onClick={() => {
-                  getUiState().s11Ui = { ...getUiState().s11Ui, integrationDetailId: integration.id };
-                  notifyStateChanged();
+                  setSelectedId(integration.id);
                 }}
               >
                 التفاصيل
               </button>
-              <IntegrationAction integration={integration} toast={toast} />
+              <IntegrationAction integration={integration} toast={toast} onOpen={setSelectedId} />
             </footer>
           </article>
         ))}
@@ -136,7 +135,7 @@ export function Integrations() {
   );
 }
 
-function IntegrationDetail({ integration, toast }: { integration: Row; toast: (m: string, t?: any) => void }) {
+function IntegrationDetail({ integration, toast, onClose }: { integration: Row; toast: (m: string, t?: any) => void; onClose: () => void }) {
   const activities = getIntegrationActivities(integration.id) as Row[];
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -158,10 +157,7 @@ function IntegrationDetail({ integration, toast }: { integration: Row; toast: (m
           className="top-icon"
           type="button"
           aria-label="إغلاق التفاصيل"
-          onClick={() => {
-            getUiState().s11Ui = { ...getUiState().s11Ui, integrationDetailId: null };
-            notifyStateChanged();
-          }}
+          onClick={() => onClose()}
         >
           ×
         </button>
@@ -221,7 +217,7 @@ function IntegrationDetail({ integration, toast }: { integration: Row; toast: (m
       </section>
 
       <footer>
-        <IntegrationAction integration={integration} toast={toast} />
+        <IntegrationAction integration={integration} toast={toast} onOpen={() => undefined} />
         <small>لا يبدأ هذا الإجراء إدارة العملاء أو صندوق الوارد أو حدث إيراد ولا يرسل أي طلب شبكة.</small>
       </footer>
     </section>

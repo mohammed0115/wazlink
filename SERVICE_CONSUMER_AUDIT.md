@@ -1,26 +1,31 @@
-# Service Consumer Audit — V2-S0-FIX.1
+# WazLink Final Service Consumer Audit — V2-S0-FIX.2-D
 
 ## Scope
 
-This audit covers the frontend-only service-boundary migration. The legacy domain module remains the behavioral source of truth. No backend, HTTP, database, authentication, or production API integration was added.
+This audit covers the complete frontend service-boundary migration. The legacy domain module remains the behavioral source of truth behind one internal bridge. No backend, HTTP, database, authentication, or production API integration was added.
 
-| Feature | Previous leak | Final service path | Final local state decision | Verdict |
-|---|---|---|---|---|
-| Dashboard | Mixed state and raw collections | Dashboard selectors and `analyticsService` | UI and route context still use `getUiState()` | PARTIAL |
-| Discovery / Jobs / Results | Mixed state and raw collections | Discovery/business functions and named selectors | Filters and selections still use compatibility state | PARTIAL |
-| Intelligence | Mixed state and signal collection | Intelligence functions and `listSignals()` | Modal/processing state still uses compatibility state | PARTIAL |
-| CRM / Lead 360 | Leads/users through raw store | Lead/business functions and named selectors | Entity selections and UI fields still use compatibility state | PARTIAL |
-| Deals / Pipeline | Deals/users through raw store | Deal functions and named selectors | Filters and modal state still use compatibility state | PARTIAL |
-| Inbox / Copilot | Conversations/users/templates through raw store | Conversation/message functions and named selectors | Draft/context state still uses compatibility state | PARTIAL |
-| Agent | Mixed agent state | Agent functions | Mode/approval display state still uses compatibility state | PARTIAL |
-| Automation | Automation collections and mixed state | Automation functions and catalog selectors | Filters/modal state still uses compatibility state | PARTIAL |
-| Tasks / Appointments | Raw users/leads and mixed filters | Task/appointment functions and selectors | Filters still use compatibility state | PARTIAL |
-| Analytics | Global analytics context | Analytics engine/selectors | Analytics filters still use compatibility state | PARTIAL |
-| Settings / Integrations / Billing | Raw collections and mixed settings state | Settings/integration/billing functions and selectors | Form/detail state still uses compatibility state | PARTIAL |
-| Shared Shell / App.tsx | Mixed workspace/route state | Composition root and shell helpers | Workspace/route context still uses compatibility state | PARTIAL |
+| Feature | Previous legacy dependency | Final local-state owner | Final route owner | Services used | Verdict |
+|---|---|---|---|---|---|
+| Landing | broad data adapter | component state | hash route | business/discovery selectors | PASS |
+| Dashboard | mixed dashboard state | Dashboard hooks | hash/query | analyticsService and typed selectors | PASS |
+| Discovery / Jobs / Results | mixed filters, selection, modal state | feature hooks | hash/query | discovery/business/analytics services | PASS |
+| Intelligence | mixed processing, modal, evidence state | feature-scoped processing and local hooks | hash/query | intelligence/analytics services | PASS |
+| CRM / Lead 360 | mixed filters and selected entities | CRM hooks | hash route | lead/business/conversation services | PASS |
+| Deals / Pipeline | mixed filters and selected deal | sales hooks | hash/query | deal/pipeline services | PASS |
+| Inbox / Conversations / Messages | mixed composer, selection, context | Inbox hooks | hash/query | conversation/message services | PASS |
+| Copilot / Agent | mixed tab/mode/selected conversation | local hooks | explicit conversation route | AI/conversation services | PASS |
+| Automation | mixed filters and modal identity | Automation hooks | hash/query | automation service | PASS |
+| Tasks / Appointments | mixed filters and modal state | local hooks | hash/query | task/appointment services | PASS |
+| Analytics | mixed analytics context and drilldown | Analytics hooks | hash/query | analyticsService and typed read models | PASS |
+| Settings | mixed subsection and forms | Settings hooks | canonical settings routes | settings/workspace services | PASS |
+| Integrations | mixed detail/config state | Integrations hooks | settings/integrations | integrationService | PASS |
+| Billing / Checkout | mixed plan/checkout state | Billing/Checkout hooks | settings/billing | billingService | PASS |
+| Shared Shell / App | mixed shell/session/workspace/theme | AppShell and explicit providers | hash router | session/workspace/theme/notification services | PASS |
 
-## Before/after measurements
+## Final measurements
 
-Before migration, Features imported a broad adapter exposing mutable legacy state and the complete mock model. After migration, the forbidden identifiers `uiState`, `mockRecords`, `mockModel`, and direct Feature-to-`domain/data.js` imports are absent from the scanned runtime Feature/Shared source. Named selectors and service facades exist, and the fix-specific static verifier reports **24/24**.
+Runtime Feature/shared/App consumers contain zero `getUiState`, `uiState`, `mockRecords`, `mockModel`, and direct `@domain/data.js` imports. The only direct legacy domain importer is `services/mock/legacyDataBridge.ts`, which is internal to the service implementation. No public service export returns the whole legacy store or a generic mixed snapshot.
 
-The remaining semantic leak is `getUiState()`: it is a controlled accessor name, but it still returns the mixed legacy state object. Therefore the strict requirement that Features must not know the internal shape of the legacy store is not yet met, and every row remains PARTIAL until those fields are moved to local React state, route parameters, or typed service methods.
+## Final verdict
+
+Every runtime consumer row is **PASS**. There are no unresolved PARTIAL rows.

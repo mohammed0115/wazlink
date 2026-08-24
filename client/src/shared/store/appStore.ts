@@ -1,53 +1,34 @@
 /**
- * جسر الحالة بين React وطبقة النطاق القائمة.
+ * React mutation notifier.
  *
- * لا يعيد هذا الملف تعريف مصدر الحقيقة. يبقى `getUiState()` و`mockRecords` في
- * `client/js/data.js` كما هما — نفس الكائن القابل للتغيير الذي تستخدمه
- * كل الـdomain functions وكل فحوص `scripts/verify-*.mjs`.
- *
- * الفارق الوحيد عن نسخة Vanilla أن `render()` اليدوية استُبدلت باشتراك
- * `useSyncExternalStore`: أي mutation يمر عبر `mutate()` يرفع رقم إصدار
- * فتعيد React رسم ما يعتمد عليه فقط.
+ * Domain mutations remain explicit service/domain operations. This module only
+ * tells React consumers that a mock-only mutation completed; it does not expose
+ * or mirror the legacy store shape.
  */
-import { useCallback, useSyncExternalStore } from "react";
-import {  getUiState } from "@services";
+import { useCallback } from "react";
 
 type Listener = () => void;
 
 const listeners = new Set<Listener>();
 let version = 0;
 
-function subscribe(listener: Listener): () => void {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
-
-function getVersion(): number {
-  return version;
-}
-
-/** إشعار صريح بأن الحالة المشتركة تغيرت خارج `mutate()`. */
+/** إشعار صريح بأن حالة mock تغيّرت خارج mutate(). */
 export function notifyStateChanged(): void {
   version += 1;
   listeners.forEach((listener) => listener());
 }
 
-/**
- * ينفذ mutation على مصدر الحقيقة المشترك ثم يعيد الرسم.
- * يقابل نمط `domainFunction(); render();` في نسخة Vanilla.
- */
+/** ينفذ mutation صريحًا ثم يخطر React بإعادة الرسم. */
 export function mutate<T>(run: () => T): T {
   const result = run();
   notifyStateChanged();
   return result;
 }
 
-/** يشترك في إصدار الحالة المشتركة ويعيد الكائن نفسه (قابل للتغيير عمدًا). */
-export function useAppState(): ReturnType<typeof getUiState> {
-  useSyncExternalStore(subscribe, getVersion, getVersion);
-  return getUiState();
+/** تسجيل مستمع اختياري للتكاملات التي تحتاج إشعارًا منخفض المستوى. */
+export function subscribeToMutations(listener: Listener): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
 }
 
 /** يعيد دالة mutate ثابتة المرجع لاستخدامها داخل معالجات الأحداث. */
@@ -55,11 +36,4 @@ export function useMutate(): typeof mutate {
   return useCallback(mutate, []);
 }
 
-/**
- * يضبط حقلًا واحدًا في الحالة المشتركة ثم يعيد الرسم.
- * مخصص لحالة الواجهة (فلاتر، تحديد، نوافذ) لا لكيانات النطاق.
- */
-export function setUiState<K extends keyof ReturnType<typeof getUiState>>(key: K, value: ReturnType<typeof getUiState>[K]): void {
-  getUiState()[key] = value;
-  notifyStateChanged();
-}
+void version;

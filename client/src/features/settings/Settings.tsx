@@ -4,10 +4,10 @@
  * إدارة محلية للهوية والفريق والتفضيلات. لا مصادقة ولا OAuth ولا إرسال بريد،
  * ويعاد استخدام `User` و`Team` القائمين بلا قاعدة مستخدمين ثانية.
  */
-import type { FormEvent } from "react";
-import { createTeamInvitation, getCurrentWorkspaceUser, getNotificationPreferences, getSecuritySettings, getSettingsActivities, getTeamInvitations, getWorkspace, notificationCategoryLabels as rawCategories, notificationChannelLabels as rawChannels, setNotificationPreference, setTeamMemberStatus, updateCurrentUserSettings, updateSecuritySettings, updateWorkspaceSettings, workspaceCurrencies, workspaceLocales, workspaceTimezones, listUsers, getUiState } from "@services";
+import { useState, type FormEvent } from "react";
+import { createTeamInvitation, getCurrentWorkspaceUser, getNotificationPreferences, getSecuritySettings, getSettingsActivities, getTeamInvitations, getWorkspace, notificationCategoryLabels as rawCategories, notificationChannelLabels as rawChannels, setNotificationPreference, setTeamMemberStatus, updateCurrentUserSettings, updateSecuritySettings, updateWorkspaceSettings, workspaceCurrencies, workspaceLocales, workspaceTimezones, listUsers } from "@services";
 import { go } from "../../shared/router/useHashRoute";
-import { mutate, notifyStateChanged } from "../../shared/store/appStore";
+import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { PageHead } from "../../shared/components/PageHead";
 import { AuditList, GovernanceRail, fmtDate, settingsSections } from "./shared";
@@ -35,12 +35,10 @@ function OptionRows({ items }: { items: readonly (string | Row)[] }) {
 
 export function Settings({ section }: { section?: string }) {
   const toast = useToast();
-  const active = section || getUiState().s11Ui.settingsSection || "workspace";
+  const [localSection, setLocalSection] = useState("workspace");
+  const active = section || localSection;
 
-  const setSection = (id: string) => {
-    getUiState().s11Ui = { ...getUiState().s11Ui, settingsSection: id };
-    notifyStateChanged();
-  };
+  const setSection = (id: string) => setLocalSection(id);
 
   return (
     <div className="s11-workspace">

@@ -45,7 +45,11 @@ check("F3a Feature imports avoid raw uiState alias", !/\buiState\b/.test(feature
 check("F3b Feature imports avoid raw mockRecords alias", !/\bmockRecords\b/.test(featureText));
 check("F3c shell/session/App getUiState usage is zero", !/\bgetUiState\s*\(/.test(scopedText));
 check("F3d no renamed mixed-state accessor", !/\b(getAppState|getLegacyState|getViewState|getRuntimeState|getStore|getSnapshot)\s*\(/.test(scopedText));
-check("F3e overall getUiState count is reported", (featureText.match(/\bgetUiState\s*\(/g) || []).length >= 0);
+check("F3e global runtime getUiState is zero", !/\bgetUiState\s*\(/.test(featureText));
+check("F3i global runtime uiState is zero", !/\buiState\b/.test(featureText));
+check("F3j global runtime mockRecords is zero", !/\bmockRecords\b/.test(featureText));
+check("F3k global runtime mockModel is zero", !/\bmockModel\b/.test(featureText));
+check("F3l direct feature/shared/App domain import is zero", !/from\s+["']@domain\/data\.js["']/.test(featureText));
 check("F3f FIX.2-C target getUiState usage is zero", !/\bgetUiState\s*\(/.test(targetText));
 check("F3g FIX.2-C target raw aliases are zero", !/\b(uiState|mockRecords|mockModel)\b/.test(targetText));
 check("F3h FIX.2-C target has no renamed mixed-state accessor", !/\b(getInboxState|getAutomationState|getAiState|getMessagingStore|getAgentStore)\s*\(/.test(targetText));
@@ -55,7 +59,10 @@ check("F6 composition root exists", fs.existsSync(path.join(src, "services", "in
 const contracts = text(path.join(src, "services", "contracts", "services.ts"));
 for (const name of ["BusinessService", "LeadService", "DealService", "ConversationService", "MessageService", "TaskService", "AppointmentService", "AnalyticsService", "AutomationService", "SettingsService", "IntegrationService", "BillingService", "AppServiceError"]) check(`C-${name}`, contracts.includes(`interface ${name}`));
 check("F7 services expose async Promise methods", contracts.includes("Promise"));
-check("F8 public service API has no legacy state names", !/\b(state|mockModel)\b/.test(text(path.join(src, "services", "data.ts"))));
+const dataFacade = text(path.join(src, "services", "data.ts"));
+const serviceRoot = text(path.join(src, "services", "index.ts"));
+check("F8 public service API has no legacy state names", !/\b(state|mockModel|uiState|mockRecords|getUiState)\b/.test(dataFacade) && !/export\s*\{[^}]*\b(state|mockModel|uiState|mockRecords|getUiState)\b/s.test(serviceRoot));
+check("F8a service root has no generic mixed-state export", !/export\s+(const|function)\s+(getAppSnapshot|getLegacyContext|getRuntimeState|getMixedState|getGlobalStore|appState|legacyState|runtimeState)\b/.test(serviceRoot));
 check("F9 repository contracts are exported by root", /contracts\/repositories|contracts\/services/.test(text(path.join(src, "services", "index.ts"))));
 for (const result of checks) console.log(`${result.pass ? "PASS" : "FAIL"} ${result.id}${result.detail ? ` — ${result.detail}` : ""}`);
 const passed = checks.filter((item) => item.pass).length;

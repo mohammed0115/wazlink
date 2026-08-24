@@ -5,9 +5,8 @@
  * بلغة «wazlink» ونظام تصميمها. لا Google Maps API ولا scraping ولا credits حقيقية.
  */
 import { useState } from "react";
-import {  getUiState } from "@services";
+import { getDiscoveryDraftSnapshot, updateDiscoveryDraft } from "@services";
 import { go } from "../../shared/router/useHashRoute";
-import { notifyStateChanged } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 
 const sampleLines = "عيادات أسنان | الرياض\nمراكز علاج طبيعي | جدة\nمراكز عناية | الخبر";
@@ -50,6 +49,7 @@ export function ScraperReferenceHero() {
 export function ScraperReferenceImport() {
   const toast = useToast();
   const [value, setValue] = useState(sampleLines);
+  const [draft, setDraft] = useState(getDiscoveryDraftSnapshot);
 
   function importQueries() {
     const lines = value.split(/\n+/).map((line) => line.trim()).filter(Boolean);
@@ -62,13 +62,12 @@ export function ScraperReferenceImport() {
       return;
     }
 
-    for (const [keyword, location] of parsed) {
-      if (!getUiState().discoveryDraft.keywords.includes(keyword)) getUiState().discoveryDraft.keywords.push(keyword);
-      if (!getUiState().discoveryDraft.locations.includes(location)) getUiState().discoveryDraft.locations.push(location);
-    }
+    const keywords = [...new Set([...draft.keywords, ...parsed.map(([keyword]) => keyword)])];
+    const locations = [...new Set([...draft.locations, ...parsed.map(([, location]) => location)])];
+    const nextDraft = updateDiscoveryDraft({ keywords, locations });
+    setDraft(nextDraft);
 
     toast(`أُضيفت ${parsed.length} استعلامات محلية إلى عملية الاكتشاف.`, "success");
-    notifyStateChanged();
   }
 
   return (

@@ -1,21 +1,31 @@
-# Feature Service Matrix — V2-S0-FIX.1
+# WazLink Final Feature Service Matrix — V2-S0-FIX.2-D
 
-| Feature | Previous leak | Final service / selector path | Final local-state decision | Direct `domain/data.js` | Strict verdict |
-|---|---|---|---|---:|---|
-| Landing | broad adapter | Landing selectors and composition root | No mixed state access | NO | PASS |
-| Dashboard | `uiState`, mixed dashboard state | `analyticsService`, dashboard selectors | Compatibility accessor remains | NO | PARTIAL |
-| Discovery / Jobs / Results | `uiState`, raw result collections | Discovery functions, business selectors, named list selectors | Route/filter state remains compatibility-backed | NO | PARTIAL |
-| Intelligence | `uiState`, signals collection | Intelligence functions, `listSignals()` | Processing/modal state remains compatibility-backed | NO | PARTIAL |
-| CRM / Lead 360 | `uiState`, leads/users collections | Lead/business functions, `listLeads()`, `listUsers()` | Entity selection remains compatibility-backed | NO | PARTIAL |
-| Deals / Pipeline | `uiState`, deals/users collections | Deal functions, `listDeals()`, `listUsers()` | Filters/modal selection remain compatibility-backed | NO | PARTIAL |
-| Inbox / Copilot | `uiState`, conversation/users/templates collections | Conversation/message functions, named selectors | Draft/context state remains compatibility-backed | NO | PARTIAL |
-| Agent | `uiState` | Agent functions and service root | Agent mode remains compatibility-backed | NO | PARTIAL |
-| Automation | `uiState`, automation collections | Automation functions and automation catalog selectors | Filters/modal state remains compatibility-backed | NO | PARTIAL |
-| Tasks / Appointments | `uiState`, users/leads collections | Task/appointment functions, named selectors | Filters remain compatibility-backed | NO | PARTIAL |
-| Analytics | `uiState` analytics context | Analytics engine and selectors | Filters remain compatibility-backed | NO | PARTIAL |
-| Settings / Integrations / Billing | `uiState`, raw plan/integration collections | Settings/integration/billing functions and named selectors | Form/detail state remains compatibility-backed | NO | PARTIAL |
-| Shared Shell / App.tsx | mixed legacy state | local shell helpers plus composition root | Workspace/route context still compatibility-backed | NO | PARTIAL |
+All runtime Feature/shared/App rows are **PASS**. No row is PARTIAL. UI state is local React state or route/hash/query state; domain reads and mutations cross explicit service/selector boundaries.
 
-## Acceptance
+| Feature | UI state owner | Route owner | Services/selectors | Verdict |
+|---|---|---|---|---|
+| Landing | local component state | hash route | business/discovery services | PASS |
+| Dashboard | Dashboard local state | hash/query | analyticsService, automation/inbox selectors | PASS |
+| Discovery | local draft/filter state | hash/query | business/discovery services | PASS |
+| Jobs | local filters | hash/query | discovery service | PASS |
+| Results | local selection/export state | hash/query | discovery/analytics services | PASS |
+| Intelligence | local mode/processing state | hash/query | intelligence/analytics services | PASS |
+| CRM | local filters/view state | hash/query | leadService/business service | PASS |
+| Lead 360 | local view state | hash route | lead/deal/conversation services | PASS |
+| Deals | local filters | hash/query | dealService | PASS |
+| Pipeline | local interaction state | hash/query | deal/pipeline selectors | PASS |
+| Inbox | local composer/filter/context state | hash/query | conversationService/messageService | PASS |
+| Copilot | local tab/mode state | explicit conversation route | conversation/message services | PASS |
+| Agent | local mode state | route context | explicit agent/approval boundaries | PASS |
+| Automation | local filters/modal state | hash/query | automation service | PASS |
+| Tasks | local filters | route context | task service | PASS |
+| Appointments | local filters/modal state | hash/query | appointment service | PASS |
+| Analytics | local filters/drilldown state | hash/query | analyticsService/read selectors | PASS |
+| Settings | local subsection/form state | canonical settings routes | settings/workspace services | PASS |
+| Integrations | local selection/config state | settings/integrations | integrationService | PASS |
+| Billing | local plan/preview/confirmation state | settings/billing | billingService | PASS |
+| Shared Shell/App | AppShell local drawer; providers own session/workspace/theme | hash router | session/workspace/theme/notification services | PASS |
 
-The static identifier and composition checks pass **24/24**, but strict semantic acceptance remains **FAILED** because `getUiState()` still exposes the mixed legacy state shape to many consumers. No PARTIAL row may be accepted for CTO sign-off.
+## Final status
+
+`getUiState`, `uiState`, `mockRecords`, and `mockModel` are absent from runtime Feature/shared/App consumers. The only direct legacy domain importer is the internal controlled bridge. No Backend or production integration is included.
