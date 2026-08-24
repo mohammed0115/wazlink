@@ -83,6 +83,23 @@ check("F16 Features remove raw collection imports", !/import\s*\{[^}]*\b(busines
 check("F17 Features remove mock Checkout imports", !/import\s*\{[^}]*\b\w*MockCheckout\b[^}]*\}\s*from\s*[\"']@services[\"']/s.test(featureText));
 check("F18 composition root uses explicit facade export", !/export\s+\*\s+from\s+[\"']\.\/data[\"']/.test(serviceRoot));
 for (const name of ["activities", "invoices", "paymentMethods", "startCheckout", "getCheckout", "updateCheckoutInvoice", "continueCheckoutPayment", "confirmCheckout", "failCheckout", "cancelCheckout"]) check(`B-${name} Billing contract`, contracts.includes(`${name}`));
+const targetServiceConsumers = [
+  ["Dashboard", path.join(src, "features", "dashboard", "Dashboard.tsx"), "dashboardService"],
+  ["Discovery", path.join(src, "features", "discovery", "DiscoveryJobs.tsx"), "discoveryService"],
+  ["CRM", path.join(src, "features", "crm", "Crm.tsx"), "crmService"],
+  ["Pipeline", path.join(src, "features", "sales", "Pipeline.tsx"), "pipelineService"],
+  ["Messaging", path.join(src, "features", "inbox", "Inbox.tsx"), "messagingService"],
+  ["Automation", path.join(src, "features", "automation", "Automation.tsx"), "automationFeatureService"],
+  ["Settings", path.join(src, "features", "settings", "Settings.tsx"), "settingsFeatureService"],
+  ["Integrations", path.join(src, "features", "settings", "Integrations.tsx"), "integrationFeatureService"],
+];
+for (const [name, file, service] of targetServiceConsumers) {
+  const source = text(file);
+  check(`G-${name} Feature imports typed service instance`, source.includes(service) && (source.includes('from "@services"') || source.includes("from '@services'")));
+}
+for (const service of ["dashboardService", "discoveryService", "crmService", "pipelineService", "messagingService", "automationFeatureService", "settingsFeatureService", "integrationFeatureService"]) {
+  check(`G-${service} composition adapter contract-checked`, new RegExp(`export const ${service} = [\\s\\S]*?satisfies`).test(serviceRoot));
+}
 for (const result of checks) console.log(`${result.pass ? "PASS" : "FAIL"} ${result.id}${result.detail ? ` — ${result.detail}` : ""}`);
 const passed = checks.filter((item) => item.pass).length;
 console.log(`V2-S0-FIX static verification: ${passed}/${checks.length}`);

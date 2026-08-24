@@ -1,6 +1,7 @@
+import { appointmentService, crmService } from "@services";
 /** المواعيد — S9. مواعيد محلية قابلة للمراجعة؛ لا تقويم خارجي ولا مزامنة. */
 import { useState } from "react";
-import { appointmentLocationLabels as rawLocation, appointmentStatusLabels as rawStatus, appointmentTypeLabels as rawType, getAppointments, getLead, listUsers } from "@services";
+import { appointmentLocationLabels as rawLocation, appointmentStatusLabels as rawStatus, appointmentTypeLabels as rawType, listUsers } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { PageHead } from "../../shared/components/PageHead";
 
@@ -15,7 +16,7 @@ const formatDateTime = (value?: string) =>
 const userLabel = (id: string) => listUsers().find((user: Row) => user.id === id)?.name || "—";
 
 export function Appointments() {
-  const appointments = getAppointments() as Row[];
+  const appointments = appointmentService.getAppointments() as Row[];
   const [filters, setFilters] = useState({ status: "all", ownerId: "all", type: "all" });
 
   const setFilter = (key: string, value: string) => {
@@ -65,7 +66,7 @@ export function Appointments() {
         <div className="s9-appointment-list">
           {appointments.length ? (
             appointments.map((appointment) => {
-              const lead = getLead(appointment.leadId);
+              const lead = crmService.getLead(appointment.leadId);
               return (
                 <article key={appointment.id}>
                   <div className="s9-appointment-time">

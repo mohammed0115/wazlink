@@ -1,3 +1,4 @@
+import { discoveryService } from "@services";
 /**
  * نتائج + ذكاء الفرص — S4.
  *
@@ -6,7 +7,7 @@
  * حالتها `completed` وفق عقد S3.
  */
 import { useState } from "react";
-import { getDiscoveryJob, getDiscoverySource, getResultFiltersSnapshot, getScraperExportColumnsSnapshot, scraperCrmPackages, scraperExportColumns } from "@services";
+import { getDiscoveryJob, getResultFiltersSnapshot, getScraperExportColumnsSnapshot, scraperCrmPackages, scraperExportColumns } from "@services";
 import { SCORING_VERSION, getBusinessIntelligence, getIntelligenceSummary } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { useToast } from "../../shared/store/toast";
@@ -17,7 +18,7 @@ import { AnalysisStatusBadge, DecisionRail, Mono, ScoreDisplay, fmt, percent } f
 type Record_ = Record<string, any>;
 
 function filteredRecords(jobId: string, filters: Record<string, any>): Record_[] {
-  const job = getDiscoveryJob(jobId);
+  const job = discoveryService.getDiscoveryJob(jobId);
   const records = (job?.resultBusinessIds || []).map(getBusinessIntelligence).filter(Boolean) as Record_[];
 
   const rows = records.filter((record) => {
@@ -57,7 +58,7 @@ function filteredRecords(jobId: string, filters: Record<string, any>): Record_[]
 
 export function DiscoveryResults({ jobId }: { jobId: string }) {
   const toast = useToast();
-  const job = getDiscoveryJob(jobId);
+  const job = discoveryService.getDiscoveryJob(jobId);
 
   if (!job) {
     return (
@@ -150,7 +151,7 @@ export function DiscoveryResults({ jobId }: { jobId: string }) {
         </span>
       </div>
 
-      <DecisionRail stage="results" job={job} source={getDiscoverySource(job.sourceId)} />
+      <DecisionRail stage="results" job={job} source={discoveryService.getDiscoverySource(job.sourceId)} />
 
       <section className="s4-opportunity-summary" aria-label="ملخص ذكاء النتائج">
         <article><span>ملخص Job</span><b>{fmt(job.deduplicatedCount)}</b><small>نتيجة نهائية في العملية</small></article>

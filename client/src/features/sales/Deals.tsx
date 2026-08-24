@@ -1,10 +1,11 @@
+import { pipelineService } from "@services";
 /**
  * الصفقات — S6.
  * منقولة عن `renderDeals()`: 10 فلاتر وجدول تشغيلي.
  * القيمة المرجحة = القيمة × احتمال الصفقة ÷ 100 وفق `ENTITY_MODEL §8`.
  */
 import { useState } from "react";
-import { getDealBusiness, getDealFiltersSnapshot, getDealLead, getDealProbability, getDealStage, getPipelineMetrics, getPipelineStageSummary, listUsers, listDeals } from "@services";
+import { getDealBusiness, listUsers } from "@services";
 import { getBusinessIntelligence, tierLabels as rawTiers } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { PageHead } from "../../shared/components/PageHead";
@@ -14,22 +15,22 @@ const tierLabels = rawTiers as Record<string, string>;
 type Row = Record<string, any>;
 
 function dealRecord(deal: Row): Row {
-  const business = getDealBusiness(deal);
+  const business = pipelineService.getDealBusiness(deal);
   return {
     deal,
-    lead: getDealLead(deal),
+    lead: pipelineService.getDealLead(deal),
     business,
-    stage: getDealStage(deal),
+    stage: pipelineService.getDealStage(deal),
     intelligence: business ? getBusinessIntelligence(business.id) : null,
   };
 }
 
 function dealRows(filters: Record<string, string>): Row[] {
-  return listDeals()
+  return pipelineService.listDeals()
     .map(dealRecord)
     .filter((row: Row) => {
       const text = `${row.deal.title} ${row.deal.id} ${row.lead?.id || ""} ${row.business?.name || ""} ${row.business?.city || ""}`.toLowerCase();
-      const probability = getDealProbability(row.deal);
+      const probability = pipelineService.getDealProbability(row.deal);
       return (
         (!filters.search || text.includes(filters.search.toLowerCase())) &&
         (filters.pipelineId === "all" || row.deal.pipelineId === filters.pipelineId) &&
@@ -48,8 +49,8 @@ function dealRows(filters: Record<string, string>): Row[] {
     .sort((a: Row, b: Row) => {
       if (filters.sort === "value") return b.deal.value - a.deal.value;
       if (filters.sort === "weighted")
-        return b.deal.value * getDealProbability(b.deal) - a.deal.value * getDealProbability(a.deal);
-      if (filters.sort === "probability") return getDealProbability(b.deal) - getDealProbability(a.deal);
+        return b.deal.value * pipelineService.getDealProbability(b.deal) - a.deal.value * pipelineService.getDealProbability(a.deal);
+      if (filters.sort === "probability") return pipelineService.getDealProbability(b.deal) - pipelineService.getDealProbability(a.deal);
       if (filters.sort === "close") return String(a.deal.expectedCloseAt).localeCompare(String(b.deal.expectedCloseAt));
       if (filters.sort === "lastActivity") return String(b.deal.lastActivityAt).localeCompare(String(a.deal.lastActivityAt));
       return String(b.deal.updatedAt).localeCompare(String(a.deal.updatedAt));
@@ -57,11 +58,11 @@ function dealRows(filters: Record<string, string>): Row[] {
 }
 
 export function Deals() {
-  const [filters, setFilters] = useState<Record<string, string>>(() => getDealFiltersSnapshot());
+  const [filters, setFilters] = useState<Record<string, string>>(() => pipelineService.getDealFiltersSnapshot());
   const rows = dealRows(filters);
-  const metrics = getPipelineMetrics();
-  const stages = getPipelineStageSummary("PIPE-1001").map(({ stage }: Row) => stage);
-  const jobIds = [...new Set(listDeals().map((deal: Row) => getDealLead(deal)?.sourceJobId).filter(Boolean))] as string[];
+  const metrics = pipelineService.getPipelineMetrics();
+  const stages = pipelineService.getPipelineStageSummary("PIPE-1001").map(({ stage }: Row) => stage);
+  const jobIds = [...new Set(pipelineService.listDeals().map((deal: Row) => pipelineService.getDealLead(deal)?.sourceJobId).filter(Boolean))] as string[];
 
   const setFilter = (key: string, value: string) => {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -207,8 +208,8 @@ export function Deals() {
                     <td><span className={`status ${statusTone(deal.status)}`}>{stage?.name || "—"}</span></td>
                     <td><b>{money(deal.value)}</b><small>SAR</small></td>
                     <td>
-                      <b className="s6-probability">{getDealProbability(deal)}%</b>
-                      <small>مرجح {money((deal.value * getDealProbability(deal)) / 100)}</small>
+                      <b className="s6-probability">{pipelineService.getDealProbability(deal)}%</b>
+                      <small>مرجح {money((deal.value * pipelineService.getDealProbability(deal)) / 100)}</small>
                     </td>
                     <td>{ownerName(deal.ownerId)}</td>
                     <td>{dateLabel(deal.expectedCloseAt)}</td>

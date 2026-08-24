@@ -1,3 +1,4 @@
+import { pipelineService, crmService } from "@services";
 /**
  * تفاصيل الصفقة — S6.
  *
@@ -5,7 +6,7 @@
  * **لا** يضيف `RevenueEvent` ولا `AttributionTouchpoint`.
  */
 import type { FormEvent } from "react";
-import { getDeal, getDealActivities, getDealBusiness, getDealLead, getDealProbability, getDealStage, getLeadActivitySummary, isDealProbabilityManual, updateDeal, listUsers } from "@services";
+import { isDealProbabilityManual, listUsers } from "@services";
 import { getBusinessIntelligence, tierLabels as rawTiers } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate } from "../../shared/store/appStore";
@@ -23,7 +24,7 @@ const timelineIcons: Record<string, string> = {
 
 export function Deal360({ dealId }: { dealId: string }) {
   const toast = useToast();
-  const deal = getDeal(dealId);
+  const deal = pipelineService.getDeal(dealId);
 
   if (!deal) {
     return (
@@ -40,12 +41,12 @@ export function Deal360({ dealId }: { dealId: string }) {
     );
   }
 
-  const lead = getDealLead(deal);
-  const business = getDealBusiness(deal);
-  const stage = getDealStage(deal);
+  const lead = pipelineService.getDealLead(deal);
+  const business = pipelineService.getDealBusiness(deal);
+  const stage = pipelineService.getDealStage(deal);
   const intelligence = business ? (getBusinessIntelligence(business.id) as any) : null;
-  const activity = lead ? getLeadActivitySummary(lead.id) : null;
-  const activities = getDealActivities(deal.id);
+  const activity = lead ? crmService.getLeadActivitySummary(lead.id) : null;
+  const activities = pipelineService.getDealActivities(deal.id);
   const open = deal.status === "open";
   const manualProbability = isDealProbabilityManual(deal);
   const gaps = intelligence?.reasons?.map((reason: any) => reason.value).join(" · ") || "لا توجد فجوة مثبتة";
@@ -55,7 +56,7 @@ export function Deal360({ dealId }: { dealId: string }) {
     const data = new FormData(event.currentTarget);
     const probabilityValue = String(data.get("probability") || "default");
     const result = mutate(() =>
-      updateDeal(deal.id, {
+      pipelineService.updateDeal(deal.id, {
         title: String(data.get("title") || deal.title),
         value: Number(data.get("value") || deal.value),
         probability: probabilityValue === "default" ? null : Number(probabilityValue),
@@ -105,12 +106,12 @@ export function Deal360({ dealId }: { dealId: string }) {
           <div><span>القيمة</span><b>{money(deal.value)}</b><small>SAR</small></div>
           <div>
             <span>الاحتمال</span>
-            <b>{getDealProbability(deal)}%</b>
+            <b>{pipelineService.getDealProbability(deal)}%</b>
             <small>{manualProbability ? "تعديل يدوي" : `افتراضي ${stage?.name || "—"}`}</small>
           </div>
           <div>
             <span>القيمة المرجحة</span>
-            <b>{money((deal.value * getDealProbability(deal)) / 100)}</b>
+            <b>{money((deal.value * pipelineService.getDealProbability(deal)) / 100)}</b>
             <small>قيمة × احتمال</small>
           </div>
           <div>
@@ -142,7 +143,7 @@ export function Deal360({ dealId }: { dealId: string }) {
                 </label>
                 <label className="form-field">
                   <span>الاحتمال</span>
-                  <select name="probability" defaultValue={manualProbability ? String(getDealProbability(deal)) : "default"}>
+                  <select name="probability" defaultValue={manualProbability ? String(pipelineService.getDealProbability(deal)) : "default"}>
                     <option value="default">افتراضي المرحلة ({stage?.defaultProbability ?? 0}%)</option>
                     {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((value) => (
                       <option value={value} key={value}>{value}%</option>

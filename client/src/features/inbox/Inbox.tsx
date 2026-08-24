@@ -1,3 +1,4 @@
+import { messagingService, crmService, pipelineService } from "@services";
 /**
  * صندوق الوارد — S7.
  *
@@ -7,7 +8,7 @@
  */
 import { useEffect, useState } from "react";
 import { appConfig } from "@config/env";
-import { advanceMessageStatus, assignConversation, closeConversation, conversationStatusLabels as rawConvStatus, getConversation, getConversationBusiness, getConversationContact, getConversationContext, getConversationMessages, getConversationNeedsReply, getDealProbability, getDealStage, getInboxConversations, getInboxSummary, getLeadActivitySummary, getLeadOwner, leadPriorityLabels as rawPriority, leadStatusLabels as rawLeadStatus, messageDeliveryLabels as rawDelivery, reopenConversation, retryMessage, sendMessage, listUsers, listQuickReplyTemplates } from "@services";
+import { conversationStatusLabels as rawConvStatus, leadPriorityLabels as rawPriority, leadStatusLabels as rawLeadStatus, messageDeliveryLabels as rawDelivery, listQuickReplyTemplates } from "@services";
 import { getBusinessIntelligence, tierLabels as rawTiers } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
@@ -37,7 +38,7 @@ function dayLabel(value?: string) {
 }
 
 const ownerName = (ownerId: string) =>
-  listUsers().find((user: Row) => user.id === ownerId)?.name || "غير مسند";
+  messagingService.listUsers().find((user: Row) => user.id === ownerId)?.name || "غير مسند";
 
 function messagePreview(message?: Row) {
   if (!message) return "لا توجد رسائل بعد";
@@ -58,18 +59,18 @@ export function Inbox({ conversationId }: { conversationId?: string }) {
   const [attachment, setAttachment] = useState<Attachment>(null);
   const [contextOpen, setContextOpen] = useState(false);
 
-  const rows = getInboxConversations();
-  const summary = getInboxSummary();
+  const rows = messagingService.getInboxConversations();
+  const summary = messagingService.getInboxSummary();
 
   const explicit = Boolean(conversationId);
   const selectedId = explicit ? conversationId : null;
-  const conversation = selectedId ? getConversation(selectedId) : null;
+  const conversation = selectedId ? messagingService.getConversation(selectedId) : null;
   const visibleSelected = rows.some((row: Row) => row.conversation.id === conversation?.id) ? conversation : null;
 
   // انتقال حالة الرسالة محليًا: queued → sent → delivered
   useEffect(() => {
     const timer = window.setInterval(() => {
-      if (advanceMessageStatus()) notifyStateChanged();
+      if (messagingService.advanceMessageStatus()) notifyStateChanged();
     }, 800);
     return () => window.clearInterval(timer);
   }, []);
@@ -154,7 +155,7 @@ export function Inbox({ conversationId }: { conversationId?: string }) {
           <span>المسؤول</span>
           <select value={filters.ownerId} onChange={(e) => setFilter("ownerId", e.target.value)}>
             <option value="all">كل المسؤولين</option>
-            {listUsers().map((user: Row) => (
+            {messagingService.listUsers().map((user: Row) => (
               <option value={user.id} key={user.id}>{user.name}</option>
             ))}
           </select>
@@ -246,10 +247,10 @@ export function Inbox({ conversationId }: { conversationId?: string }) {
 }
 
 function ConversationThread({ conversation, toast, drafts, setDrafts, attachment, setAttachment, onToggleContext }: { conversation: Row; toast: (m: string, t?: any) => void; drafts: Record<string, string>; setDrafts: React.Dispatch<React.SetStateAction<Record<string, string>>>; attachment: Attachment; setAttachment: React.Dispatch<React.SetStateAction<Attachment>>; onToggleContext: () => void }) {
-  const contact = getConversationContact(conversation);
-  const business = getConversationBusiness(conversation);
-  const needsReply = getConversationNeedsReply(conversation);
-  const messages = getConversationMessages(conversation.id);
+  const contact = messagingService.getConversationContact(conversation);
+  const business = messagingService.getConversationBusiness(conversation);
+  const needsReply = messagingService.getConversationNeedsReply(conversation);
+  const messages = messagingService.getConversationMessages(conversation.id);
   const draft = drafts[conversation.id] || "";
 
   let lastDay = "";
@@ -275,7 +276,7 @@ function ConversationThread({ conversation, toast, drafts, setDrafts, attachment
                 type="button"
                 className="button ghost compact"
                 onClick={() => {
-                  const result = mutate(() => closeConversation(conversation.id));
+                  const result = mutate(() => messagingService.closeConversation(conversation.id));
                   toast(result ? "أُغلقت المحادثة محليًا." : "لا يمكن الإغلاق مع وجود رسائل واردة غير مقروءة.", result ? "info" : "error");
                 }}
               >
@@ -286,7 +287,7 @@ function ConversationThread({ conversation, toast, drafts, setDrafts, attachment
                 type="button"
                 className="button primary compact"
                 onClick={() => {
-                  mutate(() => reopenConversation(conversation.id));
+                  mutate(() => messagingService.reopenConversation(conversation.id));
                   toast("أُعيد فتح المحادثة محليًا.", "info");
                 }}
               >
@@ -345,7 +346,7 @@ function ConversationThread({ conversation, toast, drafts, setDrafts, attachment
                         type="button"
                         className="button danger compact"
                         onClick={() => {
-                          mutate(() => retryMessage(message.id));
+                          mutate(() => messagingService.retryMessage(message.id));
                           toast("أُعيدت المحاولة على الرسالة نفسها بلا نسخة جديدة.", "info");
                         }}
                       >
@@ -390,7 +391,7 @@ function ConversationThread({ conversation, toast, drafts, setDrafts, attachment
               toast("اكتب نص الرسالة قبل الإرسال.", "error");
               return;
             }
-            const result = mutate(() => sendMessage(conversation.id, { body, attachment }));
+            const result = mutate(() => messagingService.sendMessage(conversation.id, { body, attachment }));
             if (result) {
               setDrafts((current) => ({ ...current, [conversation.id]: "" }));
               setAttachment(null);
@@ -452,8 +453,8 @@ function ConversationThread({ conversation, toast, drafts, setDrafts, attachment
 }
 
 function ContextPanel({ conversation, open, onClose, onDraftInserted }: { conversation: Row; open: boolean; onClose: () => void; onDraftInserted: (draft: string) => void }) {
-  const { lead, business, contact, deals, job, source } = getConversationContext(conversation.id);
-  const leadActivity = lead ? getLeadActivitySummary(lead.id) : null;
+  const { lead, business, contact, deals, job, source } = messagingService.getConversationContext(conversation.id);
+  const leadActivity = lead ? crmService.getLeadActivitySummary(lead.id) : null;
   const intelligence = business ? (getBusinessIntelligence(business.id) as any) : null;
 
   return (
@@ -489,7 +490,7 @@ function ContextPanel({ conversation, open, onClose, onDraftInserted }: { conver
           <div><dt>المعرف</dt><dd><Mono>{lead?.id}</Mono></dd></div>
           <div><dt>الحالة</dt><dd>{leadStatusLabels[lead?.status] || "—"}</dd></div>
           <div><dt>الأولوية</dt><dd>{leadPriorityLabels[lead?.priority] || "—"}</dd></div>
-          <div><dt>المالك</dt><dd>{getLeadOwner(lead)?.name || "—"}</dd></div>
+          <div><dt>المالك</dt><dd>{crmService.getLeadOwner(lead)?.name || "—"}</dd></div>
           <div><dt>آخر نشاط</dt><dd>{leadActivity?.lastActivityAt ? timeLabel(leadActivity.lastActivityAt) : "—"}</dd></div>
           <div><dt>التالي</dt><dd>{leadActivity?.nextTask?.title || "لا توجد مهمة"}</dd></div>
         </dl>
@@ -505,9 +506,9 @@ function ContextPanel({ conversation, open, onClose, onDraftInserted }: { conver
           <select
             aria-label="مسؤول المحادثة"
             value={conversation.assignedTo}
-            onChange={(event) => mutate(() => assignConversation(conversation.id, event.target.value))}
+            onChange={(event) => mutate(() => messagingService.assignConversation(conversation.id, event.target.value))}
           >
-            {listUsers().map((user: Row) => (
+            {messagingService.listUsers().map((user: Row) => (
               <option value={user.id} key={user.id}>{user.name}</option>
             ))}
           </select>
@@ -534,12 +535,12 @@ function ContextPanel({ conversation, open, onClose, onDraftInserted }: { conver
         {deals.length ? (
           <div className="s7-deal-context-list">
             {deals.map((deal: Row) => {
-              const stage = getDealStage(deal);
+              const stage = pipelineService.getDealStage(deal);
               return (
                 <button type="button" key={deal.id} onClick={() => go(`deals/${deal.id}`)}>
                   <b>{deal.title}</b>
                   <small>
-                    {stage?.name || "—"} · {money(deal.value)} · {getDealProbability(deal)}% · {deal.expectedCloseAt || "—"}
+                    {stage?.name || "—"} · {money(deal.value)} · {pipelineService.getDealProbability(deal)}% · {deal.expectedCloseAt || "—"}
                   </small>
                 </button>
               );

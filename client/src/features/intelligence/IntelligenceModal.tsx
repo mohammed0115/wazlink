@@ -1,9 +1,10 @@
+import { crmService } from "@services";
 /**
  * نوافذ الذكاء — S4: تفسير الدرجة ودليل الإشارة.
  * كلاهما عرض تفسيري فقط ولا يغيّر أي كيان.
  */
 import type { MouseEvent } from "react";
-import { listBusinesses, listSignals } from "@services";
+import { listSignals } from "@services";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { DimensionRows } from "./shared";
 import { go, useHashRoute } from "../../shared/router/useHashRoute";
@@ -61,7 +62,7 @@ export function IntelligenceModal() {
 
   const signal = listSignals().find((item: { id: string }) => item.id === signalId);
   if (!signal) return null;
-  const business = listBusinesses().find((item: { id: string }) => item.id === signal.businessId);
+  const business = crmService.listBusinesses().find((item: { id: string }) => item.id === signal.businessId);
 
   return (
     <div className="modal-backdrop" onClick={onBackdrop}>

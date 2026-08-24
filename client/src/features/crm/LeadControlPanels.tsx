@@ -1,3 +1,4 @@
+import { crmService, messagingService, pipelineService, automationFeatureService, appointmentService } from "@services";
 /**
  * لوحات Lead 360 التابعة للشحنات اللاحقة.
  *
@@ -5,7 +6,7 @@
  * - مساعد المبيعات (S8): قراءة فقط؛ لا mutation تلقائية.
  * - الأتمتة والمواعيد (S9): قراءة مرجعية؛ لا جدولة ولا إرسال.
  */
-import { conversationStatusLabels as rawConvStatus, getAutomationRuns, getConversationLatestMessage, getConversationNeedsReply, getConversationUnreadCount, getLeadAppointments, getLeadContacts, getLeadConversations, listDeals, listConversations } from "@services";
+import { conversationStatusLabels as rawConvStatus } from "@services";
 import { getAiSalesInsights } from "@domain/sales-ai.js";
 import { go } from "../../shared/router/useHashRoute";
 import { fmt, formatIso } from "./shared";
@@ -14,8 +15,8 @@ type Row = Record<string, any>;
 const conversationStatusLabels = rawConvStatus as Record<string, string>;
 
 export function LeadConversationControls({ leadId }: { leadId: string }) {
-  const contacts = getLeadContacts(leadId) as Row[];
-  const conversations = getLeadConversations(leadId) as Row[];
+  const contacts = messagingService.getLeadContacts(leadId) as Row[];
+  const conversations = messagingService.getLeadConversations(leadId) as Row[];
 
   if (!conversations.length) {
     return (
@@ -34,8 +35,8 @@ export function LeadConversationControls({ leadId }: { leadId: string }) {
       </div>
       {conversations.map((conversation) => {
         const contact = conversation.contactId ? contacts.find((item) => item.id === conversation.contactId) : null;
-        const latest = getConversationLatestMessage(conversation);
-        const unread = conversation.unreadCount || getConversationUnreadCount(conversation);
+        const latest = messagingService.getConversationLatestMessage(conversation);
+        const unread = conversation.unreadCount || messagingService.getConversationUnreadCount(conversation);
         return (
           <button
             type="button"
@@ -50,7 +51,7 @@ export function LeadConversationControls({ leadId }: { leadId: string }) {
             </div>
             <em>
               {unread ? `${fmt(unread)} غير مقروء` : conversationStatusLabels[conversation.status]}
-              {getConversationNeedsReply(conversation) ? " · تحتاج ردًا" : ""}
+              {messagingService.getConversationNeedsReply(conversation) ? " · تحتاج ردًا" : ""}
             </em>
           </button>
         );
@@ -101,13 +102,13 @@ export function LeadAiControls({ leadId }: { leadId: string }) {
 }
 
 export function LeadAutomationControls({ leadId }: { leadId: string }) {
-  const appointments = getLeadAppointments(leadId) as Row[];
-  const runsForRule = getAutomationRuns as unknown as (ruleId?: string | null) => Row[];
+  const appointments = appointmentService.getLeadAppointments(leadId) as Row[];
+  const runsForRule = automationFeatureService.getAutomationRuns as unknown as (ruleId?: string | null) => Row[];
   const runs = runsForRule().filter(
     (run) =>
       run.triggerEntityId === leadId ||
-      listConversations().find((conversation: Row) => conversation.id === run.triggerEntityId)?.leadId === leadId ||
-      listDeals().find((deal: Row) => deal.id === run.triggerEntityId)?.leadId === leadId,
+      messagingService.getInboxConversations().find((conversation: Row) => conversation.conversation?.id === run.triggerEntityId)?.conversation?.leadId === leadId ||
+      pipelineService.listDeals().find((deal: Row) => deal.id === run.triggerEntityId)?.leadId === leadId,
   );
 
   return (

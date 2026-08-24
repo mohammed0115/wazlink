@@ -1,6 +1,7 @@
+import { taskService, crmService } from "@services";
 /** المهام — S9. سجل واحد للمهام اليدوية والآلية بنفس عقد S5، مع provenance للأتمتة. */
 import { useState } from "react";
-import { completeLeadTask, getLead, getTasksWorkspace, listUsers } from "@services";
+import { completeLeadTask, listUsers } from "@services";
 import { mutate } from "../../shared/store/appStore";
 import { PageHead } from "../../shared/components/PageHead";
 
@@ -12,7 +13,7 @@ const userLabel = (id: string) => listUsers().find((user: Row) => user.id === id
 const taskOrigin = (task: Row) => (task.createdByAutomationRunId ? "automation" : "manual");
 
 export function Tasks() {
-  const rows = getTasksWorkspace() as Row[];
+  const rows = taskService.getTasksWorkspace() as Row[];
   const [filters, setFilters] = useState({ search: "", status: "all", origin: "all", due: "all" });
 
   const setFilter = (key: string, value: string) => {
@@ -63,7 +64,7 @@ export function Tasks() {
             <tbody>
               {rows.length ? (
                 rows.map((task) => {
-                  const lead = getLead(task.leadId);
+                  const lead = crmService.getLead(task.leadId);
                   return (
                     <tr key={task.id}>
                       <td>
@@ -83,7 +84,7 @@ export function Tasks() {
                       </td>
                       <td>
                         {task.status !== "completed" && (
-                          <button className="button compact" type="button" onClick={() => mutate(() => completeLeadTask(task.id))}>
+                          <button className="button compact" type="button" onClick={() => mutate(() => taskService.completeLeadTask(task.id))}>
                             إكمال
                           </button>
                         )}

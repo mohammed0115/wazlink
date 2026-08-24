@@ -1,3 +1,4 @@
+import { crmService, discoveryService } from "@services";
 /**
  * نافذة تحويل Business إلى Lead — S5 Conversion Preview.
  *
@@ -5,7 +6,7 @@
  * ويعيد المستخدم إلى Lead القائمة، وفق قاعدة «Lead واحدة لكل Business».
  */
 import type { MouseEvent } from "react";
-import { listBusinesses, convertBusinessToLead, getDiscoveryJob, getLeadByBusinessId } from "@services";
+
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { go, useHashRoute } from "../../shared/router/useHashRoute";
 import { useToast } from "../../shared/store/toast";
@@ -30,12 +31,12 @@ export function CrmModal() {
     if (event.target === event.currentTarget) close();
   };
 
-  const business = listBusinesses().find((item: any) => item.id === modal.businessId);
+  const business = crmService.listBusinesses().find((item: any) => item.id === modal.businessId);
   if (!business) return null;
 
   const record = getBusinessIntelligence(business.id) as any;
-  const job = getDiscoveryJob(business.discoveryJobId);
-  const existing = getLeadByBusinessId(business.id);
+  const job = discoveryService.getDiscoveryJob(business.discoveryJobId);
+  const existing = crmService.getLeadByBusinessId(business.id);
 
   if (existing) {
     return (
@@ -108,7 +109,7 @@ export function CrmModal() {
             type="button"
             disabled={!canConvert}
             onClick={() => {
-              const result = convertBusinessToLead(business.id, { status: "new", priority: "medium" });
+              const result = crmService.convertBusinessToLead(business.id, { status: "new", priority: "medium" });
               close();
               if (result.kind === "duplicate") {
                 toast("هذه Business مرتبطة بـLead قائمة؛ لم تُنشأ نسخة ثانية.", "info");

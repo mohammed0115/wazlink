@@ -1,3 +1,4 @@
+import { discoveryService } from "@services";
 /**
  * محاكاة تقدم عملية الاكتشاف — مقابل `runDiscoverySimulation()` في V1.
  *
@@ -5,7 +6,7 @@
  * كما كان `discoveryTimers` في نسخة Vanilla. المحاكاة محلية بالكامل:
  * لا شبكة ولا Scraping ولا مصدر خارجي.
  */
-import { progressDiscoveryJob, startDiscoveryJob } from "@services";
+
 import { notifyStateChanged } from "../../shared/store/appStore";
 
 const timers = new Map<string, number>();
@@ -15,10 +16,10 @@ const STEP = 16;
 
 export function runDiscoverySimulation(jobId: string, onComplete?: (jobId: string) => void): void {
   stopDiscoverySimulation(jobId);
-  startDiscoveryJob(jobId);
+  discoveryService.startDiscoveryJob(jobId);
 
   const timer = window.setInterval(() => {
-    const job = progressDiscoveryJob(jobId, STEP);
+    const job = discoveryService.progressDiscoveryJob(jobId, STEP);
     if (job?.status === "completed") {
       stopDiscoverySimulation(jobId);
       onComplete?.(jobId);

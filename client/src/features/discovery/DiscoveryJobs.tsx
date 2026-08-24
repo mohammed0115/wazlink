@@ -1,9 +1,10 @@
+import { discoveryService } from "@services";
 /**
  * عمليات الاكتشاف — S3.
  * منقولة عن `renderDiscoveryJobs()` مع نفس الفلاتر والترتيب وأعمدة الجدول.
  */
 import { useState } from "react";
-import { cancelDiscoveryJob, formatDiscoveryJobCreatedAt, getDiscoveryListFiltersSnapshot, getJobStatusLabel, isDiscoveryJobRecent, isDiscoveryJobToday, isDiscoveryResultsAvailable, listDiscoveryJobs, retryDiscoveryJob, listDiscoverySources } from "@services";
+import { cancelDiscoveryJob, formatDiscoveryJobCreatedAt, getDiscoveryListFiltersSnapshot, getJobStatusLabel, isDiscoveryJobRecent, isDiscoveryJobToday, isDiscoveryResultsAvailable, listDiscoverySources } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { useToast } from "../../shared/store/toast";
 import { runDiscoverySimulation, stopDiscoverySimulation } from "./simulation";
@@ -19,7 +20,7 @@ function applyJobFilters(filters: DiscoveryListFilters): Job[] {
     (filters.date === "today" && isDiscoveryJobToday(job)) ||
     (filters.date === "recent" && isDiscoveryJobRecent(job));
 
-  return listDiscoveryJobs()
+  return discoveryService.listDiscoveryJobs()
     .filter(
       (job: Job) =>
         (!filters.search || `${job.name} ${job.id}`.includes(filters.search)) &&
@@ -46,7 +47,7 @@ export function DiscoveryJobs() {
   };
 
   function retry(jobId: string) {
-    retryDiscoveryJob(jobId);
+    discoveryService.retryDiscoveryJob(jobId);
     runDiscoverySimulation(jobId, (id) => toast(`اكتملت العملية ${id} ببيانات تجريبية ثابتة.`, "success"));
     go(`discovery/listDiscoveryJobs/${jobId}`);
   }
@@ -185,6 +186,6 @@ export function DiscoveryJobs() {
 
 /** يُستخدم من نافذة التأكيد — إلغاء العملية وإيقاف مؤقتها. */
 export function confirmCancelDiscovery(jobId: string): void {
-  cancelDiscoveryJob(jobId);
+  discoveryService.cancelDiscoveryJob(jobId);
   stopDiscoverySimulation(jobId);
 }

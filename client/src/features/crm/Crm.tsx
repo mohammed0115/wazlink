@@ -1,3 +1,4 @@
+import { crmService, discoveryService } from "@services";
 /**
  * إدارة العملاء — S5.
  *
@@ -5,7 +6,7 @@
  * Business أو Score أو Opportunity — تُقرأ بالمرجع عند العرض فقط.
  */
 import { useState } from "react";
-import { listBusinesses, getCrmFiltersSnapshot, getCrmSummary, getDiscoveryJob, getLeadActivitySummary, getLeadOwner, listUsers, listLeads } from "@services";
+import { settingsFeatureService } from "@services";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { PageHead } from "../../shared/components/PageHead";
@@ -25,14 +26,14 @@ import {
 type Row = Record<string, any>;
 
 function leadRows(filters: Record<string, string>): Row[] {
-  return listLeads()
+  return crmService.listLeads()
     .map((lead: Row) => ({
       lead,
-      business: listBusinesses().find((item: Row) => item.id === lead.businessId),
-      owner: getLeadOwner(lead),
+      business: crmService.listBusinesses().find((item: Row) => item.id === lead.businessId),
+      owner: crmService.getLeadOwner(lead),
       intelligence: getBusinessIntelligence(lead.businessId),
-      job: getDiscoveryJob(lead.sourceJobId),
-      activity: getLeadActivitySummary(lead.id),
+      job: discoveryService.getDiscoveryJob(lead.sourceJobId),
+      activity: crmService.getLeadActivitySummary(lead.id),
     }))
     .filter((row: Row) => {
       const text = `${row.business?.name || ""} ${row.business?.category || ""} ${row.business?.city || ""} ${row.lead.id}`;
@@ -62,7 +63,7 @@ function leadRows(filters: Record<string, string>): Row[] {
 }
 
 export function Crm() {
-  const [filters, setFilters] = useState<Record<string, string>>(() => getCrmFiltersSnapshot());
+  const [filters, setFilters] = useState<Record<string, string>>(() => crmService.getCrmFiltersSnapshot());
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [view, setView] = useState<"ready" | "loading" | "empty" | "error">("ready");
 
@@ -132,12 +133,12 @@ export function Crm() {
   }
 
   const rows = leadRows(filters);
-  const summary = getCrmSummary();
+  const summary = crmService.getCrmSummary();
   const selected = selectedIds.filter((id) => rows.some((row) => row.lead.id === id));
 
-  const jobsList = [...new Map(listLeads().map((lead: Row) => [lead.sourceJobId, getDiscoveryJob(lead.sourceJobId)])).values()].filter(Boolean) as Row[];
-  const cities = [...new Set(listLeads().map((lead: Row) => listBusinesses().find((b: Row) => b.id === lead.businessId)?.city).filter(Boolean))] as string[];
-  const tags = [...new Set(listLeads().flatMap((lead: Row) => lead.tags || []))] as string[];
+  const jobsList = [...new Map(crmService.listLeads().map((lead: Row) => [lead.sourceJobId, discoveryService.getDiscoveryJob(lead.sourceJobId)])).values()].filter(Boolean) as Row[];
+  const cities = [...new Set(crmService.listLeads().map((lead: Row) => crmService.listBusinesses().find((b: Row) => b.id === lead.businessId)?.city).filter(Boolean))] as string[];
+  const tags = [...new Set(crmService.listLeads().flatMap((lead: Row) => lead.tags || []))] as string[];
 
   return (
     <>
@@ -180,7 +181,7 @@ export function Crm() {
           </label>
           <select value={filters.ownerId} onChange={(e) => setFilter("ownerId", e.target.value)}>
             <option value="all">كل الملاك</option>
-            {listUsers().map((user: Row) => (
+            {settingsFeatureService.listUsers().map((user: Row) => (
               <option value={user.id} key={user.id}>{user.name}</option>
             ))}
           </select>

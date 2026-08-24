@@ -1,5 +1,6 @@
+import { messagingService } from "@services";
 /** مساحة مساعد المبيعات — S8. لا ينشئ فتح المسار رسالة أو Task أو تعديلًا. */
-import { getConversation } from "@services";
+
 import { go, useHashRoute } from "../../shared/router/useHashRoute";
 import { PageHead } from "../../shared/components/PageHead";
 import { CopilotPanel } from "./CopilotPanel";
@@ -7,7 +8,7 @@ import { CopilotPanel } from "./CopilotPanel";
 export function Copilot() {
   const { query } = useHashRoute();
   const conversationId = query.get("conversationId") || query.get("id");
-  const conversation = conversationId ? getConversation(conversationId) : null;
+  const conversation = conversationId ? messagingService.getConversation(conversationId) : null;
   return (
     <>
       <PageHead

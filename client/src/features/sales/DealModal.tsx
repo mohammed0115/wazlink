@@ -1,3 +1,4 @@
+import { pipelineService } from "@services";
 /**
  * نوافذ الصفقة — S6: إنشاء، إغلاق كرابحة، إغلاق كخاسرة.
  *
@@ -5,7 +6,7 @@
  * الإغلاق كخاسرة يتطلب سببًا صريحًا.
  */
 import type { FormEvent, MouseEvent } from "react";
-import { listBusinesses, closeDealAsLost, closeDealAsWon, createDeal, getDeal, getDealLead, getPipelineStageSummary, listUsers, listLeads, listServiceCatalog } from "@services";
+import { listUsers, listServiceCatalog } from "@services";
 import { go, useHashRoute } from "../../shared/router/useHashRoute";
 import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
@@ -34,10 +35,10 @@ export function DealModal() {
   };
 
   if (modal.type === "create") {
-    const selectedLead = modal.leadId || listLeads()[0]?.id || "";
-    const lead = getDealLead({ leadId: selectedLead });
-    const business = lead && listBusinesses().find((item: any) => item.id === lead.businessId);
-    const openStages = getPipelineStageSummary("PIPE-1001")
+    const selectedLead = modal.leadId || pipelineService.listLeads()[0]?.id || "";
+    const lead = pipelineService.getDealLead({ leadId: selectedLead });
+    const business = lead && pipelineService.listBusinesses().find((item: any) => item.id === lead.businessId);
+    const openStages = pipelineService.getPipelineStageSummary("PIPE-1001")
       .filter(({ stage }: any) => stage.kind === "open")
       .map(({ stage }: any) => stage);
 
@@ -46,7 +47,7 @@ export function DealModal() {
       const data = new FormData(event.currentTarget);
       const probability = String(data.get("probability") || "default");
       const result = mutate(() =>
-        createDeal(String(data.get("leadId")), {
+        pipelineService.createDeal(String(data.get("leadId")), {
           title: String(data.get("title") || ""),
           serviceId: String(data.get("serviceId") || "") || null,
           value: Number(data.get("value") || 0),
@@ -86,8 +87,8 @@ export function DealModal() {
             <label className="form-field wide">
               <span>Lead</span>
               <select name="leadId" defaultValue={selectedLead} required>
-                {listLeads().map((item: any) => {
-                  const itemBusiness = listBusinesses().find((b: any) => b.id === item.businessId);
+                {pipelineService.listLeads().map((item: any) => {
+                  const itemBusiness = pipelineService.listBusinesses().find((b: any) => b.id === item.businessId);
                   return (
                     <option value={item.id} key={item.id}>
                       {itemBusiness?.name || item.id} · {item.id}
@@ -161,7 +162,7 @@ export function DealModal() {
     );
   }
 
-  const deal = getDeal(modal.dealId);
+  const deal = pipelineService.getDeal(modal.dealId);
   if (!deal) return null;
 
   if (modal.type === "won") {
@@ -186,7 +187,7 @@ export function DealModal() {
               className="button primary"
               type="button"
               onClick={() => {
-                mutate(() => closeDealAsWon(deal.id, true));
+                mutate(() => pipelineService.closeDealAsWon(deal.id, true));
                 close();
                 toast(`أُغلقت ${deal.title} كرابحة بقيمة ${money(deal.value)} — بلا إيراد جديد.`, "success");
               }}
@@ -206,7 +207,7 @@ export function DealModal() {
       toast("أدخل سبب الخسارة قبل الإغلاق.", "error");
       return;
     }
-    mutate(() => closeDealAsLost(deal.id, reason, true));
+    mutate(() => pipelineService.closeDealAsLost(deal.id, reason, true));
     close();
     toast("أُغلقت الصفقة كخاسرة مع تسجيل السبب.", "info");
   }

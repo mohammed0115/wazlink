@@ -1,10 +1,11 @@
+import { automationFeatureService } from "@services";
 /**
  * نافذة إنشاء قاعدة أتمتة — S9.
  * الحقول والمعاملات من `automationConditionFieldCatalog` المركزي فقط:
  * لا expressions ولا JavaScript ولا templates تنفيذية.
  */
 import { useState, type FormEvent, type MouseEvent } from "react";
-import { automationActionCatalog as rawActions, automationConditionFieldCatalog as rawFields, automationOperatorLabels as rawOperators, automationTriggerCatalog as rawTriggers, createAutomationRule } from "@services";
+import { automationActionCatalog as rawActions, automationConditionFieldCatalog as rawFields, automationOperatorLabels as rawOperators, automationTriggerCatalog as rawTriggers } from "@services";
 import { getAutomationRulePreview } from "@domain/automation.js";
 import { go, useHashRoute } from "../../shared/router/useHashRoute";
 import { mutate } from "../../shared/store/appStore";
@@ -48,7 +49,7 @@ export function AutomationModal() {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const result = mutate(() =>
-      createAutomationRule({
+      automationFeatureService.createAutomationRule({
         name: String(data.get("name") || ""),
         triggerType: values.triggerType,
         actionIds: [values.actionType],

@@ -1,3 +1,4 @@
+import { messagingService } from "@services";
 /**
  * مساعد المبيعات — S8.
  *
@@ -86,7 +87,7 @@ export function CopilotPanel({ conversationId, onDraftInserted }: { conversation
   const toast = useToast();
   const [copilotTab, setCopilotTab] = useState("summary");
   const [agentMode] = useState("approval_required");
-  const conversation = conversationId ? getConversation(conversationId) : null;
+  const conversation = conversationId ? messagingService.getConversation(conversationId) : null;
   const leadId = conversation?.leadId;
   if (!leadId) return null;
 

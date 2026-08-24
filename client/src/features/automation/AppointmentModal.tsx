@@ -1,6 +1,7 @@
+import { appointmentService, crmService } from "@services";
 /** نافذة إنشاء موعد — S9. موعد محلي فقط؛ لا تقويم خارجي، وينبه عند التداخل. */
 import type { FormEvent, MouseEvent } from "react";
-import { appointmentLocationLabels as rawLocation, appointmentTypeLabels as rawType, createAppointment, listUsers, listLeads } from "@services";
+import { appointmentLocationLabels as rawLocation, appointmentTypeLabels as rawType, listUsers } from "@services";
 import { go, useHashRoute } from "../../shared/router/useHashRoute";
 import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
@@ -28,7 +29,7 @@ export function AppointmentModal() {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const result = mutate(() =>
-      createAppointment({
+      appointmentService.createAppointment({
         title: String(data.get("title") || ""),
         leadId: String(data.get("leadId") || ""),
         ownerId: String(data.get("ownerId") || ""),
@@ -72,7 +73,7 @@ export function AppointmentModal() {
             <label className="form-field">
               <span>العميل</span>
               <select name="leadId">
-                {listLeads().map((lead: Row) => (
+                {crmService.listLeads().map((lead: Row) => (
                   <option value={lead.id} key={lead.id}>{lead.id}</option>
                 ))}
               </select>

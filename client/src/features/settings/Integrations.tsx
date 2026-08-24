@@ -1,3 +1,4 @@
+import { integrationFeatureService } from "@services";
 /**
  * كتالوج التكاملات — S11.
  *
@@ -6,7 +7,7 @@
  * `hasConfiguredSecret` فقط ولا تُخزَّن أو تُعرض أي قيمة سرية.
  */
 import { useState, type FormEvent } from "react";
-import { connectIntegration, disconnectIntegration, getIntegration, getIntegrationActivities, integrationStatusLabels as rawStatusLabels, retryIntegration, updateIntegrationConfiguration, listIntegrations } from "@services";
+import { integrationStatusLabels as rawStatusLabels } from "@services";
 import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { PageHead } from "../../shared/components/PageHead";
@@ -32,21 +33,21 @@ function IntegrationAction({ integration, toast, onOpen }: { integration: Row; t
 
   if (integration.status === "mock_connected") {
     return (
-      <button className="button" type="button" onClick={() => act(() => disconnectIntegration(integration.id), "فُصل التكامل تجريبيًا؛ لا طلب شبكة.")}>
+      <button className="button" type="button" onClick={() => act(() => integrationFeatureService.disconnectIntegration(integration.id), "فُصل التكامل تجريبيًا؛ لا طلب شبكة.")}>
         فصل تجريبي
       </button>
     );
   }
   if (integration.status === "error") {
     return (
-      <button className="button" type="button" onClick={() => act(() => retryIntegration(integration.id), "أُعيدت المحاولة محليًا.")}>
+      <button className="button" type="button" onClick={() => act(() => integrationFeatureService.retryIntegration(integration.id), "أُعيدت المحاولة محليًا.")}>
         إعادة محاولة محلية
       </button>
     );
   }
   if (integration.status === "not_connected") {
     return (
-      <button className="button primary" type="button" onClick={() => act(() => connectIntegration(integration.id), "اتصال تجريبي / Mock — لم يُرسل أي طلب.")}>
+      <button className="button primary" type="button" onClick={() => act(() => integrationFeatureService.connectIntegration(integration.id), "اتصال تجريبي / Mock — لم يُرسل أي طلب.")}>
         ربط تجريبي
       </button>
     );
@@ -74,7 +75,7 @@ function IntegrationAction({ integration, toast, onOpen }: { integration: Row; t
 export function Integrations() {
   const toast = useToast();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = getIntegration(selectedId);
+  const selected = integrationFeatureService.getIntegration(selectedId);
 
   return (
     <div className="s11-workspace">
@@ -96,7 +97,7 @@ export function Integrations() {
       {selected && <IntegrationDetail integration={selected} toast={toast} onClose={() => setSelectedId(null)} />}
 
       <section className="s11-integration-grid">
-        {listIntegrations().map((integration: Row) => (
+        {integrationFeatureService.listIntegrations().map((integration: Row) => (
           <article className="s11-integration-card" key={integration.id}>
             <header>
               <span className="s11-integration-mark">{integration.name.slice(0, 1)}</span>
@@ -136,12 +137,12 @@ export function Integrations() {
 }
 
 function IntegrationDetail({ integration, toast, onClose }: { integration: Row; toast: (m: string, t?: any) => void; onClose: () => void }) {
-  const activities = getIntegrationActivities(integration.id) as Row[];
+  const activities = integrationFeatureService.getIntegrationActivities(integration.id) as Row[];
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const hasConfiguredSecret = new FormData(event.currentTarget).get("hasConfiguredSecret") === "on";
-    mutate(() => updateIntegrationConfiguration(integration.id, { hasConfiguredSecret }));
+    mutate(() => integrationFeatureService.updateIntegrationConfiguration(integration.id, { hasConfiguredSecret }));
     toast("حُفظ الإعداد المحلي؛ لا تُخزَّن أي قيمة سرية فعلية.", "success");
   }
 

@@ -6,7 +6,8 @@
  * بقائمة انتظار موافقة قبل أي mutation.
  */
 import { useState } from "react";
-import { approveAutomationAction, automationActionCatalog as rawActionCatalog, automationActionStatusLabels as rawExecStatus, automationRuleStatusLabels as rawRuleStatus, automationRunStatusLabels as rawRunStatus, automationTriggerCatalog as rawTriggerCatalog, formatAutomationCondition, getAutomationApprovalQueue, getAutomationMetrics, getAutomationRule, getAutomationRules, getAutomationRunActionExecutions, getAutomationRuns, rejectAutomationAction, runAutomationNow, setAutomationRuleStatus, testAutomationRule, listUsers, getAutomationConditionGroups, getAutomationActions } from "@services";
+import { automationFeatureService, settingsFeatureService } from "@services";
+import { automationActionCatalog as rawActionCatalog, automationActionStatusLabels as rawExecStatus, automationRuleStatusLabels as rawRuleStatus, automationRunStatusLabels as rawRunStatus, automationTriggerCatalog as rawTriggerCatalog, formatAutomationCondition, getAutomationConditionGroups, getAutomationActions } from "@services";
 import { go, useHashRoute } from "../../shared/router/useHashRoute";
 import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
@@ -22,7 +23,7 @@ const conditionGroups = getAutomationConditionGroups() as Row[];
 const automationActions = getAutomationActions() as Row[];
 
 /** التوقيع المستنتج من JS يضيّق المعامل؛ العقد الفعلي يقبل معرّف قاعدة. */
-const runsForRule = getAutomationRuns as unknown as (ruleId?: string | null) => Row[];
+const runsForRule = automationFeatureService.getAutomationRuns as unknown as (ruleId?: string | null) => Row[];
 
 const actionCatalog = rawActionCatalog as Row[];
 const triggerCatalog = rawTriggerCatalog as Row[];
@@ -31,7 +32,7 @@ const formatDateTime = (value?: string) =>
   value ? new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—";
 const actionLabel = (type: string) => actionCatalog.find((item) => item.type === type)?.label || type;
 const triggerLabel = (type: string) => triggerCatalog.find((item) => item.id === type)?.label || type;
-const userLabel = (id: string) => listUsers().find((user: Row) => user.id === id)?.name || "—";
+const userLabel = (id: string) => settingsFeatureService.listUsers().find((user: Row) => user.id === id)?.name || "—";
 
 function StatusPill({ status, labels }: { status: string; labels: Record<string, string> }) {
   return <span className={`s9-status ${status}`}>{labels[status] || status}</span>;
@@ -69,11 +70,11 @@ export function Automation({ ruleId }: { ruleId?: string }) {
   const toast = useToast();
   const { query } = useHashRoute();
   const [filters, setFilters] = useState({ search: "", status: "all" });
-  const metrics = getAutomationMetrics();
-  const rules = getAutomationRules() as Row[];
+  const metrics = automationFeatureService.getAutomationMetrics();
+  const rules = automationFeatureService.getAutomationRules() as Row[];
   const selectedId = ruleId || query.get("ruleId") || undefined;
-  const selected = selectedId ? getAutomationRule(selectedId) : null;
-  const queue = getAutomationApprovalQueue() as Row[];
+  const selected = selectedId ? automationFeatureService.getAutomationRule(selectedId) : null;
+  const queue = automationFeatureService.getAutomationApprovalQueue() as Row[];
   const runs = runsForRule(ruleId);
   const allRuns = runsForRule();
 
@@ -201,7 +202,7 @@ export function Automation({ ruleId }: { ruleId?: string }) {
                       className="button compact"
                       type="button"
                       onClick={() => {
-                        const result = testAutomationRule(rule.id, {
+                        const result = automationFeatureService.testAutomationRule(rule.id, {
                           entityType: "lead",
                           entityId: "LEAD-1042",
                           eventId: "EVT-DRY-RUN",
@@ -230,7 +231,7 @@ export function Automation({ ruleId }: { ruleId?: string }) {
                       type="button"
                       onClick={() => {
                         const updated = mutate(() =>
-                          setAutomationRuleStatus(rule.id, rule.status === "enabled" ? "disabled" : "enabled"),
+                          automationFeatureService.setAutomationRuleStatus(rule.id, rule.status === "enabled" ? "disabled" : "enabled"),
                         );
                         toast(
                           updated?.status === "enabled"
@@ -265,7 +266,7 @@ export function Automation({ ruleId }: { ruleId?: string }) {
                   className="button"
                   type="button"
                   onClick={() => {
-                    const result = testAutomationRule(selected.id, {
+                    const result = automationFeatureService.testAutomationRule(selected.id, {
                       entityType: "lead",
                       entityId: "LEAD-1042",
                       eventId: "EVT-DRY-RUN",
@@ -285,7 +286,7 @@ export function Automation({ ruleId }: { ruleId?: string }) {
                     className="button primary"
                     type="button"
                     onClick={() => {
-                      const result = mutate(() => runAutomationNow(selected.id));
+                      const result = mutate(() => automationFeatureService.runAutomationNow(selected.id));
                       toast(
                         result.kind === "executed"
                           ? "تم تشغيل القاعدة اليدوية محليًا وتسجيل الأثر."
@@ -346,7 +347,7 @@ export function Automation({ ruleId }: { ruleId?: string }) {
                       className="button compact"
                       type="button"
                       onClick={() => {
-                        const result = mutate(() => rejectAutomationAction(execution.id));
+                        const result = mutate(() => automationFeatureService.rejectAutomationAction(execution.id));
                         toast(
                           result.kind === "rejected" ? "رُفض الإجراء؛ لم تُنفذ أي mutation." : "تعذر رفض الإجراء.",
                           result.kind === "rejected" ? "info" : "error",
@@ -359,7 +360,7 @@ export function Automation({ ruleId }: { ruleId?: string }) {
                       className="button primary compact"
                       type="button"
                       onClick={() => {
-                        const result = mutate(() => approveAutomationAction(execution.id));
+                        const result = mutate(() => automationFeatureService.approveAutomationAction(execution.id));
                         toast(
                           result.kind === "executed"
                             ? "تمت الموافقة والتنفيذ المحلي مرة واحدة."
@@ -395,7 +396,7 @@ export function Automation({ ruleId }: { ruleId?: string }) {
         </header>
         <div className="s9-audit-list">
           {runs.map((run) => {
-            const executions = getAutomationRunActionExecutions(run.id) as Row[];
+            const executions = automationFeatureService.getAutomationRunActionExecutions(run.id) as Row[];
             const conditionText = run.matchedConditionDetails?.length
               ? run.matchedConditionDetails.map(formatAutomationCondition).join(run.matchedConditionDetails.length > 1 ? " و " : "")
               : "من دون شرط إضافي";

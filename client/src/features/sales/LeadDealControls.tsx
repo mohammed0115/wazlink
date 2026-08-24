@@ -1,14 +1,15 @@
+import { pipelineService } from "@services";
 /**
  * لوحة الصفقات داخل Lead 360 — S6.
  * تسمح S6 بصفقات متعددة لنفس Lead عند اختلاف الخدمة أو العنوان.
  */
-import { getDealProbability, getDealStage, getLeadDeals, getOpenDealsForLead } from "@services";
+
 import { go } from "../../shared/router/useHashRoute";
 import { fmt } from "./shared";
 
 export function LeadDealControls({ leadId }: { leadId: string }) {
-  const deals = getLeadDeals(leadId);
-  const openDeals = getOpenDealsForLead(leadId);
+  const deals = pipelineService.getLeadDeals(leadId);
+  const openDeals = pipelineService.getOpenDealsForLead(leadId);
 
   const openForm = () => {
     go(`deals?modal=create&leadId=${encodeURIComponent(leadId)}`);
@@ -19,13 +20,13 @@ export function LeadDealControls({ leadId }: { leadId: string }) {
       <div className="lead-deal-link">
         <b>{fmt(openDeals.length)} صفقات مفتوحة</b>
         {openDeals.map((deal: any) => {
-          const stage = getDealStage(deal);
+          const stage = pipelineService.getDealStage(deal);
           return (
             <div className="lead-deal-item" key={deal.id}>
               <span className="status info">{stage?.name || "مفتوحة"}</span>
               <strong>{deal.title}</strong>
               <small>
-                {fmt(deal.value)} ر.س · احتمال {getDealProbability(deal)}%
+                {fmt(deal.value)} ر.س · احتمال {pipelineService.getDealProbability(deal)}%
               </small>
               <button
                 type="button"

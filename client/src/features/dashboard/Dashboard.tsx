@@ -1,3 +1,4 @@
+import { dashboardService } from "@services";
 /**
  * الرئيسية — لوحة القيادة التنفيذية (S2 / S2-FIX).
  *
@@ -7,7 +8,6 @@
  */
 import { useState, type CSSProperties } from "react";
 import { appConfig } from "@config/env";
-import { listBusinesses, getDashboardOverview, getAutomationMetrics, getInboxConversations, getPipelineStageSummary, getUpcomingActivities, listDiscoveryJobs } from "@services";
 import { getAgentActions } from "@domain/sales-ai.js";
 import { analyticsService } from "@services";
 
@@ -91,13 +91,13 @@ export function Dashboard() {
   const toast = useToast();
   const [dashboardTimeframe, setDashboardTimeframe] = useState("اليوم");
   const [dashboardView, setDashboardView] = useState("ready");
-  const data = getDashboardOverview();
+  const data = dashboardService.getDashboardOverview();
 
   const dashboardDateRange = dateRangeByTimeframe[dashboardTimeframe] || "all";
   const analytics = getAnalyticsOverview({ dateRange: dashboardDateRange });
   const analyticsFunnel = analytics.funnel.stages;
   const analyticsSources = getSourcePerformance();
-  const business = (id: string) => listBusinesses().find((item: { id: string }) => item.id === id);
+  const business = (id: string) => dashboardService.listBusinesses().find((item: { id: string }) => item.id === id);
   const maxFunnel = analyticsFunnel[0]?.count || 1;
 
   const dashboardMetrics = [
@@ -109,7 +109,7 @@ export function Dashboard() {
     { label: "فرص عالية", value: analytics.metrics.highOpportunityBusinesses.value, format: "number", tone: "amber", trend: "تاريخ تحليل الفرصة", note: "درجة الفرصة لا تساوي احتمال الصفقة" },
   ];
 
-  const upcomingActivities = getUpcomingActivities();
+  const upcomingActivities = dashboardService.getUpcomingActivities();
   const revenueSummary = {
     revenue: analytics.metrics.revenue.value,
     pipeline: analytics.metrics.openPipeline.value,
@@ -133,11 +133,11 @@ export function Dashboard() {
     };
   });
 
-  const pipelineSummary = getPipelineStageSummary().filter(({ stage }: any) => stage.kind === "open");
+  const pipelineSummary = dashboardService.getPipelineStageSummary().filter(({ stage }: any) => stage.kind === "open");
   const maxPipelineStageValue = Math.max(...pipelineSummary.map((item: any) => item.value), 1);
-  const recentConversations = getInboxConversations({ search: "", filter: "all", ownerId: "all", channel: "whatsapp", sort: "latest" }).slice(0, 4);
+  const recentConversations = dashboardService.getInboxConversations({ search: "", filter: "all", ownerId: "all", channel: "whatsapp", sort: "latest" }).slice(0, 4);
   const agentActions = getAgentActions().slice(0, 4);
-  const automationMetrics = getAutomationMetrics();
+  const automationMetrics = dashboardService.getAutomationMetrics();
   const timeframeTitle = timeframeTitles[dashboardTimeframe];
 
   if (dashboardView !== "ready") {
@@ -488,7 +488,7 @@ export function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {listDiscoveryJobs().slice(0, 3).map((job: any) => (
+                {dashboardService.listDiscoveryJobs().slice(0, 3).map((job: any) => (
                   <tr key={job.id}>
                     <td className="mono">
                       {job.id}

@@ -1,3 +1,4 @@
+import { crmService, discoveryService, taskService } from "@services";
 /**
  * ملف العميل 360 — S5.
  *
@@ -5,7 +6,7 @@
  * ولا ينسخ Score أو Opportunity داخل Lead. الصفقات والمحادثات عرض سياقي فقط.
  */
 import type { FormEvent } from "react";
-import { addLeadNote, addLeadTask, assignLeadOwner, listBusinesses, completeLeadTask, getDiscoveryJob, getDiscoverySource, getLead, getLeadActivities, getLeadContacts, getLeadConversations, getLeadDeals, getLeadNotes, getLeadOwner, getLeadTasks, updateLeadPriority, updateLeadStatus, listUsers } from "@services";
+import { listUsers } from "@services";
 import { getBusinessIntelligence } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate } from "../../shared/store/appStore";
@@ -41,7 +42,7 @@ function scoreReference(record: any) {
 }
 
 export function Lead360({ leadId }: { leadId: string }) {
-  const lead = getLead(leadId);
+  const lead = crmService.getLead(leadId);
 
   if (!lead) {
     return (
@@ -58,24 +59,24 @@ export function Lead360({ leadId }: { leadId: string }) {
     );
   }
 
-  const business = listBusinesses().find((item: any) => item.id === lead.businessId);
-  const owner = getLeadOwner(lead);
-  const contacts = getLeadContacts(lead.id);
-  const tasks = getLeadTasks(lead.id);
-  const notes = getLeadNotes(lead.id);
-  const activities = getLeadActivities(lead.id);
-  const deals = getLeadDeals(lead.id);
-  const conversations = getLeadConversations(lead.id);
+  const business = crmService.listBusinesses().find((item: any) => item.id === lead.businessId);
+  const owner = crmService.getLeadOwner(lead);
+  const contacts = crmService.getLeadContacts(lead.id);
+  const tasks = crmService.getLeadTasks(lead.id);
+  const notes = crmService.getLeadNotes(lead.id);
+  const activities = crmService.getLeadActivities(lead.id);
+  const deals = crmService.getLeadDeals(lead.id);
+  const conversations = crmService.getLeadConversations(lead.id);
   const record = getBusinessIntelligence(lead.businessId) as any;
-  const job = getDiscoveryJob(lead.sourceJobId);
-  const source = job && getDiscoverySource(job.sourceId);
+  const job = discoveryService.getDiscoveryJob(lead.sourceJobId);
+  const source = job && discoveryService.getDiscoverySource(job.sourceId);
 
   function submitNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const body = String(new FormData(form).get("body") || "").trim();
     if (!body) return;
-    mutate(() => addLeadNote(lead.id, { body }));
+    mutate(() => crmService.addLeadNote(lead.id, { body }));
     form.reset();
   }
 
@@ -84,7 +85,7 @@ export function Lead360({ leadId }: { leadId: string }) {
     const form = event.currentTarget;
     const data = new FormData(form);
     mutate(() =>
-      addLeadTask(lead.id, {
+      crmService.addLeadTask(lead.id, {
         title: String(data.get("title") || ""),
         type: String(data.get("type") || "متابعة"),
         ownerId: String(data.get("ownerId") || lead.ownerId),
@@ -135,7 +136,7 @@ export function Lead360({ leadId }: { leadId: string }) {
         <div className="lead-quick-controls">
           <div>
             <span>الحالة</span>
-            <select value={lead.status} onChange={(e) => mutate(() => updateLeadStatus(lead.id, e.target.value))}>
+            <select value={lead.status} onChange={(e) => mutate(() => crmService.updateLeadStatus(lead.id, e.target.value))}>
               {Object.entries(leadStatusLabels).map(([key, label]) => (
                 <option value={key} key={key}>{label}</option>
               ))}
@@ -143,7 +144,7 @@ export function Lead360({ leadId }: { leadId: string }) {
           </div>
           <div>
             <span>الأولوية</span>
-            <select value={lead.priority} onChange={(e) => mutate(() => updateLeadPriority(lead.id, e.target.value))}>
+            <select value={lead.priority} onChange={(e) => mutate(() => crmService.updateLeadPriority(lead.id, e.target.value))}>
               {Object.entries(leadPriorityLabels).map(([key, label]) => (
                 <option value={key} key={key}>{label}</option>
               ))}
@@ -151,7 +152,7 @@ export function Lead360({ leadId }: { leadId: string }) {
           </div>
           <div>
             <span>المالك</span>
-            <select value={lead.ownerId} onChange={(e) => mutate(() => assignLeadOwner(lead.id, e.target.value))}>
+            <select value={lead.ownerId} onChange={(e) => mutate(() => crmService.assignLeadOwner(lead.id, e.target.value))}>
               {listUsers().map((user: any) => (
                 <option value={user.id} key={user.id}>{user.name}</option>
               ))}
@@ -302,7 +303,7 @@ export function Lead360({ leadId }: { leadId: string }) {
                       <button
                         type="button"
                         className="button ghost compact"
-                        onClick={() => mutate(() => completeLeadTask(task.id))}
+                        onClick={() => mutate(() => taskService.completeLeadTask(task.id))}
                       >
                         إكمال
                       </button>

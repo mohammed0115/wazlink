@@ -12,6 +12,10 @@ import {
   getTasksWorkspace,
   getAppointments,
   getDashboardMetrics,
+  getUpcomingActivities,
+  getInboxConversations,
+  getPipelineStageSummary,
+  getAutomationMetrics,
   getRevenueSummary,
   completeLeadTask,
   getCurrentSubscription as legacyGetCurrentSubscription,
@@ -31,11 +35,12 @@ import {
   finishMockCheckoutJourney as legacyFinishCheckoutJourney,
 } from "./mock/legacyDataBridge";
 import * as analyticsEngine from "@domain/analytics-engine.js";
+import * as bridge from "./mock/legacyDataBridge";
 import type {
   AnalyticsService, AnalyticsSnapshot, AppointmentService, BusinessService, BusinessSummary, BillingService,
   ConversationDetail, ConversationService, ConversationSummary, DealDetail, DealService,
   DealListItem, LeadDetail, LeadFilters, LeadListItem, LeadService, MessageService,
-  TaskService, DashboardSnapshot, DiscoveryFilters, DealFilters, ConversationFilters,
+  TaskService, DashboardService, DiscoveryService, CrmService, PipelineService, MessagingService, AutomationFeatureService, SettingsFeatureService, IntegrationFeatureService, DashboardSnapshot, DiscoveryFilters, DealFilters, ConversationFilters,
   BillingPlan, BillingSubscription, BillingUsageItem, BillingInvoice, BillingPaymentMethod, CheckoutSession,
 } from "./contracts/services";
 
@@ -72,8 +77,8 @@ export const messageService: MessageService = {
   async send(input) { return sendMockMessage(input.conversationId, input.body) as never; },
 };
 
-export const taskService: TaskService = { async list(_filters) { return getTasksWorkspace() as unknown[]; }, async complete(id) { return completeLeadTask(id) || id; } };
-export const appointmentService: AppointmentService = { async list(_filters) { return getAppointments() as unknown[]; } };
+export const taskService: TaskService & { getTasksWorkspace: typeof getTasksWorkspace; completeLeadTask: typeof completeLeadTask } = { async list(_filters) { return getTasksWorkspace() as unknown[]; }, async complete(id) { return completeLeadTask(id) || id; }, getTasksWorkspace, completeLeadTask };
+export const appointmentService: AppointmentService & { getAppointments: typeof getAppointments; createAppointment: typeof bridge.createAppointment; getLeadAppointments: typeof bridge.getLeadAppointments } = { async list(_filters) { return getAppointments() as unknown[]; }, getAppointments, createAppointment: bridge.createAppointment, getLeadAppointments: bridge.getLeadAppointments };
 export const analyticsService: AnalyticsService & Record<string, unknown> = {
   metricDefinitions: analyticsEngine.analyticsMetricDefinitions,
   referenceDate: analyticsEngine.ANALYTICS_REFERENCE_DATE,
@@ -389,3 +394,32 @@ export {
 export type { DashboardOverview } from "./data";
 export * from "./contracts/services";
 export * from "./contracts/repositories";
+
+
+const clone = <T>(value: T): T => value;
+
+export const dashboardService = {
+  getDashboardOverview: () => bridge.dashboardData, getUpcomingActivities, getInboxConversations, getPipelineStageSummary, getAutomationMetrics,
+  listBusinesses: () => legacyBusinesses.map(asBusiness), listDiscoveryJobs: () => bridge.jobs.map(clone),
+} satisfies DashboardService & Record<string, (...args: any[]) => any>;
+export const discoveryService = {
+  listDiscoveryJobs: () => bridge.jobs.map(clone), getDiscoveryJob: bridge.getDiscoveryJob, createDiscoveryJob: bridge.createDiscoveryJob, startDiscoveryJob: bridge.startDiscoveryJob, progressDiscoveryJob: bridge.progressDiscoveryJob, completeDiscoveryJob: bridge.completeDiscoveryJob, cancelDiscoveryJob: bridge.cancelDiscoveryJob, retryDiscoveryJob: bridge.retryDiscoveryJob, getJobResults: bridge.getJobResults, getDiscoverySource: bridge.getDiscoverySource, getDiscoveryCombinations: bridge.getDiscoveryCombinations,
+} satisfies DiscoveryService & Record<string, (...args: any[]) => any>;
+export const crmService = {
+  listBusinesses: () => legacyBusinesses.map(asBusiness), listLeads: () => bridge.mockRecords.leads.map(clone), getCrmFiltersSnapshot, getCrmSummary: bridge.getCrmSummary, getLead: bridge.getLead, getLeadByBusinessId: (id) => bridge.getLeadByBusinessId(id) || null, getLeadActivities: bridge.getLeadActivities, getLeadContacts: bridge.getLeadContacts, getLeadConversations: bridge.getLeadConversations, getLeadDeals: bridge.getLeadDeals, getLeadOwner: bridge.getLeadOwner, getLeadActivitySummary: bridge.getLeadActivitySummary, getLeadAppointments: bridge.getLeadAppointments, getLeadNotes: bridge.getLeadNotes, getLeadTasks: bridge.getLeadTasks, addLeadNote: bridge.addLeadNote, addLeadTask: bridge.addLeadTask, convertBusinessToLead: bridge.convertBusinessToLead, updateLeadStatus: bridge.updateLeadStatus, updateLeadPriority: bridge.updateLeadPriority, assignLeadOwner: bridge.assignLeadOwner,
+} satisfies CrmService & Record<string, (...args: any[]) => any>;
+export const pipelineService = {
+  listDeals: () => bridge.mockRecords.deals.map(clone), listBusinesses: () => legacyBusinesses.map(asBusiness), listLeads: () => bridge.mockRecords.leads.map(clone), getDeal: bridge.getDeal, getDealLead: bridge.getDealLead, getDealBusiness: bridge.getDealBusiness, getDealStage: bridge.getDealStage, getDealProbability: bridge.getDealProbability, getDealActivities: bridge.getDealActivities, getDealTasks: bridge.getDealTasks, getLeadDeals: bridge.getLeadDeals, getOpenDealsForLead: bridge.getOpenDealsForLead, getOpenDealForLead: bridge.getOpenDealForLead, getPipeline: bridge.getPipeline, getPipelineMetrics: bridge.getPipelineMetrics, getPipelineStageSummary: bridge.getPipelineStageSummary, getPipelineStages: bridge.getPipelineStages, moveDealStage: bridge.moveDealStage, createDeal: bridge.createDeal, updateDeal: bridge.updateDeal, closeDealAsWon: bridge.closeDealAsWon, closeDealAsLost: bridge.closeDealAsLost, getLeadActivitySummary: bridge.getLeadActivitySummary, getDealFiltersSnapshot,
+} satisfies PipelineService & Record<string, (...args: any[]) => any>;
+export const messagingService = {
+  listUsers: () => bridge.mockRecords.users.map(clone), listConversations: () => bridge.mockRecords.conversations.map(clone), getConversation: bridge.getConversation, getConversationMessages: bridge.getConversationMessages, getConversationLatestMessage: bridge.getConversationLatestMessage, getConversationNeedsReply: bridge.getConversationNeedsReply, getConversationUnreadCount: bridge.getConversationUnreadCount, getConversationContact: bridge.getConversationContact, getConversationBusiness: bridge.getConversationBusiness, getConversationContext: bridge.getConversationContext, getLeadContacts: bridge.getLeadContacts, getLeadConversations: bridge.getLeadConversations, getInboxConversations: bridge.getInboxConversations, getInboxSummary: bridge.getInboxSummary, sendMessage: bridge.sendMockMessage, advanceMessageStatus: bridge.advanceMockMessageStatus, retryMessage: bridge.retryMockMessage, assignConversation: bridge.assignConversation, closeConversation: bridge.closeConversation, reopenConversation: bridge.reopenConversation, getLeadActivitySummary: bridge.getLeadActivitySummary, getLeadOwner: bridge.getLeadOwner, getDealProbability: bridge.getDealProbability, getDealStage: bridge.getDealStage,
+} satisfies MessagingService & Record<string, (...args: any[]) => any>;
+export const automationFeatureService = {
+  getAutomationRules: bridge.getAutomationRules, getAutomationRuns: bridge.getAutomationRuns, getAutomationRule: bridge.getAutomationRule, getAutomationApprovalQueue: bridge.getAutomationApprovalQueue, getAutomationRunActionExecutions: bridge.getAutomationRunActionExecutions, getAutomationMetrics: bridge.getAutomationMetrics, runAutomationNow: bridge.runAutomationNow, testAutomationRule: bridge.testAutomationRule, approveAutomationAction: bridge.approveAutomationAction, rejectAutomationAction: bridge.rejectAutomationAction, setAutomationRuleStatus: bridge.setAutomationRuleStatus, createAutomationRule: bridge.createAutomationRule, updateAutomationRule: bridge.updateAutomationRule, getAutomationConditionField: bridge.getAutomationConditionField, formatAutomationCondition: bridge.formatAutomationCondition,
+} satisfies AutomationFeatureService & Record<string, (...args: any[]) => any>;
+export const settingsFeatureService = {
+  getWorkspace: bridge.getWorkspace, getCurrentWorkspaceUser: bridge.getCurrentWorkspaceUser, getNotificationPreferences: bridge.getNotificationPreferences, getSecuritySettings: bridge.getSecuritySettings, getTeamInvitations: bridge.getTeamInvitations, getSettingsActivities: bridge.getSettingsActivities, updateWorkspaceSettings: (input) => bridge.updateWorkspaceSettings(input) || {}, updateCurrentUserSettings: bridge.updateCurrentUserSettings, setNotificationPreference: bridge.setNotificationPreference, setTeamMemberStatus: bridge.setTeamMemberStatus, createTeamInvitation: bridge.createTeamInvitation, updateSecuritySettings: bridge.updateSecuritySettings, listUsers: () => bridge.mockRecords.users.map(clone),
+} satisfies SettingsFeatureService & Record<string, (...args: any[]) => any>;
+export const integrationFeatureService = {
+  listIntegrations: () => bridge.mockRecords.integrations.map(clone), getIntegration: bridge.getIntegration, getIntegrationActivities: bridge.getIntegrationActivities, connectIntegration: bridge.connectIntegrationMock, disconnectIntegration: bridge.disconnectIntegrationMock, retryIntegration: bridge.retryIntegrationMock, updateIntegrationConfiguration: bridge.updateIntegrationConfiguration,
+} satisfies IntegrationFeatureService & Record<string, (...args: any[]) => any>;

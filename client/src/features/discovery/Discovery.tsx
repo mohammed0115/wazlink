@@ -1,3 +1,4 @@
+import { discoveryService } from "@services";
 /**
  * اكتشاف العملاء — S3.
  *
@@ -6,7 +7,7 @@
  * ولا تنشئ Lead أو Score أو CRM.
  */
 import { useRef, useState, type FormEvent } from "react";
-import { createDiscoveryJob, discoverySourceOptions, getDiscoveryCombinations, getDiscoveryDraftSnapshot } from "@services";
+import { createDiscoveryJob, discoverySourceOptions, getDiscoveryDraftSnapshot } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { useToast } from "../../shared/store/toast";
 import { runDiscoverySimulation } from "./simulation";
@@ -39,7 +40,7 @@ function ChipList({ items, type, onRemove }: { items: string[]; type: ChipType; 
 type DiscoveryDraft = ReturnType<typeof getDiscoveryDraftSnapshot>;
 
 function CombinationsPreview({ draft, onToggle }: { draft: DiscoveryDraft; onToggle: () => void }) {
-  const combinations = getDiscoveryCombinations(draft.keywords, draft.locations);
+  const combinations = discoveryService.getDiscoveryCombinations(draft.keywords, draft.locations);
   const visible = draft.showCombinations ? combinations : combinations.slice(0, 4);
 
   return (
@@ -194,7 +195,7 @@ export function Discovery() {
       return;
     }
 
-    const job = createDiscoveryJob({ keywords: draft.keywords, locations: draft.locations, sourceId: draft.sourceId, filters });
+    const job = discoveryService.createDiscoveryJob({ keywords: draft.keywords, locations: draft.locations, sourceId: draft.sourceId, filters });
     runDiscoverySimulation(job.id, (id) => toast(`اكتملت العملية ${id} ببيانات تجريبية ثابتة.`, "success"));
     go(`discovery/jobs/${job.id}`);
   }

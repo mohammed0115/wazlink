@@ -1,3 +1,4 @@
+import { settingsFeatureService } from "@services";
 /**
  * الإعدادات والحوكمة — S11.
  *
@@ -5,7 +6,7 @@
  * ويعاد استخدام `User` و`Team` القائمين بلا قاعدة مستخدمين ثانية.
  */
 import { useState, type FormEvent } from "react";
-import { createTeamInvitation, getCurrentWorkspaceUser, getNotificationPreferences, getSecuritySettings, getSettingsActivities, getTeamInvitations, getWorkspace, notificationCategoryLabels as rawCategories, notificationChannelLabels as rawChannels, setNotificationPreference, setTeamMemberStatus, updateCurrentUserSettings, updateSecuritySettings, updateWorkspaceSettings, workspaceCurrencies, workspaceLocales, workspaceTimezones, listUsers } from "@services";
+import { notificationCategoryLabels as rawCategories, notificationChannelLabels as rawChannels, workspaceCurrencies, workspaceLocales, workspaceTimezones } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
@@ -104,13 +105,13 @@ function RouteCard({ route, title, description, action }: { route: string; title
 }
 
 function WorkspaceSection({ toast }: { toast: (m: string, t?: any) => void }) {
-  const workspace = getWorkspace();
+  const workspace = settingsFeatureService.getWorkspace();
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     mutate(() =>
-      updateWorkspaceSettings({
+      settingsFeatureService.updateWorkspaceSettings({
         name: String(data.get("name") || ""),
         timezone: String(data.get("timezone") || ""),
         currency: String(data.get("currency") || ""),
@@ -161,14 +162,14 @@ function WorkspaceSection({ toast }: { toast: (m: string, t?: any) => void }) {
       </form>
       <section className="s11-subsection">
         <h3>سجل التغييرات</h3>
-        <AuditList rows={getSettingsActivities() as Row[]} />
+        <AuditList rows={settingsFeatureService.getSettingsActivities() as Row[]} />
       </section>
     </section>
   );
 }
 
 function AccountSection({ toast }: { toast: (m: string, t?: any) => void }) {
-  const user = getCurrentWorkspaceUser();
+  const user = settingsFeatureService.getCurrentWorkspaceUser();
   return (
     <section className="s11-section">
       <header>
@@ -191,7 +192,7 @@ function AccountSection({ toast }: { toast: (m: string, t?: any) => void }) {
         onSubmit={(event) => {
           event.preventDefault();
           const name = String(new FormData(event.currentTarget).get("name") || "");
-          mutate(() => updateCurrentUserSettings({ name }));
+          mutate(() => settingsFeatureService.updateCurrentUserSettings({ name }));
           toast("حُفظ اسم العرض محليًا.", "success");
         }}
       >
@@ -218,7 +219,7 @@ function AccountSection({ toast }: { toast: (m: string, t?: any) => void }) {
 }
 
 function TeamSection({ toast }: { toast: (m: string, t?: any) => void }) {
-  const invitations = getTeamInvitations() as Row[];
+  const invitations = settingsFeatureService.getTeamInvitations() as Row[];
   return (
     <section className="s11-section">
       <header>
@@ -227,7 +228,7 @@ function TeamSection({ toast }: { toast: (m: string, t?: any) => void }) {
         <p>تُعاد استخدام Users نفسها التي تملك Leads وDeals ومحادثات؛ لا توجد قاعدة مستخدمين ثانية.</p>
       </header>
       <div className="s11-team-list">
-        {listUsers().map((user: Row) => (
+        {settingsFeatureService.listUsers().map((user: Row) => (
           <article key={user.id}>
             <i className="avatar">{user.name.slice(0, 1)}</i>
             <div>
@@ -241,7 +242,7 @@ function TeamSection({ toast }: { toast: (m: string, t?: any) => void }) {
               <select
                 value={user.status}
                 onChange={(event) => {
-                  mutate(() => setTeamMemberStatus(user.id, event.target.value));
+                  mutate(() => settingsFeatureService.setTeamMemberStatus(user.id, event.target.value));
                   toast("حُدثت حالة العضو محليًا.", "info");
                 }}
               >
@@ -263,7 +264,7 @@ function TeamSection({ toast }: { toast: (m: string, t?: any) => void }) {
               event.preventDefault();
               const data = new FormData(event.currentTarget);
               mutate(() =>
-                createTeamInvitation({ email: String(data.get("email") || ""), role: String(data.get("role") || "") }),
+                settingsFeatureService.createTeamInvitation({ email: String(data.get("email") || ""), role: String(data.get("role") || "") }),
               );
               toast("أُنشئت دعوة تجريبية معلقة؛ لم يُرسل أي بريد.", "success");
               event.currentTarget.reset();
@@ -311,13 +312,13 @@ function NotificationsSection({ toast }: { toast: (m: string, t?: any) => void }
         <p>تحدد هذه الشاشة التفضيل المحلي فقط؛ لا تنشئ نظام إشعارات أو إرسال بريد أو WhatsApp حقيقي.</p>
       </header>
       <div className="s11-preferences">
-        {(getNotificationPreferences() as Row[]).map((pref) => (
+        {(settingsFeatureService.getNotificationPreferences() as Row[]).map((pref) => (
           <label className="s11-preference" key={pref.id}>
             <input
               type="checkbox"
               checked={pref.enabled}
               onChange={(event) => {
-                mutate(() => setNotificationPreference(pref.id, event.target.checked));
+                mutate(() => settingsFeatureService.setNotificationPreference(pref.id, event.target.checked));
                 toast("حُدث التفضيل المحلي فقط.", "info");
               }}
             />
@@ -334,7 +335,7 @@ function NotificationsSection({ toast }: { toast: (m: string, t?: any) => void }
 }
 
 function SecuritySection({ toast }: { toast: (m: string, t?: any) => void }) {
-  const security = getSecuritySettings();
+  const security = settingsFeatureService.getSecuritySettings();
   return (
     <section className="s11-section">
       <header>
@@ -352,7 +353,7 @@ function SecuritySection({ toast }: { toast: (m: string, t?: any) => void }) {
           event.preventDefault();
           const data = new FormData(event.currentTarget);
           mutate(() =>
-            updateSecuritySettings({
+            settingsFeatureService.updateSecuritySettings({
               dataResidency: String(data.get("dataResidency") || ""),
               externalAiAccess: data.get("externalAiAccess") === "on",
             }),

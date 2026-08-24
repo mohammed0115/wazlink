@@ -1,9 +1,10 @@
+import { discoveryService } from "@services";
 /**
  * تفاصيل عملية اكتشاف — S3.
  * منقولة عن `renderDiscoveryJob()`: ملخص، تقدم، أعداد، ومراحل معالجة.
  * المراحل تمثل تجربة محلية ثابتة لا Scraping ولا Enrichment فعليًا.
  */
-import { completeDiscoveryJob, formatDiscoveryJobCreatedAt, getDiscoveryJob, getJobStatusLabel, isDiscoveryResultsAvailable, retryDiscoveryJob } from "@services";
+import { formatDiscoveryJobCreatedAt, getJobStatusLabel, isDiscoveryResultsAvailable } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { useToast } from "../../shared/store/toast";
 import { runDiscoverySimulation, stopDiscoverySimulation } from "./simulation";
@@ -40,7 +41,7 @@ const stageMarks: Record<string, string> = { done: "✓", processing: "…", fai
 
 export function DiscoveryJob({ jobId }: { jobId: string }) {
   const toast = useToast();
-  const job = getDiscoveryJob(jobId);
+  const job = discoveryService.getDiscoveryJob(jobId);
 
   if (!job) {
     return (
@@ -64,13 +65,13 @@ export function DiscoveryJob({ jobId }: { jobId: string }) {
   };
 
   const retry = () => {
-    retryDiscoveryJob(job.id);
+    discoveryService.retryDiscoveryJob(job.id);
     runDiscoverySimulation(job.id, (id) => toast(`اكتملت العملية ${id} ببيانات تجريبية ثابتة.`, "success"));
     go(`discovery/jobs/${job.id}`);
   };
 
   const complete = () => {
-    completeDiscoveryJob(job.id);
+    discoveryService.completeDiscoveryJob(job.id);
     stopDiscoverySimulation(job.id);
     toast("اكتملت المحاكاة التجريبية.", "success");
   };

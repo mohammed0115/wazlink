@@ -1,3 +1,4 @@
+import { crmService, discoveryService } from "@services";
 /**
  * نوافذ الاكتشاف — S3.
  *
@@ -8,7 +9,7 @@
  * لا عند فقاعة حدث من زر بداخل النافذة.
  */
 import type { MouseEvent } from "react";
-import { listBusinesses, convertBusinessToLead, getDiscoveryJob, scraperCrmPackages } from "@services";
+import { scraperCrmPackages } from "@services";
 import { useToast } from "../../shared/store/toast";
 import { stopDiscoverySimulation } from "./simulation";
 import { Mono, fmt, sourceName } from "./shared";
@@ -50,7 +51,7 @@ export function DiscoveryModal() {
   };
 
   if (modal.type === "cancel") {
-    const job = getDiscoveryJob(jobId);
+    const job = discoveryService.getDiscoveryJob(jobId);
     return (
       <div className="modal-backdrop" onClick={onBackdrop}>
         <section ref={panelRef as never} tabIndex={-1} className="modal" role="dialog" aria-modal="true" aria-labelledby="cancelDiscoveryTitle">
@@ -73,7 +74,7 @@ export function DiscoveryModal() {
               className="button danger"
               type="button"
               onClick={() => {
-                cancelDiscoveryJob(jobId);
+                discoveryService.cancelDiscoveryJob(jobId);
                 stopDiscoverySimulation(jobId);
                 close();
                 toast("تم إلغاء عملية الاكتشاف مع الاحتفاظ بها في السجل.", "info");
@@ -88,9 +89,9 @@ export function DiscoveryModal() {
   }
 
   if (modal.type === "business") {
-    const business = listBusinesses().find((item: { id: string }) => item.id === businessId);
+    const business = crmService.listBusinesses().find((item: { id: string }) => item.id === businessId);
     if (!business) return null;
-    const job = getDiscoveryJob(business.discoveryJobId);
+    const job = discoveryService.getDiscoveryJob(business.discoveryJobId);
 
     return (
       <div className="modal-backdrop" onClick={onBackdrop}>
@@ -127,7 +128,7 @@ export function DiscoveryModal() {
   }
 
   if (modal.type === "scraper-crm-decision") {
-    const job = getDiscoveryJob(jobId);
+    const job = discoveryService.getDiscoveryJob(jobId);
     const ids = businessIds;
     return (
       <div className="modal-backdrop" onClick={onBackdrop}>
@@ -184,7 +185,7 @@ export function DiscoveryModal() {
                 type="button"
                 onClick={() => {
                   const outcomes = ids.map((selectedBusinessId) =>
-                    convertBusinessToLead(selectedBusinessId, {
+                    crmService.convertBusinessToLead(selectedBusinessId, {
                       status: "new",
                       priority: "medium",
                       tags: ["من باقة Scraper", "ترقية CRM تجريبية"],

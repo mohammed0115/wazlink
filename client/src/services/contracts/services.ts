@@ -7,7 +7,7 @@ export type ConversationFilters = { search?: string; status?: string; channel?: 
 export type DiscoveryFilters = { search?: string; city?: string; rating?: string; website?: string; phone?: string };
 
 export interface AppServiceError { code: string; message: string; field?: string; retryable?: boolean; }
-export type BusinessSummary = { id: string; name: string; category?: string; city?: string; rating?: number | null; reviews?: number | null; source?: string };
+export type BusinessSummary = { id: string; name: string; category?: string; city?: string; rating?: number | null; reviews?: number | null; source?: string; short?: string; discoveryJobId?: string; phone?: string; email?: string; address?: string; country?: string; website?: string };
 export type LeadListItem = { id: string; businessId: string; status?: string; priority?: string; score?: number; businessName?: string };
 export type LeadDetail = Lead;
 export type DealListItem = { id: string; leadId: string; stageId?: string; value: number; probability: number; status?: string };
@@ -57,4 +57,68 @@ export interface BillingService {
   failCheckout(reason?: string): ServiceResult<CheckoutSession | null>;
   cancelCheckout(): ServiceResult<void>;
   finishCheckoutJourney(): ServiceResult<unknown>;
+}
+
+export type FeatureRow = Record<string, unknown>;
+export type FeatureRows = FeatureRow[];
+export interface DashboardService {
+  getDashboardOverview(): ServiceResult<FeatureRow>;
+  getUpcomingActivities(): ServiceResult<FeatureRows>;
+  getInboxConversations(): ServiceResult<FeatureRows>;
+  getPipelineStageSummary(id?: string): ServiceResult<FeatureRows>;
+  getAutomationMetrics(): ServiceResult<FeatureRow>;
+  listBusinesses(): ServiceResult<BusinessSummary[]>;
+  listDiscoveryJobs(): ServiceResult<FeatureRows>;
+}
+export interface DiscoveryService {
+  listDiscoveryJobs(): ServiceResult<FeatureRows>; getDiscoveryJob(id: string): ServiceResult<FeatureRow | null>; getDiscoverySource(id: string): ServiceResult<FeatureRow | null>;
+  createDiscoveryJob(input: FeatureRow): ServiceResult<FeatureRow>; startDiscoveryJob(id: string): ServiceResult<FeatureRow>;
+  progressDiscoveryJob(id: string): ServiceResult<FeatureRow>; completeDiscoveryJob(id: string): ServiceResult<FeatureRow>;
+  cancelDiscoveryJob(id: string): ServiceResult<FeatureRow>; retryDiscoveryJob(id: string): ServiceResult<FeatureRow>;
+  getJobResults(id: string): ServiceResult<FeatureRows>;
+}
+export interface CrmService {
+  listBusinesses(): ServiceResult<BusinessSummary[]>; listLeads(): ServiceResult<FeatureRows>;
+  getLead(id: string): ServiceResult<FeatureRow | null>; getLeadByBusinessId(id: string): ServiceResult<FeatureRow | null>;
+  getLeadActivities(id: string): ServiceResult<FeatureRows>; getLeadContacts(id: string): ServiceResult<FeatureRows>;
+  getLeadConversations(id: string): ServiceResult<FeatureRows>; getLeadDeals(id: string): ServiceResult<FeatureRows>;
+  convertBusinessToLead(id: string, input?: FeatureRow): ServiceResult<FeatureRow | null>;
+  updateLeadStatus(id: string, value: string): ServiceResult<FeatureRow | null>;
+  updateLeadPriority(id: string, value: string): ServiceResult<FeatureRow | null>;
+  assignLeadOwner(id: string, ownerId: string): ServiceResult<FeatureRow | null>;
+}
+export interface PipelineService {
+  listDeals(): ServiceResult<FeatureRows>; listBusinesses(): ServiceResult<BusinessSummary[]>; listLeads(): ServiceResult<FeatureRows>; getDeal(id: string): ServiceResult<FeatureRow | null>; getDealBusiness(id: string): ServiceResult<FeatureRow | null>;
+  getPipeline(id?: string): ServiceResult<FeatureRow | null>; getPipelineMetrics(id?: string): ServiceResult<FeatureRow>;
+  getPipelineStageSummary(id?: string): ServiceResult<FeatureRows>; moveDealStage(id: string, stageId: string): ServiceResult<FeatureRow | null>;
+  closeDealAsWon(id: string): ServiceResult<FeatureRow | null>; closeDealAsLost(id: string, reason?: string): ServiceResult<FeatureRow | null>;
+  updateDeal(id: string, patch: FeatureRow): ServiceResult<FeatureRow | null>;
+}
+export interface MessagingService {
+  getConversation(id: string): ServiceResult<FeatureRow | null>; getConversationMessages(id: string): ServiceResult<FeatureRows>;
+  getInboxConversations(): ServiceResult<FeatureRows>; getInboxSummary(): ServiceResult<FeatureRow>;
+  sendMessage(id: string, input: FeatureRow): ServiceResult<FeatureRow | null>;
+  advanceMessageStatus(id?: string): ServiceResult<FeatureRow | null>; retryMessage(id: string): ServiceResult<FeatureRow | null>;
+  assignConversation(id: string, ownerId: string): ServiceResult<FeatureRow | null>;
+  closeConversation(id: string): ServiceResult<FeatureRow | null>; reopenConversation(id: string): ServiceResult<FeatureRow | null>;
+}
+export interface AutomationFeatureService {
+  getAutomationRules(): ServiceResult<FeatureRows>; getAutomationRuns(): ServiceResult<FeatureRows>;
+  getAutomationRule(id: string): ServiceResult<FeatureRow | null>; getAutomationApprovalQueue(): ServiceResult<FeatureRows>;
+  runAutomationNow(id: string): ServiceResult<FeatureRow | null>; testAutomationRule(id: string): ServiceResult<FeatureRow | null>;
+  approveAutomationAction(id: string): ServiceResult<FeatureRow | null>; rejectAutomationAction(id: string): ServiceResult<FeatureRow | null>;
+  setAutomationRuleStatus(id: string, status: string): ServiceResult<FeatureRow | null>;
+}
+export interface SettingsFeatureService {
+  getWorkspace(): ServiceResult<FeatureRow>; getCurrentWorkspaceUser(): ServiceResult<FeatureRow | null>; listUsers(): ServiceResult<FeatureRows>;
+  getNotificationPreferences(): ServiceResult<FeatureRows>; getSecuritySettings(): ServiceResult<FeatureRow>;
+  getTeamInvitations(): ServiceResult<FeatureRows>; getSettingsActivities(): ServiceResult<FeatureRows>;
+  updateWorkspaceSettings(input: FeatureRow): ServiceResult<FeatureRow>; updateCurrentUserSettings(input: FeatureRow): ServiceResult<FeatureRow>;
+  setNotificationPreference(id: string, input: FeatureRow): ServiceResult<FeatureRow>;
+}
+export interface IntegrationFeatureService {
+  listIntegrations(): ServiceResult<FeatureRows>; getIntegration(id: string): ServiceResult<FeatureRow | null>;
+  getIntegrationActivities(id: string): ServiceResult<FeatureRows>; connectIntegration(id: string): ServiceResult<FeatureRow | null>;
+  disconnectIntegration(id: string): ServiceResult<FeatureRow | null>; retryIntegration(id: string): ServiceResult<FeatureRow | null>;
+  updateIntegrationConfiguration(id: string, input: FeatureRow): ServiceResult<FeatureRow | null>;
 }

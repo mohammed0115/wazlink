@@ -1,3 +1,4 @@
+import { pipelineService, crmService } from "@services";
 /**
  * مسار المبيعات — S6.
  *
@@ -6,7 +7,7 @@
  * أزرار النقل تبقى بديلًا كاملًا للوحة المفاتيح.
  */
 import { useState } from "react";
-import { getDealBusiness, getDealLead, getDealProbability, getDealStage, getLeadActivitySummary, getPipeline, getPipelineMetrics, getPipelineStageSummary, moveDealStage } from "@services";
+import { getDealBusiness } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
@@ -16,13 +17,13 @@ import { DecisionRail, MetricStrip, Mono, fmt, money, ownerName, stageTone } fro
 type Row = Record<string, any>;
 
 function dealRecord(deal: Row): Row {
-  const lead = getDealLead(deal);
+  const lead = pipelineService.getDealLead(deal);
   return {
     deal,
     lead,
-    business: getDealBusiness(deal),
-    stage: getDealStage(deal),
-    activity: lead ? getLeadActivitySummary(lead.id) : null,
+    business: pipelineService.getDealBusiness(deal),
+    stage: pipelineService.getDealStage(deal),
+    activity: lead ? crmService.getLeadActivitySummary(lead.id) : null,
   };
 }
 
@@ -51,7 +52,7 @@ function DealCard({ row, stages, onMove }: { row: Row; stages: Row[]; onMove: (d
             <i>{business?.short?.slice(0, 1) || "ع"}</i>
             <b>{business?.name || lead?.id || deal.id}</b>
           </span>
-          <em>{getDealProbability(deal)}%</em>
+          <em>{pipelineService.getDealProbability(deal)}%</em>
         </header>
         <h3>{deal.title}</h3>
         <div className="deal-card-value">
@@ -101,13 +102,13 @@ export function Pipeline() {
   const toast = useToast();
   const [dragOver, setDragOver] = useState<string | null>(null);
 
-  const pipeline = getPipeline();
-  const metrics = getPipelineMetrics(pipeline?.id);
-  const summary = getPipelineStageSummary(pipeline?.id).filter(({ stage }: Row) => stage.kind === "open");
+  const pipeline = pipelineService.getPipeline();
+  const metrics = pipelineService.getPipelineMetrics(pipeline?.id);
+  const summary = pipelineService.getPipelineStageSummary(pipeline?.id).filter(({ stage }: Row) => stage.kind === "open");
   const openStages = summary.map(({ stage }: Row) => stage);
 
   const move = (dealId: string, stageId: string) => {
-    const result = mutate(() => moveDealStage(dealId, stageId));
+    const result = mutate(() => pipelineService.moveDealStage(dealId, stageId));
     if (result) toast("نُقلت الصفقة إلى المرحلة الجديدة وسُجل الأثر محليًا.", "success");
     else toast("تعذر نقل الصفقة إلى هذه المرحلة.", "error");
   };

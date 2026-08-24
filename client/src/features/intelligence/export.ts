@@ -1,10 +1,11 @@
+import { discoveryService } from "@services";
 /**
  * تصدير Excel المحلي — SCRAPER-DATA-VISIBILITY.
  *
  * ينتج CSV متوافقًا مع Excel عبر Blob محلي فقط: لا خادم تصدير ولا طلب شبكة.
  * يبدأ بـUTF-8 BOM كي تُقرأ العربية صحيحة في Excel.
  */
-import { getJobResults, scraperExportColumns } from "@services";
+import { scraperExportColumns } from "@services";
 
 type Business = Record<string, unknown>;
 
@@ -29,7 +30,7 @@ const valueFor = (business: Business, id: string) =>
 
 /** ينزّل الصفوف المحددة بالأعمدة المختارة ويعيد عدد الصفوف. */
 export function downloadScraperCsv(jobId: string, businessIds: string[], exportColumnIds?: string[]): number {
-  const rows = (getJobResults(jobId) as Business[]).filter((business) => businessIds.includes(business.id as string));
+  const rows = (discoveryService.getJobResults(jobId) as Business[]).filter((business) => businessIds.includes(business.id as string));
   const selected = new Set<string>(exportColumnIds || scraperExportColumns.map((column: { id: string }) => column.id));
   const columns = (scraperExportColumns as { id: string; label: string }[]).filter((column) => selected.has(column.id));
 
