@@ -1,75 +1,42 @@
-# getUiState Migration Audit — V2-S0-FIX.2
+# getUiState Migration Audit — V2-S0-FIX.2-C
 
 ## Scope
 
-This inventory records every remaining runtime `getUiState()` usage in `client/src/features`, `client/src/shared`, and `client/src/App.tsx` before the FIX.2 migration. The field is a mixed legacy object and must be eliminated from Feature/shared/App runtime code rather than renamed.
+This phase covers only Inbox, Conversations, Messages, Copilot, Agent, Automation, Tasks, and Appointments. Analytics, Settings, Product Entitlements, Backend, HTTP, scheduler, worker, and redesign are explicitly out of scope.
 
-| Field | Measured occurrences | Category | Target boundary |
-|---|---:|---|---|
-| `s11Ui` | 21 | A Local UI state | Settings local state / feature hook |
-| `scraperCrmUi` | 13 | A Local UI state | Discovery local state / feature hook |
-| `analyticsUi` | 11 | A Local UI state | Analytics local typed state |
-| `selectedBusinessId` | 8 | B Route state / C domain entity | Hash route or feature selection |
-| `discoveryDraft` | 8 | A Local UI state | Discovery local state |
-| `selectedLeadId` | 7 | B Route state / C domain entity | CRM route parameter |
-| `selectedJobId` | 7 | B Route state / C domain entity | Discovery job route parameter |
-| `workspace` | 6 | E Workspace/user context | Explicit WorkspaceContext/service |
-| `selectedDealId` | 6 | B Route state / C domain entity | Deal route parameter |
-| `dashboardView` | 6 | A Local UI state | Dashboard local state |
-| `analyticsContext` | 6 | D Derived domain metric / A UI filter | Analytics typed filter DTO |
-| `agentMode` | 6 | A Local UI state / C domain behavior | Agent local state or typed agent service |
-| `selectedConversationId` | 5 | B Route state / C domain entity | Inbox route parameter |
-| `onboardingErrors` | 5 | A Local UI state | Onboarding local state |
-| `copilotTab` | 5 | A Local UI state | Copilot local state |
-| `inboxContextOpen` | 4 | A Local UI state | Inbox local state |
-| `dashboardTimeframe` | 4 | A Local UI state / D derived metric filter | Dashboard local typed state |
-| `crmView` | 4 | A Local UI state | CRM local state |
-| `automationFilters` | 4 | A Local UI state | Automation local typed state |
-| `theme` | 3 | E Workspace/session preference | Explicit theme hook/context |
-| `sidebarCollapsed` | 3 | A Local UI state | AppShell local state |
-| `resultFilters` | 3 | A Local UI state | Results local typed state |
-| `onboardingStep` | 3 | A Local UI state | Onboarding local state |
-| `discoveryListFilters` | 3 | A Local UI state | Discovery local typed state |
-| `dealFilters` | 3 | A Local UI state | Deals local typed state |
-| `crmFilters` | 3 | A Local UI state | CRM local typed state |
-| `taskFilters` | 2 | A Local UI state | Tasks local typed state |
-| `signedIn` | 2 | E Workspace/session context | Explicit session context |
-| `selectedAutomationId` | 2 | B Route state / C domain entity | Automation route/local selection |
-| `onboardingDone` | 2 | E Workspace/session context | Explicit onboarding/session context |
-| `loginErrors` | 2 | A Local UI state | Login local state |
-| `inboxFilters` | 2 | A Local UI state | Inbox local typed state |
-| `appointmentFilters` | 2 | A Local UI state | Appointments local typed state |
-| `selectedResultIds` | 1 | A Local UI state | Results local selection state |
-| `selectedLeadIds` | 1 | A Local UI state | CRM local selection state |
-| `notifications` | 1 | E Workspace/session context | Explicit notification service/context |
-| `intelligenceProcessing` | 1 | A Local UI state | Intelligence local processing state |
-| `intelligenceModal` | 1 | A Local UI state | Intelligence local modal state |
-| `inboxDrafts` | 1 | A Local UI state | Inbox local composer state |
-| `inboxAttachment` | 1 | A Local UI state | Inbox local composer state |
-| `discoveryModal` | 1 | A Local UI state | Discovery local modal state |
-| `dealModal` | 1 | A Local UI state | Deal local modal state |
-| `crmModal` | 1 | A Local UI state | CRM local modal state |
-| `automationModal` | 1 | A Local UI state | Automation local modal state |
-| `appointmentModal` | 1 | A Local UI state | Appointment local modal state |
+## Target inventory before FIX.2-C
 
-## Migration rule
+| File / surface | Legacy field or accessor | Category | Target owner |
+|---|---|---|---|
+| `features/inbox/Inbox.tsx` | `inboxDrafts`, `inboxAttachment` | Composer/draft state | React local state |
+| `features/inbox/Inbox.tsx` | `inboxFilters` | Local UI/filter state | React local state |
+| `features/inbox/Inbox.tsx` | `selectedConversationId` | Route state | `#/inbox/:id` or canonical hash route |
+| `features/inbox/Inbox.tsx` | `inboxContextOpen` | Local panel state | React local state |
+| `features/automation/Automation.tsx` | `automationFilters` | Local UI/filter state | React local state |
+| `features/automation/Automation.tsx` | `selectedAutomationId` | Route/selection state | hash/query state or local selection |
+| `features/automation/Automation.tsx` | `automationModal` | Modal UI state | route/query state |
+| `features/automation/AutomationModal.tsx` | `automationModal` | Modal UI state | route/query state |
+| `features/automation/Tasks.tsx` | `taskFilters` | Local UI/filter state | React local state |
+| `features/automation/Appointments.tsx` | `appointmentFilters` | Local UI/filter state | React local state |
+| `features/automation/Appointments.tsx` | `appointmentModal` | Modal UI state | route/query state |
+| `features/automation/AppointmentModal.tsx` | `appointmentModal` | Modal UI state | route/query state |
+| `features/automation` | rules/runs/approvals | Domain/service data | typed automation service/read models |
+| `features/intelligence` | Copilot tab, analysis, evidence, export | Local UI/composer state | feature-local React state and explicit service arguments |
 
-No field may remain reachable through a mixed object accessor. Local UI fields move to React state or feature hooks; navigational IDs move to hash/route parsing; entity data and derived metrics move to typed services/selectors; workspace/session values move to one explicit context boundary.
+## Required end state
 
-## V2-S0-FIX.2-A completion
+Target runtime consumers must contain zero `getUiState`, `uiState`, `mockRecords`, `mockModel`, direct `domain/data.js`, and renamed mixed-state accessor usage. Domain records and mutations must remain behind stable typed services.
 
-| Field | Old owner | New owner | New API | Verdict |
-|---|---|---|---|---|
-| `workspace` | mixed `getUiState().workspace` | `WorkspaceProvider` | `useWorkspace().workspace`, `updateWorkspace()` | PASS |
-| `signedIn` | mixed `getUiState().signedIn` | `SessionProvider` | `useSession().signedIn`, `signInMock()`, `signOutMock()` | PASS |
-| `theme` | mixed `getUiState().theme` | `ThemeProvider` | `useTheme().theme`, `setTheme()`, `toggleTheme()` | PASS |
-| `sidebarCollapsed` | mixed global state | `AppShell` local React state | `collapsed` and `onToggleCollapsed` props | PASS |
-| `onboardingStep` | mixed global state | `Onboarding` local React state | `useState()` inside `Onboarding` | PASS |
-| `onboardingDone` | mixed global state | `SessionProvider` lifecycle state | `useSession().onboardingDone`, `completeOnboarding()` | PASS |
-| `onboardingErrors` | mixed global state | `Onboarding` local React state | local `errors` state | PASS |
-| `loginErrors` | mixed global state | `Login` local React state | local `errors` state | PASS |
-| `notifications` | mixed global state | explicit notification service | `notificationService.unreadCount()` | PASS |
+## Locked contracts
 
-Targeted runtime count after migration: `App.tsx = 0`, `client/src/shared/shell = 0`, `client/src/features/auth = 0`.
+Conversation identity, read/unread behavior, retry semantics, human-only outbound sending, Copilot insert-only behavior, Agent proposal-versus-execution safety, automation idempotency and approval rules, `manual_only` semantics, task/appointment relationships, time validation, and overlap warnings must remain unchanged.
 
-Global count remains for later FIX.2-B feature migrations and is intentionally not a gate in this phase.
+No Backend, HTTP, fetch, Axios, real WhatsApp API, real OpenAI API, scheduler, worker, cron, webhook, redesign, or new product feature is permitted in this phase.
+
+## Prior completion retained
+
+FIX.2-A remains complete for AppShell, Sidebar, Topbar, Session, Workspace, Theme, Login, and Onboarding. FIX.2-B remains complete for Discovery, Intelligence, CRM, Lead 360, Deals, and Pipeline. The present audit is additive and records the next target scope only.
+
+## Verification requirements
+
+The final phase must run TypeScript, production build, V2-S0, architecture, React shell, S8/S9, FIX.2-C-specific checks, forbidden-identifier scans, and browser smoke checks for Inbox, Copilot, Agent, Automation, Tasks, and Appointments. Commit and push are allowed only when the file-specific acceptance gates pass.

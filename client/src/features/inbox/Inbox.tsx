@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from "react";
 import { appConfig } from "@config/env";
-import { advanceMockMessageStatus, assignConversation, closeConversation, conversationStatusLabels as rawConvStatus, getConversation, getConversationBusiness, getConversationContact, getConversationContext, getConversationMessages, getConversationNeedsReply, getDealProbability, getDealStage, getInboxConversations, getInboxSummary, getLeadActivitySummary, getLeadOwner, leadPriorityLabels as rawPriority, leadStatusLabels as rawLeadStatus, messageDeliveryLabels as rawDelivery, reopenConversation, retryMockMessage, sendMockMessage, listUsers, listQuickReplyTemplates, getUiState } from "@services";
+import { advanceMockMessageStatus, assignConversation, closeConversation, conversationStatusLabels as rawConvStatus, getConversation, getConversationBusiness, getConversationContact, getConversationContext, getConversationMessages, getConversationNeedsReply, getDealProbability, getDealStage, getInboxConversations, getInboxSummary, getLeadActivitySummary, getLeadOwner, leadPriorityLabels as rawPriority, leadStatusLabels as rawLeadStatus, messageDeliveryLabels as rawDelivery, reopenConversation, retryMockMessage, sendMockMessage, listUsers, listQuickReplyTemplates } from "@services";
 import { getBusinessIntelligence, tierLabels as rawTiers } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { mutate, notifyStateChanged } from "../../shared/store/appStore";
@@ -23,13 +23,6 @@ const tierLabels = rawTiers as Record<string, string>;
 
 type Row = Record<string, any>;
 type Attachment = { name: string; size: string } | null;
-
-/** حالة واجهة الوارد: مسودات ومرفق تجريبي — تبدأ فارغة في الـfixture. */
-const drafts = () => getUiState().inboxDrafts as Record<string, string>;
-const attachmentState = () => getUiState().inboxAttachment as Attachment;
-const setAttachment = (value: Attachment) => {
-  (getUiState() as { inboxAttachment: Attachment }).inboxAttachment = value;
-};
 
 const fmt = (value: number | null | undefined) => new Intl.NumberFormat("ar-SA").format(value || 0);
 const money = (value: number) => `${fmt(value)} ر.س`;
@@ -60,13 +53,16 @@ function Mono({ children }: { children: React.ReactNode }) {
 export function Inbox({ conversationId }: { conversationId?: string }) {
   const toast = useToast();
   const [isMobile] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 720px)").matches);
+  const [filters, setFilters] = useState({ search: "", filter: "all", ownerId: "all", sort: "latest" });
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [attachment, setAttachment] = useState<Attachment>(null);
+  const [contextOpen, setContextOpen] = useState(false);
 
   const rows = getInboxConversations();
   const summary = getInboxSummary();
-  const filters = getUiState().inboxFilters;
 
   const explicit = Boolean(conversationId);
-  const selectedId = explicit ? conversationId : isMobile ? null : getUiState().selectedConversationId;
+  const selectedId = explicit ? conversationId : null;
   const conversation = selectedId ? getConversation(selectedId) : null;
   const visibleSelected = rows.some((row: Row) => row.conversation.id === conversation?.id) ? conversation : null;
 
@@ -79,8 +75,7 @@ export function Inbox({ conversationId }: { conversationId?: string }) {
   }, []);
 
   const setFilter = (key: string, value: string) => {
-    (getUiState().inboxFilters as Record<string, string>)[key] = value;
-    notifyStateChanged();
+    setFilters((current) => ({ ...current, [key]: value }));
   };
 
   if (explicit && !conversation) {
@@ -195,8 +190,7 @@ export function Inbox({ conversationId }: { conversationId?: string }) {
                     aria-current={selected ? "true" : "false"}
                     key={item.id}
                     onClick={() => {
-                      getUiState().selectedConversationId = item.id;
-                      go(`inbox/${item.id}`);
+                      go(`inbox/${encodeURIComponent(item.id)}`);
                     }}
                   >
                     <div className="s7-row-avatar">{displayName.slice(0, 1)}</div>
@@ -235,7 +229,7 @@ export function Inbox({ conversationId }: { conversationId?: string }) {
 
         <main className="s7-thread-panel">
           {visibleSelected ? (
-            <ConversationThread conversation={visibleSelected} toast={toast} />
+              <ConversationThread conversation={visibleSelected} toast={toast} drafts={drafts} setDrafts={setDrafts} attachment={attachment} setAttachment={setAttachment} onToggleContext={() => setContextOpen((open) => !open)} />
           ) : (
             <section className="s7-thread-empty">
               <i>⌕</i>
@@ -245,19 +239,18 @@ export function Inbox({ conversationId }: { conversationId?: string }) {
           )}
         </main>
 
-        {visibleSelected && <ContextPanel conversation={visibleSelected} />}
+        {visibleSelected && <ContextPanel conversation={visibleSelected} open={contextOpen} onClose={() => setContextOpen(false)} onDraftInserted={(draft) => setDrafts((current) => ({ ...current, [visibleSelected.id]: draft }))} />}
       </section>
     </>
   );
 }
 
-function ConversationThread({ conversation, toast }: { conversation: Row; toast: (m: string, t?: any) => void }) {
+function ConversationThread({ conversation, toast, drafts, setDrafts, attachment, setAttachment, onToggleContext }: { conversation: Row; toast: (m: string, t?: any) => void; drafts: Record<string, string>; setDrafts: React.Dispatch<React.SetStateAction<Record<string, string>>>; attachment: Attachment; setAttachment: React.Dispatch<React.SetStateAction<Attachment>>; onToggleContext: () => void }) {
   const contact = getConversationContact(conversation);
   const business = getConversationBusiness(conversation);
   const needsReply = getConversationNeedsReply(conversation);
   const messages = getConversationMessages(conversation.id);
-  const draft = drafts()[conversation.id] || "";
-  const attachment = attachmentState();
+  const draft = drafts[conversation.id] || "";
 
   let lastDay = "";
 
@@ -304,8 +297,7 @@ function ConversationThread({ conversation, toast }: { conversation: Row; toast:
               type="button"
               className="button ghost compact"
               onClick={() => {
-                getUiState().inboxContextOpen = !getUiState().inboxContextOpen;
-                notifyStateChanged();
+                onToggleContext();
               }}
             >
               السياق
@@ -382,8 +374,7 @@ function ConversationThread({ conversation, toast }: { conversation: Row; toast:
               className="button ghost compact"
               key={template.id}
               onClick={() => {
-                drafts()[conversation.id] = template.body;
-                notifyStateChanged();
+                setDrafts((current) => ({ ...current, [conversation.id]: template.body }));
               }}
             >
               {template.title}
@@ -401,9 +392,8 @@ function ConversationThread({ conversation, toast }: { conversation: Row; toast:
             }
             const result = mutate(() => sendMockMessage(conversation.id, { body, attachment }));
             if (result) {
-              drafts()[conversation.id] = "";
+              setDrafts((current) => ({ ...current, [conversation.id]: "" }));
               setAttachment(null);
-              notifyStateChanged();
               toast("أُرسلت رسالة بشرية محلية؛ لا يوجد إرسال خارجي.", "success");
             } else {
               toast("تعذر الإرسال في حالة المحادثة الحالية.", "error");
@@ -419,8 +409,7 @@ function ConversationThread({ conversation, toast }: { conversation: Row; toast:
             disabled={conversation.status !== "open"}
             value={draft}
             onChange={(event) => {
-              drafts()[conversation.id] = event.target.value;
-              notifyStateChanged();
+              setDrafts((current) => ({ ...current, [conversation.id]: event.target.value }));
             }}
           />
           <div className="s7-composer-actions">
@@ -429,8 +418,7 @@ function ConversationThread({ conversation, toast }: { conversation: Row; toast:
                 type="button"
                 className="button ghost compact"
                 onClick={() => {
-                  setAttachment(attachment ? null : { name: "عرض-تجريبي.pdf", size: "240KB" });
-                  notifyStateChanged();
+                  setAttachment((current) => current ? null : { name: "عرض-تجريبي.pdf", size: "240KB" });
                 }}
               >
                 إرفاق وصف تجريبي
@@ -443,7 +431,6 @@ function ConversationThread({ conversation, toast }: { conversation: Row; toast:
                     aria-label="إزالة المرفق"
                     onClick={() => {
                       setAttachment(null);
-                      notifyStateChanged();
                     }}
                   >
                     ×
@@ -464,13 +451,13 @@ function ConversationThread({ conversation, toast }: { conversation: Row; toast:
   );
 }
 
-function ContextPanel({ conversation }: { conversation: Row }) {
+function ContextPanel({ conversation, open, onClose, onDraftInserted }: { conversation: Row; open: boolean; onClose: () => void; onDraftInserted: (draft: string) => void }) {
   const { lead, business, contact, deals, job, source } = getConversationContext(conversation.id);
   const leadActivity = lead ? getLeadActivitySummary(lead.id) : null;
   const intelligence = business ? (getBusinessIntelligence(business.id) as any) : null;
 
   return (
-    <aside className={`s7-context ${getUiState().inboxContextOpen ? "open" : ""}`} aria-label="سياق العميل ومساعد المبيعات">
+    <aside className={`s7-context ${open ? "open" : ""}`} aria-label="سياق العميل ومساعد المبيعات">
       <header>
         <div>
           <p className="eyebrow">سياق CRM</p>
@@ -480,8 +467,7 @@ function ContextPanel({ conversation }: { conversation: Row }) {
           type="button"
           className="button ghost compact"
           onClick={() => {
-            getUiState().inboxContextOpen = false;
-            notifyStateChanged();
+            onClose();
           }}
         >
           إغلاق السياق
@@ -564,7 +550,7 @@ function ContextPanel({ conversation }: { conversation: Row }) {
         )}
       </article>
 
-      <CopilotPanel conversationId={conversation.id} />
+      <CopilotPanel conversationId={conversation.id} onDraftInserted={onDraftInserted} />
 
       <article className="s7-context-card s7-provenance">
         <span>الأصل والسياق</span>

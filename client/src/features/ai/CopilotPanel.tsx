@@ -4,7 +4,8 @@
  * محاكاة حتمية محلية: لا LLM ولا API ولا إرسال. «استخدام الرد» يملأ
  * Composer فقط ولا ينشئ رسالة، ويبقى `senderType` للرسالة البشرية `user`.
  */
-import { getConversation, getUiState } from "@services";
+import { useState } from "react";
+import { getConversation } from "@services";
 import {
   agentModeLabels as rawAgentModes,
   createAgentProposal,
@@ -16,7 +17,7 @@ import {
 } from "@domain/sales-ai.js";
 import { tierLabels as rawTiers } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
-import { mutate, notifyStateChanged } from "../../shared/store/appStore";
+import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 
 const tierLabels = rawTiers as Record<string, string>;
@@ -64,9 +65,9 @@ function QualificationView({ record }: { record?: Row }) {
     <>
       <div className="s8-qualification-grid">
         {qualificationFields.map(([key, label]) => (
-          <article className={`getUiState()-${payload[key]?.getUiState() || "unknown"}`} key={key}>
+          <article className={`s8-qualification-${payload[key]?.status || "unknown"}`} key={key}>
             <span>{label}</span>
-            <b>{qualificationLabels[payload[key]?.getUiState()] || "غير معروف"}</b>
+            <b>{qualificationLabels[payload[key]?.status] || "غير معروف"}</b>
             <small>{payload[key]?.value || "لا يوجد دليل كافٍ."}</small>
           </article>
         ))}
@@ -81,8 +82,10 @@ function QualificationView({ record }: { record?: Row }) {
   );
 }
 
-export function CopilotPanel({ conversationId }: { conversationId?: string }) {
+export function CopilotPanel({ conversationId, onDraftInserted }: { conversationId?: string; onDraftInserted?: (draft: string) => void }) {
   const toast = useToast();
+  const [copilotTab, setCopilotTab] = useState("summary");
+  const [agentMode] = useState("approval_required");
   const conversation = conversationId ? getConversation(conversationId) : null;
   const leadId = conversation?.leadId;
   if (!leadId) return null;
@@ -101,15 +104,14 @@ export function CopilotPanel({ conversationId }: { conversationId?: string }) {
   };
 
   const setTab = (tab: string) => {
-    getUiState().copilotTab = tab;
-    notifyStateChanged();
+    setCopilotTab(tab);
   };
 
   let body: React.ReactNode;
 
-  if (getUiState().copilotTab === "qualification") {
+  if (copilotTab === "qualification") {
     body = <QualificationView record={latestByType?.qualification} />;
-  } else if (getUiState().copilotTab === "evidence") {
+  } else if (copilotTab === "evidence") {
     body = (
       <div className="s8-evidence-panel">
         <article>
@@ -169,7 +171,7 @@ export function CopilotPanel({ conversationId }: { conversationId?: string }) {
             <h3>{nba.payload.label}</h3>
             <p>{nba.payload.reason}</p>
             <EvidenceList refs={nba.evidenceRefs} />
-            {getUiState().agentMode === "approval_required" ? (
+            {agentMode === "approval_required" ? (
               <button
                 type="button"
                 className="button compact"
@@ -215,6 +217,7 @@ export function CopilotPanel({ conversationId }: { conversationId?: string }) {
               disabled={Boolean(stale)}
               onClick={() => {
                 mutate(() => useSuggestedReply(reply.id));
+                onDraftInserted?.(reply.payload.text);
                 toast("أُدرج الرد المقترح في Composer فقط؛ لم تُنشأ أي رسالة.", "success");
               }}
             >
@@ -247,8 +250,8 @@ export function CopilotPanel({ conversationId }: { conversationId?: string }) {
             <button
               type="button"
               key={id}
-              className={`s8-tab ${getUiState().copilotTab === id ? "active" : ""}`}
-              aria-pressed={getUiState().copilotTab === id}
+              className={`s8-tab ${copilotTab === id ? "active" : ""}`}
+              aria-pressed={copilotTab === id}
               onClick={() => setTab(id)}
             >
               {label}

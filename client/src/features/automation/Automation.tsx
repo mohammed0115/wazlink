@@ -5,9 +5,10 @@
  * لا يبدأ تقييم Rule إلا بفعل مستخدم صريح، والإجراءات الحساسة تمر
  * بقائمة انتظار موافقة قبل أي mutation.
  */
-import { approveAutomationAction, automationActionCatalog as rawActionCatalog, automationActionStatusLabels as rawExecStatus, automationRuleStatusLabels as rawRuleStatus, automationRunStatusLabels as rawRunStatus, automationTriggerCatalog as rawTriggerCatalog, formatAutomationCondition, getAutomationApprovalQueue, getAutomationMetrics, getAutomationRule, getAutomationRules, getAutomationRunActionExecutions, getAutomationRuns, rejectAutomationAction, runAutomationNow, setAutomationRuleStatus, testAutomationRule, listUsers, getUiState, getAutomationConditionGroups, getAutomationActions } from "@services";
-import { go } from "../../shared/router/useHashRoute";
-import { mutate, notifyStateChanged } from "../../shared/store/appStore";
+import { useState } from "react";
+import { approveAutomationAction, automationActionCatalog as rawActionCatalog, automationActionStatusLabels as rawExecStatus, automationRuleStatusLabels as rawRuleStatus, automationRunStatusLabels as rawRunStatus, automationTriggerCatalog as rawTriggerCatalog, formatAutomationCondition, getAutomationApprovalQueue, getAutomationMetrics, getAutomationRule, getAutomationRules, getAutomationRunActionExecutions, getAutomationRuns, rejectAutomationAction, runAutomationNow, setAutomationRuleStatus, testAutomationRule, listUsers, getAutomationConditionGroups, getAutomationActions } from "@services";
+import { go, useHashRoute } from "../../shared/router/useHashRoute";
+import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { PageHead } from "../../shared/components/PageHead";
 
@@ -66,9 +67,12 @@ function ruleSentence(rule: Row) {
 
 export function Automation({ ruleId }: { ruleId?: string }) {
   const toast = useToast();
+  const { query } = useHashRoute();
+  const [filters, setFilters] = useState({ search: "", status: "all" });
   const metrics = getAutomationMetrics();
   const rules = getAutomationRules() as Row[];
-  const selected = ruleId ? getAutomationRule(ruleId) : getAutomationRule(getUiState().selectedAutomationId);
+  const selectedId = ruleId || query.get("ruleId") || undefined;
+  const selected = selectedId ? getAutomationRule(selectedId) : null;
   const queue = getAutomationApprovalQueue() as Row[];
   const runs = runsForRule(ruleId);
   const allRuns = runsForRule();
@@ -92,8 +96,7 @@ export function Automation({ ruleId }: { ruleId?: string }) {
             className="button"
             type="button"
             onClick={() => {
-              (getUiState() as { automationModal: unknown }).automationModal = { type: "create-rule" };
-              notifyStateChanged();
+              go("automation?modal=create-rule");
             }}
           >
             قاعدة جديدة
@@ -123,8 +126,7 @@ export function Automation({ ruleId }: { ruleId?: string }) {
           className="button primary"
           type="button"
           onClick={() => {
-            (getUiState() as { automationModal: unknown }).automationModal = { type: "create-rule" };
-            notifyStateChanged();
+            go("automation?modal=create-rule");
           }}
         >
           إنشاء قاعدة
@@ -137,19 +139,13 @@ export function Automation({ ruleId }: { ruleId?: string }) {
             <h2>القواعد</h2>
             <div className="s9-filter-row">
               <input
-                value={getUiState().automationFilters.search}
+                value={filters.search}
                 placeholder="ابحث في القواعد"
-                onChange={(event) => {
-                  getUiState().automationFilters.search = event.target.value;
-                  notifyStateChanged();
-                }}
+                onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
               />
               <select
-                value={getUiState().automationFilters.status}
-                onChange={(event) => {
-                  getUiState().automationFilters.status = event.target.value;
-                  notifyStateChanged();
-                }}
+                value={filters.status}
+                onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
               >
                 <option value="all">كل الحالات</option>
                 {Object.entries(automationRuleStatusLabels).map(([id, label]) => (
@@ -224,8 +220,7 @@ export function Automation({ ruleId }: { ruleId?: string }) {
                       className="button compact"
                       type="button"
                       onClick={() => {
-                        getUiState().selectedAutomationId = rule.id;
-                        go(`automation/rules/${rule.id}`);
+                        go(`automation/rules/${encodeURIComponent(rule.id)}`);
                       }}
                     >
                       التفاصيل

@@ -47,9 +47,8 @@ try {
   const inboxMarkup = renderToStaticMarkup(createElement(Inbox));
   check("Fresh Inbox render completes", inboxMarkup.includes("s7-inbox-layout"));
   check("Conversation list renders", inboxMarkup.includes("s7-conversation-list"));
-  check("Copilot panel renders in context", inboxMarkup.includes("s8-copilot"));
-
   const conversationMarkup = renderToStaticMarkup(createElement(Inbox, { conversationId: "CONV-3042" }));
+  check("Copilot panel renders in context", conversationMarkup.includes("s8-copilot"));
   check("Direct conversation route renders", conversationMarkup.includes("CONV-3042"));
   check("Composer renders", conversationMarkup.includes("messageComposer") && conversationMarkup.includes("إرسال بشري"));
   check("Mock channel disclosure is visible", conversationMarkup.includes("واتساب — وضع تجريبي"));

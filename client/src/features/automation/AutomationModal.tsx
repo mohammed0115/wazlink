@@ -4,9 +4,10 @@
  * لا expressions ولا JavaScript ولا templates تنفيذية.
  */
 import { useState, type FormEvent, type MouseEvent } from "react";
-import { automationActionCatalog as rawActions, automationConditionFieldCatalog as rawFields, automationOperatorLabels as rawOperators, automationTriggerCatalog as rawTriggers, createAutomationRule, getUiState } from "@services";
+import { automationActionCatalog as rawActions, automationConditionFieldCatalog as rawFields, automationOperatorLabels as rawOperators, automationTriggerCatalog as rawTriggers, createAutomationRule } from "@services";
 import { getAutomationRulePreview } from "@domain/automation.js";
-import { mutate, notifyStateChanged } from "../../shared/store/appStore";
+import { go, useHashRoute } from "../../shared/router/useHashRoute";
+import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { useModalDismiss } from "../../shared/components/useModalDismiss";
 
@@ -19,6 +20,7 @@ const operatorLabels = rawOperators as Record<string, string>;
 
 export function AutomationModal() {
   const toast = useToast();
+  const { path } = useHashRoute();
   const [values, setValues] = useState({
     triggerType: "lead_created",
     conditionField: "lead.priority",
@@ -28,14 +30,12 @@ export function AutomationModal() {
     approvalPolicy: "auto_safe",
   });
 
-  const modal = getUiState().automationModal as { type?: string } | null;
-  if (modal?.type !== "create-rule") return null;
-
+  const isCreateRule = new URLSearchParams(window.location.hash.split("?")[1] || "").get("modal") === "create-rule";
   const close = () => {
-    (getUiState() as { automationModal: unknown }).automationModal = null;
-    notifyStateChanged();
+    go(path || "automation");
   };
   const panelRef = useModalDismiss(close);
+  if (!isCreateRule) return null;
 
   const onBackdrop = (event: MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) close();

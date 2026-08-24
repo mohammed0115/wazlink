@@ -1,7 +1,8 @@
 /** نافذة إنشاء موعد — S9. موعد محلي فقط؛ لا تقويم خارجي، وينبه عند التداخل. */
 import type { FormEvent, MouseEvent } from "react";
-import { appointmentLocationLabels as rawLocation, appointmentTypeLabels as rawType, createAppointment, listUsers, listLeads, getUiState } from "@services";
-import { mutate, notifyStateChanged } from "../../shared/store/appStore";
+import { appointmentLocationLabels as rawLocation, appointmentTypeLabels as rawType, createAppointment, listUsers, listLeads } from "@services";
+import { go, useHashRoute } from "../../shared/router/useHashRoute";
+import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { useModalDismiss } from "../../shared/components/useModalDismiss";
 
@@ -11,14 +12,13 @@ const appointmentLocationLabels = rawLocation as Record<string, string>;
 
 export function AppointmentModal() {
   const toast = useToast();
-  const modal = getUiState().appointmentModal as { type?: string } | null;
-  if (modal?.type !== "create-appointment") return null;
-
+  const { path } = useHashRoute();
+  const modalType = new URLSearchParams(window.location.hash.split("?")[1] || "").get("modal");
   const close = () => {
-    (getUiState() as { appointmentModal: unknown }).appointmentModal = null;
-    notifyStateChanged();
+    go(path || "appointments");
   };
   const panelRef = useModalDismiss(close);
+  if (modalType !== "create-appointment") return null;
 
   const onBackdrop = (event: MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) close();

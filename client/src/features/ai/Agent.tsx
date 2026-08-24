@@ -4,7 +4,7 @@
  * لا يكون الإجراء تنفيذًا قبل موافقة بشرية. لا يوجد وضع استقلال ذاتي،
  * ويحظر مركزيًا إرسال رسالة أو تغيير قيمة Deal أو إنشاء Revenue/Attribution.
  */
-import {  getUiState } from "@services";
+import { useState } from "react";
 import {
   agentActionLabels as rawActionLabels,
   agentActionStatusLabels as rawStatusLabels,
@@ -15,7 +15,7 @@ import {
   getAgentPolicyMatrix,
   rejectAgentAction,
 } from "@domain/sales-ai.js";
-import { mutate, notifyStateChanged } from "../../shared/store/appStore";
+import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { PageHead } from "../../shared/components/PageHead";
 import { EvidenceList, Mono, pct } from "./CopilotPanel";
@@ -28,6 +28,7 @@ type Row = Record<string, any>;
 
 export function Agent() {
   const toast = useToast();
+  const [agentMode, setAgentMode] = useState("approval_required");
   const actions = getAgentActions() as Row[];
   const matrix = getAgentPolicyMatrix() as Row[];
 
@@ -37,22 +38,21 @@ export function Agent() {
         kicker="مساعد المبيعات"
         title="Agent محكوم بالموافقة"
         description="طبقة مقترحات حتمية محلية تمر عبر السياسة والموافقة والتدقيق؛ لا إرسال ذاتي ولا تغييرات مالية."
-        actions={<span className={`s8-mode-badge ${getUiState().agentMode}`}>Agent: {agentModeLabels[getUiState().agentMode]}</span>}
+        actions={<span className={`s8-mode-badge ${agentMode}`}>Agent: {agentModeLabels[agentMode]}</span>}
       />
 
       <section className="s8-agent-workspace">
         <article className="s8-agent-mode">
           <header>
             <span>وضع Agent</span>
-            <b>{agentModeLabels[getUiState().agentMode]}</b>
+            <b>{agentModeLabels[agentMode]}</b>
           </header>
           <label>
             اختر الوضع
             <select
-              value={getUiState().agentMode}
+              value={agentMode}
               onChange={(event) => {
-                getUiState().agentMode = event.target.value;
-                notifyStateChanged();
+                setAgentMode(event.target.value);
                 toast(`وضع Agent الحالي: ${agentModeLabels[event.target.value]}.`, "info");
               }}
             >

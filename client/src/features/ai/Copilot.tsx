@@ -1,11 +1,13 @@
 /** مساحة مساعد المبيعات — S8. لا ينشئ فتح المسار رسالة أو Task أو تعديلًا. */
-import { getConversation, getUiState } from "@services";
-import { go } from "../../shared/router/useHashRoute";
+import { getConversation } from "@services";
+import { go, useHashRoute } from "../../shared/router/useHashRoute";
 import { PageHead } from "../../shared/components/PageHead";
 import { CopilotPanel } from "./CopilotPanel";
 
 export function Copilot() {
-  const conversation = getConversation(getUiState().selectedConversationId);
+  const { query } = useHashRoute();
+  const conversationId = query.get("conversationId") || query.get("id");
+  const conversation = conversationId ? getConversation(conversationId) : null;
   return (
     <>
       <PageHead

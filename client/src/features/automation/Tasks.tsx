@@ -1,6 +1,7 @@
 /** المهام — S9. سجل واحد للمهام اليدوية والآلية بنفس عقد S5، مع provenance للأتمتة. */
-import { completeLeadTask, getLead, getTasksWorkspace, listUsers, getUiState } from "@services";
-import { mutate, notifyStateChanged } from "../../shared/store/appStore";
+import { useState } from "react";
+import { completeLeadTask, getLead, getTasksWorkspace, listUsers } from "@services";
+import { mutate } from "../../shared/store/appStore";
 import { PageHead } from "../../shared/components/PageHead";
 
 type Row = Record<string, any>;
@@ -12,11 +13,10 @@ const taskOrigin = (task: Row) => (task.createdByAutomationRunId ? "automation" 
 
 export function Tasks() {
   const rows = getTasksWorkspace() as Row[];
-  const filters = getUiState().taskFilters;
+  const [filters, setFilters] = useState({ search: "", status: "all", origin: "all", due: "all" });
 
   const setFilter = (key: string, value: string) => {
-    (getUiState().taskFilters as Record<string, string>)[key] = value;
-    notifyStateChanged();
+    setFilters((current) => ({ ...current, [key]: value }));
   };
 
   return (

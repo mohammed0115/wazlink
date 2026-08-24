@@ -16,6 +16,18 @@ const text = (file) => fs.readFileSync(file, "utf8");
 const runtimeFiles = files.filter((file) => !file.endsWith(path.join("shared", "components", "ErrorBoundary.tsx")));
 const stripComments = (value) => value.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\\s)\/\/.*$/gm, "$1");
 const featureText = runtimeFiles.map((file) => stripComments(text(file))).join("\n");
+const targetRoots = [
+  path.join(src, "features", "inbox"),
+  path.join(src, "features", "ai"),
+  path.join(src, "features", "automation"),
+];
+const targetFiles = [];
+targetRoots.forEach((target) => {
+  const before = files.length;
+  walk(target);
+  targetFiles.push(...files.slice(before));
+});
+const targetText = targetFiles.map((file) => stripComments(text(file))).join("\n");
 const scopedFiles = [
   path.join(src, "App.tsx"),
   ...files.filter((file) => file.includes(`${path.join(src, "shared", "shell")}${path.sep}`)),
@@ -34,6 +46,9 @@ check("F3b Feature imports avoid raw mockRecords alias", !/\bmockRecords\b/.test
 check("F3c shell/session/App getUiState usage is zero", !/\bgetUiState\s*\(/.test(scopedText));
 check("F3d no renamed mixed-state accessor", !/\b(getAppState|getLegacyState|getViewState|getRuntimeState|getStore|getSnapshot)\s*\(/.test(scopedText));
 check("F3e overall getUiState count is reported", (featureText.match(/\bgetUiState\s*\(/g) || []).length >= 0);
+check("F3f FIX.2-C target getUiState usage is zero", !/\bgetUiState\s*\(/.test(targetText));
+check("F3g FIX.2-C target raw aliases are zero", !/\b(uiState|mockRecords|mockModel)\b/.test(targetText));
+check("F3h FIX.2-C target has no renamed mixed-state accessor", !/\b(getInboxState|getAutomationState|getAiState|getMessagingStore|getAgentStore)\s*\(/.test(targetText));
 check("F4 data adapter has no broad domain export", !/export\s+\*\s+from\s+["'].*domain\/data\.js/.test(text(path.join(src, "services", "data.ts"))));
 check("F5 only legacy bridge imports domain/data.js", fs.readdirSync(path.join(src, "services"), { recursive: true }).filter((item) => String(item).endsWith(".ts")).every((item) => !text(path.join(src, "services", item)).includes('"@domain/data.js"') || String(item).endsWith("legacyDataBridge.ts")));
 check("F6 composition root exists", fs.existsSync(path.join(src, "services", "index.ts")));

@@ -1,6 +1,7 @@
 /** المواعيد — S9. مواعيد محلية قابلة للمراجعة؛ لا تقويم خارجي ولا مزامنة. */
-import { appointmentLocationLabels as rawLocation, appointmentStatusLabels as rawStatus, appointmentTypeLabels as rawType, getAppointments, getLead, listUsers, getUiState } from "@services";
-import { notifyStateChanged } from "../../shared/store/appStore";
+import { useState } from "react";
+import { appointmentLocationLabels as rawLocation, appointmentStatusLabels as rawStatus, appointmentTypeLabels as rawType, getAppointments, getLead, listUsers } from "@services";
+import { go } from "../../shared/router/useHashRoute";
 import { PageHead } from "../../shared/components/PageHead";
 
 type Row = Record<string, any>;
@@ -15,11 +16,10 @@ const userLabel = (id: string) => listUsers().find((user: Row) => user.id === id
 
 export function Appointments() {
   const appointments = getAppointments() as Row[];
-  const filters = getUiState().appointmentFilters;
+  const [filters, setFilters] = useState({ status: "all", ownerId: "all", type: "all" });
 
   const setFilter = (key: string, value: string) => {
-    (getUiState().appointmentFilters as Record<string, string>)[key] = value;
-    notifyStateChanged();
+    setFilters((current) => ({ ...current, [key]: value }));
   };
 
   return (
@@ -33,8 +33,7 @@ export function Appointments() {
             className="button primary"
             type="button"
             onClick={() => {
-              (getUiState() as { appointmentModal: unknown }).appointmentModal = { type: "create-appointment" };
-              notifyStateChanged();
+              go("appointments?modal=create-appointment");
             }}
           >
             موعد جديد
