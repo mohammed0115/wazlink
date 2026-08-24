@@ -352,9 +352,10 @@ function SecuritySection({ toast }: { toast: (m: string, t?: any) => void }) {
         onSubmit={(event) => {
           event.preventDefault();
           const data = new FormData(event.currentTarget);
+          const dataResidency = data.get("dataResidency") === "external_allowed_mock" ? "external_allowed_mock" : "local_only";
           mutate(() =>
             settingsFeatureService.updateSecuritySettings({
-              dataResidency: String(data.get("dataResidency") || ""),
+              dataResidency,
               externalAiAccess: data.get("externalAiAccess") === "on",
             }),
           );

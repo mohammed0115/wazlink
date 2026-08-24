@@ -1,11 +1,11 @@
 /** Explicit implementation-neutral Feature service surface. */
 import * as legacy from "./mock/legacyDataBridge";
 
-type RecordRow = Record<string, any>;
+type RecordRow = Record<string, unknown>;
 const cloneRows = (rows: readonly unknown[]): RecordRow[] => rows.map((row) => ({ ...(row as RecordRow) }));
 
 export type DashboardOverview = { attentionItems: RecordRow[]; aiRecommendations: RecordRow[]; nearClosingDeals: RecordRow[] };
-export const listBusinesses = (): any[] => cloneRows(legacy.businesses);
+export const listBusinesses = (): RecordRow[] => cloneRows(legacy.businesses);
 export const listDiscoveryJobs = () => cloneRows(legacy.jobs);
 export const navItems = cloneRows(legacy.navItems);
 export const getDashboardOverview = (): DashboardOverview => ({

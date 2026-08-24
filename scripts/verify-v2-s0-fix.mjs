@@ -98,8 +98,17 @@ for (const [name, file, service] of targetServiceConsumers) {
   check(`G-${name} Feature imports typed service instance`, source.includes(service) && (source.includes('from "@services"') || source.includes("from '@services'")));
 }
 for (const service of ["dashboardService", "discoveryService", "crmService", "pipelineService", "messagingService", "automationFeatureService", "settingsFeatureService", "integrationFeatureService"]) {
-  check(`G-${service} composition adapter contract-checked`, new RegExp(`export const ${service} = [\\s\\S]*?satisfies`).test(serviceRoot));
+  check(`G-${service} composition adapter contract-checked`, new RegExp(`export const ${service} = [\\s\\S]*?\\n\\};`).test(serviceRoot) && serviceRoot.includes("_typedFeatureServiceContracts"));
 }
+const targetAdapterText = serviceRoot.slice(serviceRoot.indexOf("export const dashboardService"));
+check("H1 target contracts contain no any escape hatch", !/\\bany\\b|any\\[\\]|Record<string, any>|\\.\\.\\.args: any/.test(contracts));
+check("H2 target adapters contain no generic any escape hatch", !/Record<string, \\(\\.\\.\\.args: any\\[\\]\\) *=> *any|Record<string, any>|any\\[\\]/.test(targetAdapterText));
+check("H3 target service results use named DTOs", !/ServiceResult<(?:FeatureRow|FeatureRows)(?:\\[\\])?/.test(contracts));
+check("H4 target contract DTO vocabulary is explicit", ["DashboardOverviewView", "DiscoveryJobDetail", "CrmSummaryView", "DealDetailView", "ConversationView", "AutomationRuleView", "WorkspaceSettingsView", "IntegrationView"].every((name) => contracts.includes(`interface ${name}`)));
+check("H5 adapter contract tuple is compile-time enforced", /_typedFeatureServiceContracts: \[DashboardService, DiscoveryService, CrmService, PipelineService, MessagingService, AutomationFeatureService, SettingsFeatureService, IntegrationFeatureService\]/.test(serviceRoot));
+check("H6 bridge outputs pass through named normalizers", /normalizeRow|normalizeRows|normalizeSecuritySettings/.test(targetAdapterText));
+check("H7 no target service structural widening remains", !/satisfies\\s+[A-Za-z]+Service\\s*&|Record<string, unknown>/.test(targetAdapterText));
+check("H8 strict input models are declared", ["SendHumanMessageInput", "AutomationRuleInput", "UpdateWorkspaceSettingsInput", "ConnectIntegrationInput", "SecuritySettingsInput"].every((name) => contracts.includes(`interface ${name}`)));
 for (const result of checks) console.log(`${result.pass ? "PASS" : "FAIL"} ${result.id}${result.detail ? ` — ${result.detail}` : ""}`);
 const passed = checks.filter((item) => item.pass).length;
 console.log(`V2-S0-FIX static verification: ${passed}/${checks.length}`);
