@@ -11,6 +11,7 @@
     "check": "tsc --noEmit",
     "verify-v2-s1": "node scripts/verify-v2-s1.mjs",
     "verify-v2-s2": "node scripts/verify-v2-s2.mjs",
+    "verify-v2-s3": "node scripts/verify-v2-s3.mjs",
     "verify-v2-s0-fix": "node scripts/verify-v2-s0-fix.mjs",
     "format": "prettier --write ."
   },

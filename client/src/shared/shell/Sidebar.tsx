@@ -3,14 +3,15 @@
  * مصدر عناصر التنقل يبقى في طبقة البيانات عبر adapter واحد بلا تكرار.
  */
 import { Fragment } from "react";
-import { entitlementService, getInboxSummary, navItems } from "@services";
+import { entitlementService, getInboxSummary } from "@services";
 import { useWorkspace } from "../context/AppProviders";
 import { go } from "../router/useHashRoute";
 import { Brand } from "./Brand";
 import { NavIcon } from "./NavIcon";
-import { routeNavId } from "./routeMeta";
+import { projectShellNavigation } from "./shellNavigation";
 
-type NavItem = { id: string; label: string; icon: string; group: string };
+type NavDecision = { status: "AVAILABLE" | "LIMITED" | "EXHAUSTED" | "LOCKED"; reason?: string };
+
 
 type SidebarProps = {
   route: string;
@@ -24,7 +25,7 @@ export function Sidebar({ route, drawerOpen = false, collapsed = false, onToggle
   const workspaceMeta = workspace.companyName
     ? `${workspace.companyName} · ${workspace.teamSize || "فريق جديد"}`
     : "مسؤولة النمو";
-  const activeRoute = routeNavId(route);
+  const navigation = projectShellNavigation(route, entitlementService);
   const inboxUnread = getInboxSummary().unread;
   const currentPlan = entitlementService.currentPlan();
   const discoveryUsage = entitlementService.usageFor("discoveryRuns");
@@ -52,22 +53,28 @@ export function Sidebar({ route, drawerOpen = false, collapsed = false, onToggle
       </div>
 
       <nav className="sidebar-nav">
-        {(navItems as NavItem[]).map((item) => {
+        {navigation.map((item) => {
           const groupHeading = item.group && item.group !== lastGroup ? item.group : null;
           if (groupHeading) lastGroup = item.group;
+          const decision = item.decision as NavDecision | null;
+          const locked = decision?.status === "LOCKED";
+          const pressured = decision?.status === "EXHAUSTED" || decision?.status === "LIMITED";
           return (
             <Fragment key={item.id}>
               {groupHeading && <p className="nav-group">{groupHeading}</p>}
               <button
-                className={`side-link ${activeRoute === item.id ? "active" : ""}`}
+                className={`side-link ${item.active ? "active" : ""} ${locked ? "is-locked" : ""}`}
                 type="button"
-                title={item.label}
-                aria-current={activeRoute === item.id ? "page" : undefined}
-                onClick={() => go(item.id)}
+                title={locked ? `${item.label} — متاح بعد الترقية` : item.label}
+                aria-current={item.active ? "page" : undefined}
+                aria-disabled={locked ? true : undefined}
+                data-entitlement-state={decision?.status ?? "AVAILABLE"}
+                onClick={() => go(locked ? "settings/billing" : item.id)}
               >
                 <NavIcon name={item.icon} />
                 <span>{item.label}</span>
                 {item.id === "inbox" && inboxUnread ? <em className="nav-pill">{inboxUnread}</em> : null}
+                {locked ? <em className="nav-state" aria-label="مقفل">قفل</em> : pressured ? <em className="nav-state" aria-label={decision?.status === "EXHAUSTED" ? "مستنفد" : "قريب من الحد"}>!</em> : null}
               </button>
             </Fragment>
           );

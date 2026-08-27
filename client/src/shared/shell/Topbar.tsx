@@ -4,18 +4,19 @@
  */
 import { useEffect, useRef } from "react";
 import { appConfig } from "@config/env";
-import { notificationService } from "@services";
+import { entitlementService, notificationService } from "@services";
 import { useWorkspace, useTheme } from "../context/AppProviders";
 import { go } from "../router/useHashRoute";
 import { useToast } from "../store/toast";
 import { routeLabel } from "./routeMeta";
 
-export function Topbar({ route, onToggleSidebar }: { route: string; onToggleSidebar: () => void }) {
+export function Topbar({ route, onToggleSidebar, drawerOpen = false }: { route: string; onToggleSidebar: () => void; drawerOpen?: boolean }) {
   const toast = useToast();
   const commandInput = useRef<HTMLInputElement>(null);
   const { workspace } = useWorkspace();
   const { toggleTheme } = useTheme();
   const workspaceName = workspace.companyName || "مساحة العمل";
+  const currentPlan = entitlementService.currentPlan();
   const label = routeLabel(route);
 
   // اختصار ⌘K / Ctrl+K لتركيز شريط الأوامر — سلوك محفوظ من V1.
@@ -33,7 +34,7 @@ export function Topbar({ route, onToggleSidebar }: { route: string; onToggleSide
   return (
     <header className="topbar">
       <div className="page-crumb">
-        <button className="top-icon menu-button hidden" type="button" onClick={onToggleSidebar} aria-label="فتح القائمة">
+        <button className="top-icon menu-button hidden" type="button" onClick={onToggleSidebar} aria-label={drawerOpen ? "إغلاق القائمة" : "فتح القائمة"} aria-expanded={drawerOpen}>
           ☰
         </button>
         <a className="topbar-brand-lock" href="#/dashboard" aria-label="wazlink — الرئيسية">
@@ -44,6 +45,7 @@ export function Topbar({ route, onToggleSidebar }: { route: string; onToggleSide
           </span>
         </a>
         <span>{workspaceName}</span>
+        <small className="topbar-plan-context">{currentPlan.name}</small>
         <i>›</i>
         {route.startsWith("settings/") ? (
           <>

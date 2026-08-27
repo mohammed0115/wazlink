@@ -244,3 +244,20 @@
   .onboarding-recommendation,
   .first-run-activation { padding: 1rem; border-radius: 18px; }
 }
+
+/* V2-S3 adaptive shell: presentation-only context and mobile dismissal. */
+.app-shell .shell-backdrop { display:none; }
+.app-shell .side-link.is-locked { color:#8196a6; opacity:.78; }
+.app-shell .side-link.is-locked .nav-icon { color:#8196a6; }
+.app-shell .side-link .nav-state { margin-inline-start:auto; color:#f6d18a; font-size:9px; font-style:normal; font-weight:800; }
+.app-shell .side-link.is-locked .nav-state { color:#f7c76a; }
+.app-shell .topbar-plan-context { display:inline-flex; align-items:center; min-height:22px; padding:2px 8px; border:1px solid rgba(255,255,255,.18); border-radius:999px; color:#cfe0ec; font-size:10px; font-weight:800; white-space:nowrap; }
+@media (max-width:900px){
+  .app-shell .shell-backdrop { display:block; position:fixed; inset:0; z-index:20; border:0; background:rgba(7,29,53,.18); cursor:pointer; }
+  .app-shell .sidebar { z-index:30; }
+  .app-shell .topbar-plan-context { display:none; }
+}
+@media (max-width:540px){
+  .app-shell .shell-backdrop { background:rgba(7,29,53,.28); }
+  .app-shell .side-link .nav-state { font-size:8px; }
+}
