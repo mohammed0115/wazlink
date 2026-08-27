@@ -9,10 +9,11 @@ import { dashboardService } from "@services";
 import { useState, type CSSProperties } from "react";
 import { appConfig } from "@config/env";
 import { getAgentActions } from "@domain/sales-ai.js";
-import { analyticsService } from "@services";
+import { analyticsService, onboardingService, workspaceService } from "@services";
 
 const { getOverview: getAnalyticsOverview, getAttributionTraces, getSourcePerformance } = analyticsService as typeof analyticsService & Record<string, any>;
 import { go } from "../../shared/router/useHashRoute";
+import { useSession } from "../../shared/context/AppProviders";
 import { useToast } from "../../shared/store/toast";
 import { fmt } from "../../shared/lib/format";
 import type { AttributionSummaryRow } from "../../domain/types";
@@ -89,9 +90,13 @@ function openRoute(route: string, businessId?: string) {
 
 export function Dashboard() {
   const toast = useToast();
+  const { onboardingDone } = useSession();
   const [dashboardTimeframe, setDashboardTimeframe] = useState("اليوم");
+  const [activationDismissed, setActivationDismissed] = useState(false);
   const [dashboardView, setDashboardView] = useState("ready");
   const data = dashboardService.getDashboardOverview();
+  const onboardingProfile = onboardingService.profileFromWorkspace(workspaceService.getCurrent());
+  const onboardingRecommendation = onboardingDone && onboardingProfile.companyName ? onboardingService.recommend(onboardingProfile) : null;
 
   const dashboardDateRange = dateRangeByTimeframe[dashboardTimeframe] || "all";
   const analytics = getAnalyticsOverview({ dateRange: dashboardDateRange });
@@ -233,6 +238,28 @@ export function Dashboard() {
           <button type="button" onClick={() => go("pipeline")}>إنشاء صفقة</button>
         </div>
       </section>
+
+      {onboardingRecommendation && !activationDismissed && (
+        <section className="first-run-activation" aria-labelledby="first-run-title">
+          <div className="first-run-copy">
+            <p className="eyebrow">خطوتك التالية</p>
+            <h2 id="first-run-title">أهلًا بك في {onboardingProfile.companyName}</h2>
+            <p>{onboardingRecommendation.firstAction.reason} نبدأ بخطوة صغيرة قابلة للمراجعة، دون تنفيذ تلقائي.</p>
+          </div>
+          <div className="first-run-context">
+            <span>الخطة الحالية</span>
+            <strong>{onboardingRecommendation.currentPlan.name}</strong>
+            <small>{onboardingRecommendation.currentPlanSufficient ? "الخطة الحالية كافية لأهدافك الأساسية." : `قد تكون ${onboardingRecommendation.recommendedPlan?.name || "خطة أعلى"} مناسبة عند التوسع.`}</small>
+          </div>
+          <div className="first-run-actions">
+            <button className="button primary" type="button" onClick={() => go(onboardingRecommendation.firstAction.route)}>
+              {onboardingRecommendation.firstAction.label}
+            </button>
+            {!onboardingRecommendation.currentPlanSufficient && <button className="button ghost" type="button" onClick={() => go("settings/billing")}>مراجعة الباقة</button>}
+            <button className="first-run-dismiss" type="button" onClick={() => setActivationDismissed(true)} aria-label="إخفاء إرشادات البداية">إخفاء</button>
+          </div>
+        </section>
+      )}
 
       <div className="mock-strip">
         <b>بيانات تجريبية ثابتة</b>

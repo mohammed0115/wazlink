@@ -6,14 +6,16 @@
  * ولا تخزين دائم، ولا اتصال خارجي.
  */
 import { useState, type FormEvent } from "react";
-import { workspaceService } from "@services";
+import { onboardingService, workspaceService } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { useSession, useWorkspace } from "../../shared/context/AppProviders";
 import { useToast } from "../../shared/store/toast";
 import { Brand } from "../../shared/shell/Brand";
 import type { OnboardingCollection, OnboardingWorkspace } from "../../domain/types";
+import { capabilityLabels, usageMetricLabels } from "../../services/contracts/entitlements";
+import type { OnboardingRecommendation } from "../../services/contracts/onboarding";
 
-const stepNames = ["الشركة", "الهدف", "المصادر", "الفريق", "الذكاء الاصطناعي"];
+const stepNames = ["الشركة", "الهدف", "المصادر", "الفريق", "الذكاء الاصطناعي", "ملخصك"];
 
 const industries = ["وكالة تسويق", "مبيعات الشركات", "عيادة", "عقار", "شركة تقنية", "خدمات", "أخرى"];
 const teamSizes = ["فردي", "٢–٥", "٦–١٠", "١١–٢٥", "أكثر من ٢٥"];
@@ -87,8 +89,10 @@ function ChoiceGrid({ collection, choices, draft, setDraft }: { collection: Onbo
 export function Onboarding() {
   const toast = useToast();
   const { updateWorkspace } = useWorkspace();
-  const { completeOnboarding } = useSession();
+  const { completeOnboarding, onboardingDone } = useSession();
   const [step, setStep] = useState(1);
+  const [recommendation, setRecommendation] = useState<OnboardingRecommendation | null>(null);
+  const [isCompleting, setIsCompleting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [w, setDraft] = useState<OnboardingWorkspace>(() => ({ ...workspaceService.getCurrent() } as OnboardingWorkspace));
 
@@ -117,6 +121,11 @@ export function Onboarding() {
   }
 
   function finish() {
+    if (isCompleting || onboardingDone) {
+      go("dashboard");
+      return;
+    }
+    setIsCompleting(true);
     updateWorkspace(w);
     completeOnboarding();
     setErrors({});
@@ -137,6 +146,12 @@ export function Onboarding() {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
     if (step === 5) {
+      const profile = onboardingService.profileFromWorkspace(normalizedDraft as unknown as Readonly<Record<string, unknown>>);
+      setRecommendation(onboardingService.recommend(profile));
+      setStep(6);
+      return;
+    }
+    if (step === 6) {
       finish();
       return;
     }
@@ -169,7 +184,7 @@ export function Onboarding() {
 
       <main className="onboarding-main">
         <div className="onboarding-card">
-          <div className="onboarding-step-count">الخطوة {step} من ٥</div>
+          <div className="onboarding-step-count">{step <= 5 ? `الخطوة ${step} من ٥` : "ملخص التهيئة قبل الدخول"}</div>
 
           <form className="wizard-form" noValidate onSubmit={handleSubmit}>
             {step === 1 && (
@@ -291,23 +306,60 @@ export function Onboarding() {
               </>
             )}
 
+            {step === 6 && recommendation && (
+              <section className="onboarding-recommendation" aria-labelledby="onboarding-recommendation-title">
+                <p className="eyebrow">تهيئة ذكية محلية</p>
+                <h1 id="onboarding-recommendation-title">خطة بداية مبنية على اختياراتك</h1>
+                <div className="onboarding-recommendation-plans">
+                  <div><span>خطتك الحالية</span><strong>{recommendation.currentPlan.name}</strong></div>
+                  <div><span>اقتراحنا</span><strong>{recommendation.recommendedPlan?.name || "الخطة الحالية كافية"}</strong></div>
+                </div>
+                <div className="onboarding-recommendation-grid">
+                  <div>
+                    <b>القدرات الأقرب لأهدافك</b>
+                    <ul>{recommendation.relevantCapabilities.slice(0, 4).map((capability) => <li key={capability}>{capabilityLabels[capability]}</li>)}</ul>
+                  </div>
+                  <div>
+                    <b>لماذا؟</b>
+                    <ul>{recommendation.reasons.slice(0, 3).map((item) => <li key={item.code}>{item.text}</li>)}</ul>
+                  </div>
+                </div>
+                {recommendation.limitContext.length > 0 && (
+                  <div className="onboarding-limit-context">
+                    <b>سياق الاستخدام الحالي</b>
+                    {recommendation.limitContext.slice(0, 3).map((metric) => <span key={metric.metric}>{usageMetricLabels[metric.metric]}: {metric.used}{metric.remaining === null ? " / ∞" : ` / ${(metric.limit.kind === "finite" ? metric.limit.value : 0)}`}</span>)}
+                  </div>
+                )}
+                <div className="onboarding-first-action">
+                  <span>الإجراء الأول المقترح</span>
+                  <strong>{recommendation.firstAction.label}</strong>
+                  <small>{recommendation.firstAction.reason}</small>
+                </div>
+                {recommendation.recommendedPlan && <button className="button ghost" type="button" onClick={() => go("settings/billing")}>إدارة خيارات الباقة</button>}
+              </section>
+            )}
+
             <div className="wizard-actions">
               {step === 1 ? (
                 <span />
               ) : (
-                <button className="button" type="button" onClick={back}>
+                <button className="button" type="button" onClick={back} disabled={isCompleting}>
                   السابق
                 </button>
               )}
               {step === 5 ? (
                 <div>
-                  <button className="button ghost" type="button" onClick={finish}>
+                  <button className="button ghost" type="button" onClick={finish} disabled={isCompleting}>
                     تجاوز الآن
                   </button>
-                  <button className="button primary" type="submit">
-                    دخول مساحة العمل
+                  <button className="button primary" type="submit" disabled={isCompleting}>
+                    عرض ملخصي
                   </button>
                 </div>
+              ) : step === 6 ? (
+                <button className="button primary" type="submit" disabled={isCompleting}>
+                  دخول مساحة العمل
+                </button>
               ) : (
                 <button className="button primary" type="submit">
                   التالي

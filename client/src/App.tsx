@@ -7,9 +7,9 @@
  */
 import { lazy, Suspense, useEffect } from "react";
 import { markConversationRead } from "@services";
-import { useTheme } from "./shared/context/AppProviders";
+import { useSession, useTheme } from "./shared/context/AppProviders";
 import { appConfig } from "./config/env";
-import { isPublicRoute, useHashRoute } from "./shared/router/useHashRoute";
+import { go, isPublicRoute, useHashRoute } from "./shared/router/useHashRoute";
 import { ToastProvider } from "./shared/store/toast";
 import { AppShell } from "./shared/shell/AppShell";
 import { settingsRouteLabels } from "./shared/shell/routeMeta";
@@ -119,14 +119,19 @@ export default function App() {
   const { path, query } = useHashRoute();
   const queryString = query.toString();
   const { theme } = useTheme();
+  const { onboardingDone } = useSession();
 
   useEffect(() => {
+    if (path === "onboarding" && onboardingDone) {
+      go("dashboard");
+      return;
+    }
     syncRouteContext(path);
     document.documentElement.lang = "ar";
     document.documentElement.dir = "rtl";
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.appEnv = appConfig.appEnv;
-  }, [path, queryString, theme]);
+  }, [path, queryString, theme, onboardingDone]);
 
   const routeContent = (
     <ErrorBoundary key={path}>
@@ -144,6 +149,10 @@ export default function App() {
         </Suspense>
       </ToastProvider>
     );
+  }
+
+  if (path === "onboarding" && onboardingDone) {
+    return <LoadingState title="جار فتح مساحة العمل" />;
   }
 
   if (isPublicRoute(path)) {

@@ -194,3 +194,53 @@
 @media (max-width: 720px) { .entitlement-gate { align-items:stretch; flex-direction:column; }.entitlement-gate .button { width:100%; } }
 @media (prefers-reduced-motion: reduce) { .app-shell .usage-card .meter i { transition:none; } }
 @media (prefers-reduced-motion: reduce) { .premium-module-card { transition:none; }.premium-module-card:hover { transform:none; } }
+
+/* V2-S2-B smart onboarding and first-run activation */
+.onboarding-recommendation,
+.first-run-activation {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid rgba(28, 177, 196, .24);
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(12, 38, 49, .96), rgba(10, 26, 38, .96));
+  color: #f4fbfc;
+  padding: 1.35rem;
+  box-shadow: 0 18px 50px rgba(0, 20, 28, .14);
+}
+.onboarding-recommendation h1,
+.first-run-activation h2 { margin: 0; }
+.onboarding-recommendation-plans,
+.onboarding-recommendation-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+.onboarding-recommendation-plans > div,
+.first-run-context,
+.onboarding-first-action {
+  display: grid;
+  gap: .3rem;
+  padding: .9rem;
+  border-radius: 14px;
+  background: rgba(255,255,255,.07);
+}
+.onboarding-recommendation-plans span,
+.first-run-context span,
+.onboarding-first-action span { color: #a9c3c9; font-size: .78rem; }
+.onboarding-recommendation-plans strong,
+.first-run-context strong,
+.onboarding-first-action strong { font-size: 1.08rem; }
+.onboarding-recommendation-grid ul { margin: .55rem 0 0; padding-inline-start: 1.2rem; color: #cce4e8; }
+.onboarding-recommendation-grid li + li { margin-top: .35rem; }
+.onboarding-limit-context { display: flex; flex-wrap: wrap; gap: .55rem; align-items: center; color: #cce4e8; }
+.onboarding-limit-context b { width: 100%; color: #fff; }
+.onboarding-limit-context span { border: 1px solid rgba(255,255,255,.15); border-radius: 999px; padding: .35rem .65rem; font-size: .78rem; }
+.first-run-activation { grid-template-columns: minmax(220px, 1fr) minmax(160px, .7fr) minmax(260px, 1fr); margin: 1.2rem 0; align-items: center; }
+.first-run-copy { display: grid; gap: .45rem; }
+.first-run-copy p { margin: 0; color: #cce4e8; }
+.first-run-actions { display: flex; flex-wrap: wrap; gap: .55rem; align-items: center; justify-content: flex-start; }
+.first-run-dismiss { border: 0; background: transparent; color: #a9c3c9; cursor: pointer; padding: .55rem; }
+.first-run-dismiss:hover { color: #fff; }
+@media (max-width: 760px) {
+  .onboarding-recommendation-plans,
+  .onboarding-recommendation-grid,
+  .first-run-activation { grid-template-columns: 1fr; }
+  .onboarding-recommendation,
+  .first-run-activation { padding: 1rem; border-radius: 18px; }
+}

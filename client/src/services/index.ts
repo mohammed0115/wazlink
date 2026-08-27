@@ -45,6 +45,7 @@ import type {
 } from "./contracts/services";
 import type { EntitlementService } from "./contracts/entitlements";
 import { createEntitlementService } from "./entitlementService";
+import { createOnboardingServiceFromEntitlements } from "./onboardingService";
 
 const asRecord = (value: unknown): Record<string, unknown> => (value && typeof value === "object" ? value as Record<string, unknown> : {});
 const normalizeRow = <T extends { [key: string]: unknown }>(value: unknown): T => asRecord(value) as T;
@@ -189,6 +190,7 @@ export const billingService: BillingService = {
   finishCheckoutJourney() { return legacyFinishCheckoutJourney(); },
 };
 export const entitlementService: EntitlementService = createEntitlementService(billingService);
+export const onboardingService = createOnboardingServiceFromEntitlements(entitlementService);
 // Compatibility selectors: consumers receive snapshots through named service functions,
 // while the legacy bridge remains the only source of mutable mock truth.
 export const listUsers = () => [...(mockRecords.users || [])];
