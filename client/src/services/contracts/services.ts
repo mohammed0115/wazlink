@@ -67,14 +67,22 @@ export interface DashboardPipelineSummary extends FeatureRow { value?: number; c
 export interface DiscoveryJobSummary extends FeatureRow { id: string; query?: string; status?: string; resultCount?: number; }
 export interface DiscoveryJobDetail extends DiscoveryJobSummary { completedAt?: string; error?: string | null; }
 export interface DiscoveryResultItem extends FeatureRow { businessId?: string; source?: string; phone?: string; website?: string; }
-export interface LeadActivityItem extends FeatureRow { type?: string; body?: string; at?: string; }
+export interface LeadActivityItem extends FeatureRow { type?: string; title?: string; body?: string; detail?: string; at?: string; createdAt?: string; actorId?: string; metadata?: { dealId?: string; leadId?: string; [key: string]: unknown }; }
 export interface LeadRecordView extends FeatureRow { businessId?: string; ownerId?: string; priority?: string; sourceJobId?: string; }
 export interface LeadMutationResult extends FeatureRow { success?: boolean; }
 export interface DealDetailView extends FeatureRow { leadId?: string; stageId?: string; value?: number; probability?: number; }
 export interface PipelineStageView extends FeatureRow { id?: string; name?: string; kind?: string; defaultProbability?: number; }
 export interface PipelineMetricsView extends FeatureRow { openValue?: number; weightedValue?: number; }
-export interface ConversationView extends FeatureRow { leadId?: string; channel?: string; status?: string; lastMessageAt?: string; }
-export interface MessageView extends FeatureRow { conversationId?: string; body?: string; direction?: string; deliveryStatus?: string; }
+export interface ConversationView extends FeatureRow { leadId?: string; businessId?: string; channel?: string; status?: string; lastMessageAt?: string; contactId?: string | null; unreadCount?: number; }
+export interface MessageView extends FeatureRow { conversationId?: string; body?: string; direction?: string; deliveryStatus?: string; status?: string; createdAt?: string; senderId?: string | null; }
+export type JourneyEntityKind = "business" | "lead" | "job" | "conversation" | "message" | "deal" | "task" | "appointment" | "activity";
+export type JourneyCanonicalId = `BUS-${string}` | `LEAD-${string}` | `JOB-${string}` | `CONV-${string}` | `MSG-${string}` | `DEAL-${string}` | `TSK-${string}` | `APT-${string}` | `ACT-${string}`;
+export interface JourneyEntityRef { kind: JourneyEntityKind; id: JourneyCanonicalId; }
+export interface JourneyAction { label: string; route: string; entity: JourneyEntityRef; }
+export interface CustomerJourneyContext { job?: JourneyEntityRef; business?: JourneyEntityRef; lead?: JourneyEntityRef; conversation?: JourneyEntityRef; deal?: JourneyEntityRef; sourceId?: string; actions: JourneyAction[]; }
+export type JourneyActivityKind = "lead_activity" | "message" | "task" | "appointment" | "deal_activity";
+export interface JourneyActivityItem { id: JourneyCanonicalId; kind: JourneyActivityKind; timestamp: string; leadId: JourneyCanonicalId; businessId?: JourneyCanonicalId; conversationId?: JourneyCanonicalId; messageId?: JourneyCanonicalId; dealId?: JourneyCanonicalId; taskId?: JourneyCanonicalId; appointmentId?: JourneyCanonicalId; title: string; description?: string; route?: string; }
+export interface JourneyProjectionService { getContext(leadId: string): CustomerJourneyContext | null; getLeadActivity(leadId: string): JourneyActivityItem[]; }
 export interface MessageMutationResult extends MessageView { success?: boolean; }
 export interface AutomationRuleView extends FeatureRow { trigger?: string; action?: string; enabled?: boolean; }
 export interface AutomationRunView extends FeatureRow { ruleId?: string; status?: string; }
@@ -93,9 +101,9 @@ export interface AutomationRuleInput extends FeatureRow { trigger?: string; acti
 export interface UpdateWorkspaceSettingsInput extends FeatureRow { timezone?: string; currency?: string; locale?: string; }
 export interface ConnectIntegrationInput extends FeatureRow { provider?: string; }
 export interface SecuritySettingsInput { dataResidency: "local_only" | "external_allowed_mock"; externalAiAccess: boolean; actorId?: string; }
-export interface TaskView extends FeatureRow { title?: string; dueAt?: string; completed?: boolean; }
+export interface TaskView extends FeatureRow { title?: string; dueAt?: string; createdAt?: string; leadId?: string; dealId?: string; type?: string; ownerId?: string; completed?: boolean; }
 export interface TaskMutationResult extends FeatureRow { success: boolean; }
-export interface AppointmentView extends FeatureRow { title?: string; startsAt?: string; status?: string; }
+export interface AppointmentView extends FeatureRow { title?: string; startsAt?: string; createdAt?: string; leadId?: string; dealId?: string; status?: string; }
 export interface AutomationExecutionResult extends FeatureRow { success?: boolean; matched?: boolean; kind?: string; run?: FeatureRow | null; conditionResult?: { matched?: boolean; [key: string]: unknown }; }
 export interface BillingActivity extends FeatureRow { type?: string; actorId?: string; }
 export interface AutomationRunView extends FeatureRow { ruleId?: string; status?: string; }

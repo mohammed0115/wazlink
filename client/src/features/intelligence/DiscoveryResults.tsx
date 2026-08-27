@@ -7,7 +7,7 @@ import { discoveryService } from "@services";
  * حالتها `completed` وفق عقد S3.
  */
 import { useState } from "react";
-import { getDiscoveryJob, getResultFiltersSnapshot, getScraperExportColumnsSnapshot, scraperCrmPackages, scraperExportColumns } from "@services";
+import { crmService, getDiscoveryJob, getResultFiltersSnapshot, getScraperExportColumnsSnapshot, scraperCrmPackages, scraperExportColumns } from "@services";
 import { SCORING_VERSION, getBusinessIntelligence, getIntelligenceSummary } from "@domain/intelligence.js";
 import { go } from "../../shared/router/useHashRoute";
 import { useToast } from "../../shared/store/toast";
@@ -395,10 +395,20 @@ export function DiscoveryResults({ jobId }: { jobId: string }) {
                             type="button"
                             className="button compact"
                             onClick={() => {
-                              go(`intelligence?business=${encodeURIComponent(b.id)}`);
+                              go(`intelligence?business=${encodeURIComponent(b.id)}&job=${encodeURIComponent(job.id)}`);
                             }}
                           >
                             {record.status === "insufficient_data" ? "عرض سبب عدم الكفاية" : "فتح الذكاء"}
+                          </button>
+                          <button
+                            type="button"
+                            className="button ghost compact"
+                            onClick={() => {
+                              const existingLead = crmService.getLeadByBusinessId(b.id);
+                              go(existingLead ? `crm/leads/${existingLead.id}` : `intelligence?business=${encodeURIComponent(b.id)}&job=${encodeURIComponent(job.id)}`);
+                            }}
+                          >
+                            {crmService.getLeadByBusinessId(b.id) ? "فتح العميل" : "فتح سياق العميل"}
                           </button>
                         </div>
                       </td>

@@ -1,4 +1,5 @@
 import { crmService, discoveryService, taskService } from "@services";
+import { journeyProjection } from "../../services/journey";
 /**
  * ملف العميل 360 — S5.
  *
@@ -64,7 +65,8 @@ export function Lead360({ leadId }: { leadId: string }) {
   const contacts = crmService.getLeadContacts(lead.id);
   const tasks = crmService.getLeadTasks(lead.id);
   const notes = crmService.getLeadNotes(lead.id);
-  const activities = crmService.getLeadActivities(lead.id);
+  const journey = journeyProjection.getContext(lead.id);
+  const activities = journeyProjection.getLeadActivity(lead.id);
   const deals = crmService.getLeadDeals(lead.id);
   const conversations = crmService.getLeadConversations(lead.id);
   const record = getBusinessIntelligence(lead.businessId) as any;
@@ -249,20 +251,23 @@ export function Lead360({ leadId }: { leadId: string }) {
             <header className="card-head">
               <div>
                 <h2>سجل النشاط</h2>
-                <p>أحداث متسقة زمنيًا من التحويل والعمل داخل CRM.</p>
+                <p>تسلسل موحد من الأحداث الموجودة فعليًا في Lead وConversation والمهام والمواعيد والصفقات.</p>
               </div>
             </header>
             <ol className="lead-timeline">
               {activities.length ? (
-                activities.map((item: any) => (
+                activities.map((item) => (
                   <li key={item.id}>
-                    <i>{timelineIcons[item.type] || "•"}</i>
+                    <i>{timelineIcons[item.kind] || "•"}</i>
                     <div>
                       <b>{item.title}</b>
-                      <p>{item.detail}</p>
-                      <small>
-                        {formatIso(item.createdAt)} · {userName(item.actorId)}
-                      </small>
+                      <p>{item.description || "—"}</p>
+                      <small>{formatIso(item.timestamp)}</small>
+                      {item.route ? (
+                        <button type="button" className="button ghost compact" onClick={() => go(item.route || "")}>
+                          فتح السياق
+                        </button>
+                      ) : null}
                     </div>
                   </li>
                 ))
@@ -362,6 +367,15 @@ export function Lead360({ leadId }: { leadId: string }) {
             <p className="lead-readonly">
               <b>{fmt(conversations.length)}</b> محادثة مرتبطة · <b>{fmt(deals.length)}</b> Deal مرتبطة.
             </p>
+            {journey?.actions.length ? (
+              <div className="s4-journey-actions">
+                {journey.actions.map((nextAction) => (
+                  <button type="button" className="button ghost compact" key={`${nextAction.entity.kind}-${nextAction.entity.id}`} onClick={() => go(nextAction.route)}>
+                    {nextAction.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <LeadDealControls leadId={lead.id} />
             <LeadConversationControls leadId={lead.id} />
             <LeadAiControls leadId={lead.id} />

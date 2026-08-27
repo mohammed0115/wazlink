@@ -9,9 +9,11 @@
     "start": "NODE_ENV=production node dist/index.js",
     "preview": "vite preview --host",
     "check": "tsc --noEmit",
+    "verify-v2-s0": "node scripts/verify-v2-s0.mjs",
     "verify-v2-s1": "node scripts/verify-v2-s1.mjs",
     "verify-v2-s2": "node scripts/verify-v2-s2.mjs",
     "verify-v2-s3": "node scripts/verify-v2-s3.mjs",
+    "verify-v2-s4": "node scripts/verify-v2-s4.mjs",
     "verify-v2-s0-fix": "node scripts/verify-v2-s0-fix.mjs",
     "format": "prettier --write ."
   },
