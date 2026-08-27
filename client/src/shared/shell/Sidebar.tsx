@@ -3,7 +3,7 @@
  * مصدر عناصر التنقل يبقى في طبقة البيانات عبر adapter واحد بلا تكرار.
  */
 import { Fragment } from "react";
-import { getInboxSummary, navItems } from "@services";
+import { entitlementService, getInboxSummary, navItems } from "@services";
 import { useWorkspace } from "../context/AppProviders";
 import { go } from "../router/useHashRoute";
 import { Brand } from "./Brand";
@@ -26,6 +26,10 @@ export function Sidebar({ route, drawerOpen = false, collapsed = false, onToggle
     : "مسؤولة النمو";
   const activeRoute = routeNavId(route);
   const inboxUnread = getInboxSummary().unread;
+  const currentPlan = entitlementService.currentPlan();
+  const discoveryUsage = entitlementService.usageFor("discoveryRuns");
+  const discoveryLimit = discoveryUsage.limit.kind === "finite" ? discoveryUsage.limit.value : null;
+  const discoveryWidth = discoveryUsage.percentage === null ? 100 : discoveryUsage.percentage;
 
   let lastGroup: string | null = null;
 
@@ -73,13 +77,14 @@ export function Sidebar({ route, drawerOpen = false, collapsed = false, onToggle
       <div className="sidebar-bottom">
         <div className="usage-card">
           <span>
-            <b>رصيد الاكتشاف</b>
-            <b className="mono">1,240</b>
+            <b>{currentPlan.name}</b>
+            <b className="mono">{discoveryUsage.used}{discoveryLimit === null ? " / ∞" : ` / ${discoveryLimit}`}</b>
           </span>
-          <div className="meter">
-            <i />
+          <div className="meter" aria-label={`استخدام الاكتشاف ${discoveryUsage.used} من ${discoveryLimit === null ? "غير محدود" : discoveryLimit}`}>
+            <i style={{ width: `${discoveryWidth}%` }} />
           </div>
-          <small>الباقة المهنية</small>
+          <small>{discoveryLimit === null ? "استخدام غير محدود" : `الاكتشاف · المتبقي ${discoveryUsage.remaining}`}</small>
+          <button className="sidebar-upgrade" type="button" onClick={() => go("settings/billing")}>إدارة الباقة</button>
         </div>
         <button className="profile-trigger" type="button">
           <i className="avatar">س</i>

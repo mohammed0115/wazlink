@@ -6,12 +6,13 @@
  * بقائمة انتظار موافقة قبل أي mutation.
  */
 import { useState } from "react";
-import { automationFeatureService, settingsFeatureService } from "@services";
+import { automationFeatureService, entitlementService, settingsFeatureService } from "@services";
 import { automationActionCatalog as rawActionCatalog, automationActionStatusLabels as rawExecStatus, automationRuleStatusLabels as rawRuleStatus, automationRunStatusLabels as rawRunStatus, automationTriggerCatalog as rawTriggerCatalog, formatAutomationCondition, getAutomationConditionGroups, getAutomationActions } from "@services";
 import { go, useHashRoute } from "../../shared/router/useHashRoute";
 import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { PageHead } from "../../shared/components/PageHead";
+import { EntitlementGate } from "../../shared/components/EntitlementGate";
 
 const automationRuleStatusLabels = rawRuleStatus as Record<string, string>;
 const automationRunStatusLabels = rawRunStatus as Record<string, string>;
@@ -77,6 +78,14 @@ export function Automation({ ruleId }: { ruleId?: string }) {
   const queue = automationFeatureService.getAutomationApprovalQueue() as Row[];
   const runs = runsForRule(ruleId);
   const allRuns = runsForRule();
+  const canUseAutomation = () => {
+    const decision = entitlementService.evaluate("automation.rules");
+    if (!decision.allowed) {
+      toast(decision.reason === "usage_exhausted" ? "اكتمل حد تشغيلات الأتمتة في باقتك الحالية." : "الأتمتة غير مشمولة في باقتك الحالية.", "error");
+      return false;
+    }
+    return true;
+  };
 
   const metricCards: [number, string, string][] = [
     [metrics.totalRules, "إجمالي القواعد", "قواعد محلية"],
@@ -93,15 +102,17 @@ export function Automation({ ruleId }: { ruleId?: string }) {
         title="الأتمتة"
         description="حوّل حدثًا معروفًا إلى مهمة أو اقتراح خاضع للسياسة. لا توجد جدولة خلفية أو إرسال خارجي."
         actions={
-          <button
-            className="button"
-            type="button"
-            onClick={() => {
-              go("automation?modal=create-rule");
-            }}
-          >
-            قاعدة جديدة
-          </button>
+          <EntitlementGate capability="automation.rules">
+            <button
+              className="button"
+              type="button"
+              onClick={() => {
+                if (canUseAutomation()) go("automation?modal=create-rule");
+              }}
+            >
+              قاعدة جديدة
+            </button>
+          </EntitlementGate>
         }
       />
 
@@ -123,15 +134,17 @@ export function Automation({ ruleId }: { ruleId?: string }) {
           <h2>عندما يحدث… إذا… افعل…</h2>
           <p>تقرأ القاعدة سياق الحدث فقط، ثم تطبق سياسة تنفيذ مركزية قبل أي إجراء.</p>
         </div>
-        <button
-          className="button primary"
-          type="button"
-          onClick={() => {
-            go("automation?modal=create-rule");
-          }}
-        >
-          إنشاء قاعدة
-        </button>
+        <EntitlementGate capability="automation.rules">
+          <button
+            className="button primary"
+            type="button"
+            onClick={() => {
+              if (canUseAutomation()) go("automation?modal=create-rule");
+            }}
+          >
+            إنشاء قاعدة
+          </button>
+        </EntitlementGate>
       </section>
 
       <section className="s9-rule-layout">
@@ -286,7 +299,8 @@ export function Automation({ ruleId }: { ruleId?: string }) {
                     className="button primary"
                     type="button"
                     onClick={() => {
-                      const result = mutate(() => automationFeatureService.runAutomationNow(selected.id));
+                      if (!canUseAutomation()) return;
+                    const result = mutate(() => automationFeatureService.runAutomationNow(selected.id));
                       toast(
                         result.kind === "executed"
                           ? "تم تشغيل القاعدة اليدوية محليًا وتسجيل الأثر."

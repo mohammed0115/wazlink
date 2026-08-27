@@ -17,7 +17,7 @@ export type ConversationDetail = Conversation & { messages: Message[] };
 export type DashboardSnapshot = { metrics: Record<string, number>; updatedAt: string };
 export type AnalyticsSnapshot = { funnel: Array<{ label: string; count: number }>; revenue: number; attributedRevenue: number };
 
-export type BillingPlan = { id: string; name: string; price: number; interval?: string; features?: string[] };
+export type BillingPlan = { id: string; name: string; price: number; interval?: string; currency?: string; limits: Readonly<Record<"leads" | "discoveryRuns" | "seats" | "automationRuns" | "aiAnalyses", number | null>>; features: readonly string[] };
 export type BillingSubscription = { planId: string; status?: string; renewsAt?: string | null; cancelAtPeriodEnd?: boolean };
 export type BillingUsageItem = { key: string; label: string; used: number; limit: number; remaining: number };
 export type BillingInvoice = { id: string; amount: number; status?: string; period?: string; issuedAt?: string };

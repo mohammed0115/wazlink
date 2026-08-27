@@ -43,6 +43,8 @@ import type {
   TaskService, DashboardService, DiscoveryService, CrmService, PipelineService, MessagingService, AutomationFeatureService, SettingsFeatureService, IntegrationFeatureService, DashboardSnapshot, DiscoveryFilters, DealFilters, ConversationFilters,
   BillingPlan, BillingSubscription, BillingUsageItem, BillingInvoice, BillingPaymentMethod, CheckoutSession, TaskView, TaskMutationResult, AppointmentView, BillingActivity, FeatureRow, DiscoveryJobDetail, DealDetailView, AutomationExecutionResult, SecuritySettingsView, SecuritySettingsInput,
 } from "./contracts/services";
+import type { EntitlementService } from "./contracts/entitlements";
+import { createEntitlementService } from "./entitlementService";
 
 const asRecord = (value: unknown): Record<string, unknown> => (value && typeof value === "object" ? value as Record<string, unknown> : {});
 const normalizeRow = <T extends { [key: string]: unknown }>(value: unknown): T => asRecord(value) as T;
@@ -186,7 +188,7 @@ export const billingService: BillingService = {
   cancelCheckout() { legacyCancelCheckout(); },
   finishCheckoutJourney() { return legacyFinishCheckoutJourney(); },
 };
-
+export const entitlementService: EntitlementService = createEntitlementService(billingService);
 // Compatibility selectors: consumers receive snapshots through named service functions,
 // while the legacy bridge remains the only source of mutable mock truth.
 export const listUsers = () => [...(mockRecords.users || [])];
@@ -399,6 +401,7 @@ export {
 } from "./data";
 export type { DashboardOverview } from "./data";
 export * from "./contracts/services";
+export * from "./contracts/entitlements";
 export * from "./contracts/repositories";
 
 

@@ -6,7 +6,7 @@
  * لا بوابة دفع ولا معالجة بطاقات؛ وسيلة الدفع مرجع عرض مقنّع فقط.
  */
 import { useState } from "react";
-import { billingService } from "@services";
+import { billingService, entitlementService } from "@services";
 import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
 import { go } from "../../shared/router/useHashRoute";
@@ -31,9 +31,15 @@ export function Billing() {
   const toast = useToast();
   const [previewPlanId, setPreviewPlanId] = useState<string | null>(null);
   const subscription = currentSubscription() as Row;
-  const planRows = plans() as Row[];
-  const plan = planRows.find((item: Row) => item.id === subscription.planId) as Row;
-  const usageRows = usage() as Row[];
+  const planRows = entitlementService.planCatalog();
+  const plan = entitlementService.currentPlan();
+  const usageRows = entitlementService.usage().metrics.map((metric) => ({
+    key: metric.metric,
+    used: metric.used,
+    limit: metric.limit.kind === "finite" ? metric.limit.value : null,
+    remaining: metric.remaining,
+    over: metric.status === "EXHAUSTED" && metric.limit.kind === "finite" && metric.used > metric.limit.value,
+  }));
   const paymentRows = paymentMethods() as Row[];
   const payment = paymentRows[0] as Row;
   const invoiceRows = invoices() as Row[];
@@ -179,7 +185,7 @@ export function Billing() {
           <small>لا تتغير ميزات S3–S10 فعليًا عند التبديل.</small>
         </header>
         <div className="s11-plan-grid">
-          {planRows.map((item: Row) => (
+          {planRows.map((item) => (
             <article className={item.id === plan?.id ? "current" : ""} key={item.id}>
               <div>
                 <p>{item.id === plan?.id ? "الخطة الحالية" : "تسعير تجريبي"}</p>
@@ -189,7 +195,7 @@ export function Billing() {
                 </b>
               </div>
               <ul>
-                {item.features.slice(0, 3).map((feature: string) => (
+                {item.features.slice(0, 3).map((feature) => (
                   <li key={feature}>{feature}</li>
                 ))}
               </ul>

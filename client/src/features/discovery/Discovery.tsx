@@ -1,4 +1,3 @@
-import { discoveryService } from "@services";
 /**
  * اكتشاف العملاء — S3.
  *
@@ -7,11 +6,12 @@ import { discoveryService } from "@services";
  * ولا تنشئ Lead أو Score أو CRM.
  */
 import { useRef, useState, type FormEvent } from "react";
-import { createDiscoveryJob, discoverySourceOptions, getDiscoveryDraftSnapshot } from "@services";
+import { discoveryService, discoverySourceOptions, entitlementService, getDiscoveryDraftSnapshot } from "@services";
 import { go } from "../../shared/router/useHashRoute";
 import { useToast } from "../../shared/store/toast";
 import { runDiscoverySimulation } from "./simulation";
 import { PageHead } from "../../shared/components/PageHead";
+import { EntitlementGate } from "../../shared/components/EntitlementGate";
 import { ScraperReferenceImport } from "../landing/ScraperReference";
 import { fmt } from "./shared";
 
@@ -195,6 +195,12 @@ export function Discovery() {
       return;
     }
 
+    const decision = entitlementService.evaluate("discovery.basic");
+    if (!decision.allowed) {
+      toast(decision.reason === "usage_exhausted" ? "اكتمل حد الاكتشاف في باقتك الحالية. راجع خيارات الترقية." : "الاكتشاف غير مشمول في باقتك الحالية. راجع خيارات الترقية.", "error");
+      return;
+    }
+
     const job = discoveryService.createDiscoveryJob({ keywords: draft.keywords, locations: draft.locations, sourceId: draft.sourceId, filters });
     runDiscoverySimulation(job.id, (id) => toast(`اكتملت العملية ${id} ببيانات تجريبية ثابتة.`, "success"));
     go(`discovery/jobs/${job.id}`);
@@ -329,9 +335,11 @@ export function Discovery() {
                   "أضف كلمة وموقعًا واحدًا على الأقل لبدء العملية."
                 )}
               </p>
-              <button className="button primary" type="submit">
-                بدء الاكتشاف
-              </button>
+              <EntitlementGate capability="discovery.basic">
+                <button className="button primary" type="submit">
+                  بدء الاكتشاف
+                </button>
+              </EntitlementGate>
             </footer>
           </form>
         </article>
