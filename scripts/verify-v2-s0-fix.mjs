@@ -15,6 +15,53 @@ featureRoots.forEach(walk);
 const text = (file) => fs.readFileSync(file, "utf8");
 const runtimeFiles = files.filter((file) => !file.endsWith(path.join("shared", "components", "ErrorBoundary.tsx")));
 const stripComments = (value) => value.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\\s)\/\/.*$/gm, "$1");
+function stripCommentsAndStrings(value) {
+  let output = "";
+  let mode = "code";
+  let quote = "";
+  for (let i = 0; i < value.length; i += 1) {
+    const ch = value[i];
+    const next = value[i + 1];
+    if (mode === "lineComment") {
+      output += ch === "\\n" ? "\\n" : " ";
+      if (ch === "\\n") mode = "code";
+      continue;
+    }
+    if (mode === "blockComment") {
+      if (ch === "*" && next === "/") { output += "  "; i += 1; mode = "code"; }
+      else output += ch === "\\n" ? "\\n" : " ";
+      continue;
+    }
+    if (mode === "string") {
+      if (ch === "\\\\") { output += "  "; if (i + 1 < value.length) { output += value[i + 1] === "\\n" ? "\\n" : " "; i += 1; } }
+      else if (ch === quote) { output += " "; mode = "code"; quote = ""; }
+      else output += ch === "\\n" ? "\\n" : " ";
+      continue;
+    }
+    if (ch === "/" && next === "/") { output += "  "; i += 1; mode = "lineComment"; continue; }
+    if (ch === "/" && next === "*") { output += "  "; i += 1; mode = "blockComment"; continue; }
+    if (ch === "\"" || ch === "'" || ch === "`") { output += " "; mode = "string"; quote = ch; continue; }
+    output += ch;
+  }
+  return output;
+}
+const extractMemberCalls = (source, service) => {
+  const code = stripCommentsAndStrings(source);
+  const pattern = new RegExp(`\\b${service}\\s*(?:\\?\\.)?\\s*\\.\\s*([A-Za-z_$][\\w$]*)\\s*\\(`, "g");
+  return [...code.matchAll(pattern)].map((match) => match[1]);
+};
+function interfaceBody(name) {
+  const start = contracts.indexOf(`interface ${name}`);
+  if (start < 0) return "";
+  const open = contracts.indexOf("{", start);
+  if (open < 0) return "";
+  let depth = 0;
+  for (let i = open; i < contracts.length; i += 1) {
+    if (contracts[i] === "{") depth += 1;
+    if (contracts[i] === "}") { depth -= 1; if (depth === 0) return contracts.slice(open + 1, i); }
+  }
+  return "";
+}
 const featureText = runtimeFiles.map((file) => stripComments(text(file))).join("\n");
 const targetRoots = [
   path.join(src, "features", "inbox"),
@@ -84,22 +131,32 @@ check("F17 Features remove mock Checkout imports", !/import\s*\{[^}]*\b\w*MockCh
 check("F18 composition root uses explicit facade export", !/export\s+\*\s+from\s+[\"']\.\/data[\"']/.test(serviceRoot));
 for (const name of ["activities", "invoices", "paymentMethods", "startCheckout", "getCheckout", "updateCheckoutInvoice", "continueCheckoutPayment", "confirmCheckout", "failCheckout", "cancelCheckout"]) check(`B-${name} Billing contract`, contracts.includes(`${name}`));
 const targetServiceConsumers = [
-  ["Dashboard", path.join(src, "features", "dashboard", "Dashboard.tsx"), "dashboardService"],
-  ["Discovery", path.join(src, "features", "discovery", "DiscoveryJobs.tsx"), "discoveryService"],
-  ["CRM", path.join(src, "features", "crm", "Crm.tsx"), "crmService"],
-  ["Pipeline", path.join(src, "features", "sales", "Pipeline.tsx"), "pipelineService"],
-  ["Messaging", path.join(src, "features", "inbox", "Inbox.tsx"), "messagingService"],
-  ["Automation", path.join(src, "features", "automation", "Automation.tsx"), "automationFeatureService"],
-  ["Settings", path.join(src, "features", "settings", "Settings.tsx"), "settingsFeatureService"],
-  ["Integrations", path.join(src, "features", "settings", "Integrations.tsx"), "integrationFeatureService"],
+  ["Dashboard", path.join(src, "features", "dashboard"), "dashboardService", "DashboardService"],
+  ["Discovery", path.join(src, "features", "discovery"), "discoveryService", "DiscoveryService"],
+  ["CRM", path.join(src, "features", "crm"), "crmService", "CrmService"],
+  ["Pipeline", path.join(src, "features", "sales"), "pipelineService", "PipelineService"],
+  ["Messaging", path.join(src, "features", "inbox"), "messagingService", "MessagingService"],
+  ["Automation", path.join(src, "features", "automation"), "automationFeatureService", "AutomationFeatureService"],
+  ["Settings", path.join(src, "features", "settings"), "settingsFeatureService", "SettingsFeatureService"],
+  ["Integrations", path.join(src, "features", "settings"), "integrationFeatureService", "IntegrationFeatureService"],
 ];
-for (const [name, file, service] of targetServiceConsumers) {
-  const source = text(file);
-  check(`G-${name} Feature imports typed service instance`, source.includes(service) && (source.includes('from "@services"') || source.includes("from '@services'")));
+const contractMethods = (name) => [...interfaceBody(name).matchAll(/\b([A-Za-z_$][\w$]*)\s*(?:\?|!)?\s*\(/g)].map((match) => match[1]);
+for (const [name, root, service, interfaceName] of targetServiceConsumers) {
+  const source = files.filter((file) => file.startsWith(`${root}${path.sep}`)).map((file) => text(file)).join("\\n");
+  const calls = extractMemberCalls(source, service);
+  const declared = new Set(contractMethods(interfaceName));
+  const undeclared = calls.filter((method) => !declared.has(method));
+  check(`G-${name} actual typed member call`, calls.length > 0, `methods=${[...new Set(calls)].join(",")}`);
+  check(`I-${name} called methods explicitly declared`, undeclared.length === 0, undeclared.length ? `undeclared=${[...new Set(undeclared)].join(",")}` : "");
+  check(`G-${name} Feature imports typed service instance`, source.includes(`from "@services"`) || source.includes("from '@services'"));
 }
 for (const service of ["dashboardService", "discoveryService", "crmService", "pipelineService", "messagingService", "automationFeatureService", "settingsFeatureService", "integrationFeatureService"]) {
   check(`G-${service} composition adapter contract-checked`, new RegExp(`export const ${service} = [\\s\\S]*?\\n\\};`).test(serviceRoot) && serviceRoot.includes("_typedFeatureServiceContracts"));
 }
+check("I-negative import-only rejected", extractMemberCalls('import { dashboardService } from "@services"; function Fixture(){ return null; }', "dashboardService").length === 0);
+check("I-negative identifier-only rejected", extractMemberCalls('import { dashboardService } from "@services"; console.log(dashboardService);', "dashboardService").length === 0);
+check("I-positive multiline member call accepted", extractMemberCalls("dashboardService\n  .getDashboardOverview(\n    {}\n  );", "dashboardService").includes("getDashboardOverview"));
+check("I-comment/string false positives rejected", extractMemberCalls("// dashboardService.getDashboardOverview()\\nconst text = \\\"dashboardService.getDashboardOverview()\\\";", "dashboardService").length === 0);
 const targetAdapterText = serviceRoot.slice(serviceRoot.indexOf("export const dashboardService"));
 check("H1 target contracts contain no any escape hatch", !/\\bany\\b|any\\[\\]|Record<string, any>|\\.\\.\\.args: any/.test(contracts));
 check("H2 target adapters contain no generic any escape hatch", !/Record<string, \\(\\.\\.\\.args: any\\[\\]\\) *=> *any|Record<string, any>|any\\[\\]/.test(targetAdapterText));
