@@ -1,106 +1,4751 @@
-# WazLink Backend Architecture & Documentation
-
-> **B0 status:** Architecture and contracts only. Backend coding is not authorized. This document is normative for future backend implementation agents.
-
-**Frontend reference:** `30bc15e9ca3c0205df2b49e792fce1b8e78a36b1`  
-**Scope:** Django + PostgreSQL backend design; no production implementation, migrations, endpoints, provider calls, secrets, infrastructure, or frontend changes are included in B0.
-
-openapi: 3.0.3
-info:
-  title: WazLink API
-  version: 1.0.0
-  description: Architecture-level contract only; no server implementation is authorized in B0.
-servers:
-  - url: https://api.example.invalid/api/v1
-security:
-  - sessionCookie: []
-paths:
-  /health/live:
-    get:
-      operationId: healthLive
-      security: []
-      responses:
-        '200': {description: Process is alive}
-  /dashboard/overview:
-    get:
-      operationId: getDashboardOverview
-      responses:
-        '200': {description: Canonical dashboard read model, content: {application/json: {schema: {$ref: '#/components/schemas/DashboardOverview'}}}}
-        '401': {$ref: '#/components/responses/Unauthorized'}
-  /leads/{public_id}/360:
-    get:
-      operationId: getLead360
-      parameters:
-        - {$ref: '#/components/parameters/PublicId'}
-      responses:
-        '200': {description: Lead 360 aggregate, content: {application/json: {schema: {$ref: '#/components/schemas/Lead360'}}}}
-        '404': {$ref: '#/components/responses/NotFound'}
-  /discovery/jobs:
-    post:
-      operationId: createDiscoveryJob
-      parameters:
-        - {$ref: '#/components/parameters/IdempotencyKey'}
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/DiscoveryJobCreate'}}}}
-      responses:
-        '202': {description: Async job accepted, content: {application/json: {schema: {$ref: '#/components/schemas/DiscoveryJob'}}}}
-        '403': {$ref: '#/components/responses/Forbidden'}
-  /businesses/{public_id}/convert-to-lead:
-    post:
-      operationId: convertBusinessToLead
-      parameters:
-        - {$ref: '#/components/parameters/PublicId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
-      responses:
-        '201': {description: Lead created or existing idempotent Lead returned, content: {application/json: {schema: {$ref: '#/components/schemas/Lead'}}}}
-        '409': {$ref: '#/components/responses/Conflict'}
-  /deals/{public_id}/close:
-    post:
-      operationId: closeDeal
-      parameters:
-        - {$ref: '#/components/parameters/PublicId'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CloseDealRequest'}}}}
-      responses:
-        '200': {description: Deal state updated, content: {application/json: {schema: {$ref: '#/components/schemas/Deal'}}}}
-        '409': {$ref: '#/components/responses/Conflict'}
-  /revenue-events:
-    post:
-      operationId: recordRevenueEvent
-      parameters:
-        - {$ref: '#/components/parameters/IdempotencyKey'}
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RevenueEventCreate'}}}}
-      responses:
-        '201': {description: Explicit RevenueEvent, content: {application/json: {schema: {$ref: '#/components/schemas/RevenueEvent'}}}}
-        '409': {$ref: '#/components/responses/Conflict'}
-  /billing/payments:
-    post:
-      operationId: createPayment
-      parameters:
-        - {$ref: '#/components/parameters/IdempotencyKey'}
-      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PaymentCreate'}}}}
-      responses:
-        '202': {description: Payment pending provider webhook, content: {application/json: {schema: {$ref: '#/components/schemas/Payment'}}}}
-        '403': {$ref: '#/components/responses/Forbidden'}
-components:
-  securitySchemes:
-    sessionCookie: {type: apiKey, in: cookie, name: sessionid}
-  parameters:
-    PublicId: {name: public_id, in: path, required: true, schema: {type: string}}
-    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128}}
-  responses:
-    Unauthorized: {description: Authentication required}
-    Forbidden: {description: Permission or entitlement denied}
-    NotFound: {description: Scoped resource not found}
-    Conflict: {description: Version or idempotency conflict}
-  schemas:
-    Money: {type: object, required: [amount, currency], properties: {amount: {type: string, example: '85000.00'}, currency: {type: string, example: SAR}}}
-    DiscoveryJobCreate: {type: object, required: [query], properties: {query: {type: object}}}
-    DiscoveryJob: {type: object, required: [public_id, status], properties: {public_id: {type: string}, status: {type: string, enum: [queued, running, partial, completed, failed, cancelled]}}}
-    Lead: {type: object, required: [public_id, business_ref, status], properties: {public_id: {type: string}, business_ref: {type: string}, status: {type: string}, version: {type: integer}}}
-    Lead360: {type: object, required: [lead, activities], properties: {lead: {$ref: '#/components/schemas/Lead'}, activities: {type: array, items: {type: object}}}}
-    Deal: {type: object, required: [public_id, status, value, currency, probability], properties: {public_id: {type: string}, status: {type: string, enum: [open, won, lost]}, value: {$ref: '#/components/schemas/Money'}, currency: {type: string}, probability: {type: integer, minimum: 0, maximum: 100}}}
-    CloseDealRequest: {type: object, required: [outcome, version], properties: {outcome: {type: string, enum: [won, lost]}, lost_reason: {type: string}, version: {type: integer}}}
-    RevenueEventCreate: {type: object, required: [source_type, source_ref, gross, currency, recognized_at], properties: {source_type: {type: string}, source_ref: {type: string}, gross: {$ref: '#/components/schemas/Money'}, currency: {type: string}, recognized_at: {type: string, format: date-time}, deal_ref: {type: string, nullable: true}}}
-    RevenueEvent: {type: object, required: [public_id, source_type, gross, currency, status], properties: {public_id: {type: string}, source_type: {type: string}, gross: {$ref: '#/components/schemas/Money'}, currency: {type: string}, status: {type: string, enum: [pending, recognized, reversed]}}}
-    PaymentCreate: {type: object, required: [subscription_ref, amount, currency], properties: {subscription_ref: {type: string}, amount: {$ref: '#/components/schemas/Money'}, currency: {type: string}}}
-    Payment: {type: object, required: [public_id, status, amount, currency], properties: {public_id: {type: string}, status: {type: string, enum: [created, pending, authorized, captured, failed, cancelled, refunded]}, amount: {$ref: '#/components/schemas/Money'}, currency: {type: string}}}
+# WazLink Backend OpenAPI v1
+# Architecture contract only; no implementation
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "WazLink Backend API",
+    "version": "1.0.0",
+    "description": "Architecture contract only. No implementation, provider calls, secrets, or deployment are included."
+  },
+  "servers": [
+    {
+      "url": "https://api.example.invalid/api/v1",
+      "description": "Non-live architecture placeholder; paths omit the base prefix."
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth"
+    },
+    {
+      "name": "Workspace"
+    },
+    {
+      "name": "Entitlements"
+    },
+    {
+      "name": "Discovery"
+    },
+    {
+      "name": "CRM"
+    },
+    {
+      "name": "Messaging"
+    },
+    {
+      "name": "Pipeline"
+    },
+    {
+      "name": "Automation"
+    },
+    {
+      "name": "Analytics"
+    },
+    {
+      "name": "Revenue"
+    },
+    {
+      "name": "Attribution"
+    },
+    {
+      "name": "Billing"
+    },
+    {
+      "name": "Files"
+    },
+    {
+      "name": "Health"
+    }
+  ],
+  "security": [
+    {
+      "sessionAuth": []
+    }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "Create session",
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "Session created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or semantically invalid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "description": "Public, rate-limited login. Returns a session; no bearer JWT is used.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "summary": "Revoke session",
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "204": {
+            "description": "No content."
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "description": "Uses Django session authentication. Unsafe cookie-authenticated requests require CSRF. Request context is workspace-scoped.",
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/workspaces": {
+      "get": {
+        "operationId": "listWorkspaces",
+        "summary": "List workspace memberships",
+        "tags": [
+          "Workspace"
+        ],
+        "responses": {
+          "200": {
+            "description": "Workspace list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceList"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/workspaces/{id}/invitations": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "inviteWorkspaceMember",
+        "summary": "Invite workspace member",
+        "tags": [
+          "Workspace"
+        ],
+        "responses": {
+          "201": {
+            "description": "Invitation accepted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workspace"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or semantically invalid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "404": {
+            "description": "Scoped resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency or optimistic concurrency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/plans": {
+      "get": {
+        "operationId": "listPlans",
+        "summary": "List plans",
+        "tags": [
+          "Entitlements"
+        ],
+        "responses": {
+          "200": {
+            "description": "Plan list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanList"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/entitlements": {
+      "get": {
+        "operationId": "getEntitlements",
+        "summary": "Get capability decisions",
+        "tags": [
+          "Entitlements"
+        ],
+        "responses": {
+          "200": {
+            "description": "Entitlement list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntitlementList"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/usage": {
+      "get": {
+        "operationId": "getUsage",
+        "summary": "Get workspace usage",
+        "tags": [
+          "Entitlements"
+        ],
+        "responses": {
+          "200": {
+            "description": "Usage counters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageDTO"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/discovery/jobs": {
+      "post": {
+        "operationId": "createDiscoveryJob",
+        "summary": "Submit discovery job",
+        "tags": [
+          "Discovery"
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted asynchronous resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryJob"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or semantically invalid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency or optimistic concurrency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "description": "Asynchronous; returns a Job resource and never claims results are complete.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscoveryJobCreate"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/discovery/jobs/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getDiscoveryJob",
+        "summary": "Get discovery job status",
+        "tags": [
+          "Discovery"
+        ],
+        "responses": {
+          "200": {
+            "description": "Discovery job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryJob"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "404": {
+            "description": "Scoped resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/discovery/jobs/{id}/results": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "listDiscoveryResults",
+        "summary": "List discovery results",
+        "tags": [
+          "Discovery"
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated discovery results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryResultList"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "404": {
+            "description": "Scoped resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/businesses/{id}/convert-to-lead": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "convertBusinessToLead",
+        "summary": "Convert Business to Lead",
+        "tags": [
+          "CRM"
+        ],
+        "responses": {
+          "201": {
+            "description": "Lead created or existing Lead returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lead"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or semantically invalid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "404": {
+            "description": "Scoped resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency or optimistic concurrency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "description": "Idempotent conversion; viewing a Discovery Result does not create a Lead.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConvertBusinessRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/leads/{id}/360": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getLead360",
+        "summary": "Get Lead 360 aggregate",
+        "tags": [
+          "CRM"
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only Lead 360.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lead360"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "404": {
+            "description": "Scoped resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/leads/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "patch": {
+        "operationId": "updateLead",
+        "summary": "Update Lead",
+        "tags": [
+          "CRM"
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated Lead.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lead"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or semantically invalid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "404": {
+            "description": "Scoped resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency or optimistic concurrency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "description": "Requires version or If-Match; stale writes return 409. Unsafe session requests require CSRF.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeadUpdate"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/conversations/{id}/messages": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "sendConversationMessage",
+        "summary": "Send message",
+        "tags": [
+          "Messaging"
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted asynchronous message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or semantically invalid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "404": {
+            "description": "Scoped resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency or optimistic concurrency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "503": {
+            "description": "Service or provider unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "description": "Asynchronous provider-neutral send; idempotency key required.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/deals": {
+      "get": {
+        "operationId": "listDeals",
+        "summary": "List Deals",
+        "tags": [
+          "Pipeline"
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated Deal list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DealList"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "createDeal",
+        "summary": "Create Deal",
+        "tags": [
+          "Pipeline"
+        ],
+        "responses": {
+          "201": {
+            "description": "Deal created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deal"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or semantically invalid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency or optimistic concurrency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DealCreate"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/deals/{id}/stage": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "moveDealStage",
+        "summary": "Move Deal stage",
+        "tags": [
+          "Pipeline"
+        ],
+        "responses": {
+          "200": {
+            "description": "Deal updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deal"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or semantically invalid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "404": {
+            "description": "Scoped resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency or optimistic concurrency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "description": "Optimistic concurrency uses version and returns 409 on stale state.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StageMove"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/deals/{id}/close": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "closeDeal",
+        "summary": "Close Deal Won or Lost",
+        "tags": [
+          "Pipeline"
+        ],
+        "responses": {
+          "200": {
+            "description": "Deal state updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deal"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or semantically invalid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "404": {
+            "description": "Scoped resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency or optimistic concurrency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "description": "Closing a Deal as won changes Deal state only. No RevenueEvent is created automatically. POST /revenue-events remains the explicit recognized-revenue command.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseDealRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/automation/runs/{id}/approve": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "approveAutomationRun",
+        "summary": "Approve automation run",
+        "tags": [
+          "Automation"
+        ],
+        "responses": {
+          "200": {
+            "description": "Automation run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationRun"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or semantically invalid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "404": {
+            "description": "Scoped resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency or optimistic concurrency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutomationApprovalRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/analytics/overview": {
+      "get": {
+        "operationId": "getAnalyticsOverview",
+        "summary": "Get derived analytics overview",
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "Analytics overview.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsOverview"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/dashboard/overview": {
+      "get": {
+        "operationId": "getDashboardOverview",
+        "summary": "Get derived dashboard overview",
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only dashboard aggregation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardOverview"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/revenue-events": {
+      "post": {
+        "operationId": "createRevenueEvent",
+        "summary": "Record recognized revenue",
+        "tags": [
+          "Revenue"
+        ],
+        "responses": {
+          "201": {
+            "description": "Revenue event recorded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevenueEvent"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or semantically invalid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency or optimistic concurrency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "description": "Explicit recognized-revenue command. DealWon does not create this resource implicitly.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevenueEventCreate"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/attribution": {
+      "get": {
+        "operationId": "getAttribution",
+        "summary": "Get attribution report",
+        "tags": [
+          "Attribution"
+        ],
+        "responses": {
+          "200": {
+            "description": "Attribution report.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttributionReport"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "description": "Read/reporting-oriented. It cannot alter RevenueEvent amount.",
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/billing/upgrade-quotes": {
+      "post": {
+        "operationId": "createUpgradeQuote",
+        "summary": "Create upgrade quote",
+        "tags": [
+          "Billing"
+        ],
+        "responses": {
+          "201": {
+            "description": "Upgrade quote.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpgradeQuote"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or semantically invalid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency or optimistic concurrency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "description": "Platform Billing only; does not recognize customer CRM Revenue.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/billing/payments": {
+      "post": {
+        "operationId": "createPayment",
+        "summary": "Create asynchronous payment",
+        "tags": [
+          "Billing"
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted asynchronous payment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or semantically invalid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency or optimistic concurrency conflict.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "422": {
+            "description": "Malformed or semantically invalid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "503": {
+            "description": "Service or provider unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "description": "Provider-neutral asynchronous payment creation. Redirects are not payment truth.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentCreate"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/billing/invoices": {
+      "get": {
+        "operationId": "listInvoices",
+        "summary": "List platform invoices",
+        "tags": [
+          "Billing"
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated invoice list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceList"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/files/uploads": {
+      "post": {
+        "operationId": "createFileUpload",
+        "summary": "Create signed upload",
+        "tags": [
+          "Files"
+        ],
+        "responses": {
+          "201": {
+            "description": "File asset created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileAsset"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed or semantically invalid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "422": {
+            "description": "Malformed or semantically invalid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/files/{id}/download": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "downloadFile",
+        "summary": "Download authorized file",
+        "tags": [
+          "Files"
+        ],
+        "responses": {
+          "200": {
+            "description": "Signed file download.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileDownload"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or entitlement denied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "404": {
+            "description": "Scoped resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ]
+      }
+    },
+    "/health/live": {
+      "get": {
+        "operationId": "getLiveness",
+        "summary": "Get process liveness",
+        "tags": [
+          "Health"
+        ],
+        "responses": {
+          "200": {
+            "description": "Process is live.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "getReadiness",
+        "summary": "Get DB/Redis readiness",
+        "tags": [
+          "Health"
+        ],
+        "responses": {
+          "200": {
+            "description": "Dependencies ready.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          },
+          "503": {
+            "description": "Service or provider unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Correlation identifier."
+              }
+            }
+          }
+        },
+        "description": "Readiness covers the DB/Redis architecture and does not depend on every provider."
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "sessionid",
+        "description": "Django session cookie. Unsafe requests also require CSRF token."
+      }
+    },
+    "schemas": {
+      "Money": {
+        "type": "object",
+        "description": "Decimal money amount with ISO currency.",
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "type": "string",
+            "pattern": "^-?\\\\d+(\\\\.\\\\d{1,4})?$",
+            "description": "Decimal string; never a binary float."
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          }
+        },
+        "required": [
+          "amount",
+          "currency"
+        ]
+      },
+      "PageInfo": {
+        "type": "object",
+        "description": "Cursor pagination metadata.",
+        "additionalProperties": false,
+        "properties": {
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "has_next": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "next_cursor",
+          "has_next"
+        ]
+      },
+      "EntityRef": {
+        "type": "object",
+        "description": "Stable public entity reference.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "entity_type": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "public_id",
+          "entity_type"
+        ]
+      },
+      "ErrorDetail": {
+        "type": "object",
+        "description": "Safe machine-readable error detail.",
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "type": "string",
+            "description": "Public contract string",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "description": "Public contract string",
+            "nullable": true
+          }
+        }
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "description": "Safe error envelope; never exposes stack traces or secrets.",
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "object",
+            "description": "Error payload.",
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Public contract string"
+              },
+              "message": {
+                "type": "string",
+                "description": "Public contract string"
+              },
+              "details": {
+                "type": "object"
+              },
+              "request_id": {
+                "type": "string",
+                "description": "Public contract string"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "details",
+              "request_id"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "Session": {
+        "type": "object",
+        "description": "Authenticated Django session response.",
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "workspace_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "Public contract string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "session_id",
+          "workspace_ref",
+          "expires_at"
+        ]
+      },
+      "Workspace": {
+        "type": "object",
+        "description": "Workspace membership projection.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "name": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "role": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "status": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "public_id",
+          "name",
+          "role",
+          "status"
+        ]
+      },
+      "WorkspaceList": {
+        "type": "object",
+        "description": "Workspace membership list.",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Workspace"
+            }
+          },
+          "page_info": {
+            "$ref": "#/components/schemas/PageInfo"
+          }
+        },
+        "required": [
+          "items",
+          "page_info"
+        ]
+      },
+      "Plan": {
+        "type": "object",
+        "description": "Plan catalog item.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "code": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "name": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "price": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "interval": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "public_id",
+          "code",
+          "name",
+          "price",
+          "interval"
+        ]
+      },
+      "PlanList": {
+        "type": "object",
+        "description": "Plan catalog list.",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Plan"
+            }
+          },
+          "page_info": {
+            "$ref": "#/components/schemas/PageInfo"
+          }
+        },
+        "required": [
+          "items",
+          "page_info"
+        ]
+      },
+      "EntitlementDecision": {
+        "type": "object",
+        "description": "Backend-authoritative capability decision.",
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "status": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "allowed": {
+            "type": "boolean"
+          },
+          "usage": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "remaining": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "target_plan_ref": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntityRef"
+              }
+            ]
+          },
+          "evaluated_at": {
+            "type": "string",
+            "description": "Public contract string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "capability",
+          "status",
+          "allowed",
+          "evaluated_at"
+        ]
+      },
+      "EntitlementList": {
+        "type": "object",
+        "description": "Entitlement decision list.",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntitlementDecision"
+            }
+          },
+          "page_info": {
+            "$ref": "#/components/schemas/PageInfo"
+          }
+        },
+        "required": [
+          "items",
+          "page_info"
+        ]
+      },
+      "UsageDTO": {
+        "type": "object",
+        "description": "Workspace usage counters.",
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "used": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
+          "remaining": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
+          "period": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "capability",
+          "used",
+          "period"
+        ]
+      },
+      "DiscoveryJobCreate": {
+        "type": "object",
+        "description": "Discovery job submission request.",
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "provider_source": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "DiscoveryJob": {
+        "type": "object",
+        "description": "Asynchronous discovery job resource.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "status": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "query": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "provider_source": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "counts": {
+            "type": "object"
+          },
+          "started_at": {
+            "type": "string",
+            "description": "Public contract string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "completed_at": {
+            "type": "string",
+            "description": "Public contract string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "error_code": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "public_id",
+          "status",
+          "query"
+        ]
+      },
+      "DiscoveryJobDTO": {
+        "$ref": "#/components/schemas/DiscoveryJob"
+      },
+      "DiscoveryResult": {
+        "type": "object",
+        "description": "Discovery result linked to job and business context.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "job_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "business_ref": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntityRef"
+              }
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "source": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "public_id",
+          "job_ref",
+          "name"
+        ]
+      },
+      "DiscoveryResultList": {
+        "type": "object",
+        "description": "Cursor-paginated discovery result list.",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscoveryResult"
+            }
+          },
+          "page_info": {
+            "$ref": "#/components/schemas/PageInfo"
+          }
+        },
+        "required": [
+          "items",
+          "page_info"
+        ]
+      },
+      "ResultList": {
+        "$ref": "#/components/schemas/DiscoveryResultList"
+      },
+      "Business": {
+        "type": "object",
+        "description": "Canonical business record.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "provider_source": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "provider_external_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "name": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "website": {
+            "type": "string",
+            "nullable": true
+          },
+          "coordinates": {
+            "type": "object",
+            "nullable": true
+          },
+          "provenance": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "public_id",
+          "provider_source",
+          "provider_external_id",
+          "name"
+        ]
+      },
+      "ConvertBusinessRequest": {
+        "type": "object",
+        "description": "Explicit Business-to-Lead conversion request.",
+        "additionalProperties": false,
+        "properties": {
+          "owner_ref": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntityRef"
+              }
+            ]
+          },
+          "source_job_ref": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntityRef"
+              }
+            ]
+          }
+        }
+      },
+      "Lead": {
+        "type": "object",
+        "description": "Canonical CRM lead.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "business_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "owner_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "status": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "priority": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "source_job_ref": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntityRef"
+              }
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "public_id",
+          "business_ref",
+          "status",
+          "version"
+        ]
+      },
+      "LeadUpdate": {
+        "type": "object",
+        "description": "Allow-listed Lead update with optimistic version.",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "priority": {
+            "type": "string",
+            "nullable": true
+          },
+          "owner_ref": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntityRef"
+              }
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "Lead360": {
+        "type": "object",
+        "description": "Read-only Lead 360 aggregate.",
+        "additionalProperties": false,
+        "properties": {
+          "lead": {
+            "$ref": "#/components/schemas/Lead"
+          },
+          "business": {
+            "$ref": "#/components/schemas/Business"
+          },
+          "contacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntityRef"
+            }
+          },
+          "intelligence": {
+            "type": "object",
+            "nullable": true
+          },
+          "conversations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntityRef"
+            }
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntityRef"
+            }
+          },
+          "appointments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntityRef"
+            }
+          },
+          "deals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntityRef"
+            }
+          },
+          "activities": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "revenue_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntityRef"
+            }
+          }
+        },
+        "required": [
+          "lead",
+          "business"
+        ]
+      },
+      "Conversation": {
+        "type": "object",
+        "description": "Conversation projection linked to Lead.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "lead_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "channel": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "status": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "assigned_user": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntityRef"
+              }
+            ]
+          },
+          "last_message_at": {
+            "type": "string",
+            "description": "Public contract string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "public_id",
+          "lead_ref",
+          "channel",
+          "status"
+        ]
+      },
+      "SendMessageRequest": {
+        "type": "object",
+        "description": "Human or approved message request.",
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "client_message_ref": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "body",
+          "idempotency_key"
+        ]
+      },
+      "SendMessage": {
+        "$ref": "#/components/schemas/SendMessageRequest"
+      },
+      "Message": {
+        "type": "object",
+        "description": "Message resource with provider-neutral status.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "conversation_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "direction": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "sender_type": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "body_safe": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "status": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "provider_message_ref": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "description": "Public contract string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "public_id",
+          "conversation_ref",
+          "direction",
+          "sender_type",
+          "status"
+        ]
+      },
+      "Deal": {
+        "type": "object",
+        "description": "Pipeline Deal; close state is not Revenue recognition.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "lead_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "business_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "pipeline_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "stage_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "value": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "probability": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "status": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "expected_close": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          },
+          "closed_at": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "lost_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "public_id",
+          "lead_ref",
+          "pipeline_ref",
+          "stage_ref",
+          "value",
+          "probability",
+          "status",
+          "version"
+        ]
+      },
+      "DealList": {
+        "type": "object",
+        "description": "Cursor-paginated Deal list.",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Deal"
+            }
+          },
+          "page_info": {
+            "$ref": "#/components/schemas/PageInfo"
+          }
+        },
+        "required": [
+          "items",
+          "page_info"
+        ]
+      },
+      "DealCreate": {
+        "type": "object",
+        "description": "Deal creation request.",
+        "additionalProperties": false,
+        "properties": {
+          "lead_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "pipeline_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "stage_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "value": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "title": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "lead_ref",
+          "pipeline_ref",
+          "stage_ref",
+          "value",
+          "title"
+        ]
+      },
+      "StageMove": {
+        "type": "object",
+        "description": "Deal stage transition request.",
+        "additionalProperties": false,
+        "properties": {
+          "stage_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "stage_ref",
+          "version"
+        ]
+      },
+      "CloseDealRequest": {
+        "type": "object",
+        "description": "Explicit Deal Won/Lost request. Won changes Deal state only and never creates RevenueEvent.",
+        "additionalProperties": false,
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "won",
+              "lost"
+            ]
+          },
+          "lost_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "outcome",
+          "version"
+        ]
+      },
+      "AutomationApprovalRequest": {
+        "type": "object",
+        "description": "Explicit approval request for a sensitive automation run.",
+        "additionalProperties": false,
+        "properties": {
+          "approved": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "approved",
+          "version"
+        ]
+      },
+      "Approval": {
+        "$ref": "#/components/schemas/AutomationApprovalRequest"
+      },
+      "AutomationRun": {
+        "type": "object",
+        "description": "Automation run with manual approval state.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "status": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "approval_required": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "public_id",
+          "status"
+        ]
+      },
+      "AnalyticsMetric": {
+        "type": "object",
+        "description": "Analytics metric with declared scope and semantics.",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "value": {
+            "type": "number"
+          },
+          "scope": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "semantics": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "scope",
+          "semantics"
+        ]
+      },
+      "AnalyticsOverview": {
+        "type": "object",
+        "description": "Derived analytics overview; no mutation.",
+        "additionalProperties": false,
+        "properties": {
+          "period": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsMetric"
+            }
+          },
+          "quality": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "generated_at": {
+            "type": "string",
+            "description": "Public contract string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "period",
+          "timezone",
+          "currency",
+          "metrics",
+          "generated_at"
+        ]
+      },
+      "DashboardOverview": {
+        "type": "object",
+        "description": "Read-only Dashboard aggregation over canonical services; not a domain store.",
+        "additionalProperties": false,
+        "properties": {
+          "period": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "kpis": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsMetric"
+            }
+          },
+          "attention": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "journey_status": {
+            "type": "string"
+          },
+          "generated_at": {
+            "type": "string",
+            "description": "Public contract string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "period",
+          "timezone",
+          "currency",
+          "kpis",
+          "generated_at"
+        ]
+      },
+      "RevenueEventCreate": {
+        "type": "object",
+        "description": "Explicit recognized-revenue command. Never created by DealWon alone.",
+        "additionalProperties": false,
+        "properties": {
+          "source_type": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "source_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "gross": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "net": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "recognized_at": {
+            "type": "string",
+            "description": "Public contract string",
+            "format": "date-time"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "source_type",
+          "source_ref",
+          "gross",
+          "net",
+          "currency",
+          "recognized_at",
+          "idempotency_key"
+        ]
+      },
+      "RevenueEvent": {
+        "type": "object",
+        "description": "Recognized customer RevenueEvent, separate from Billing.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "source_type": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "source_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "gross": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "net": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "recognized_at": {
+            "type": "string",
+            "description": "Public contract string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "public_id",
+          "source_type",
+          "gross",
+          "net",
+          "currency",
+          "recognized_at",
+          "status"
+        ]
+      },
+      "AttributionTouchpoint": {
+        "type": "object",
+        "description": "Read/reporting attribution touchpoint that cannot mutate RevenueEvent amount.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "source_type": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "source_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "occurred_at": {
+            "type": "string",
+            "description": "Public contract string",
+            "format": "date-time"
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "public_id",
+          "source_type",
+          "occurred_at",
+          "position"
+        ]
+      },
+      "AttributionReport": {
+        "type": "object",
+        "description": "Derived attribution report.",
+        "additionalProperties": false,
+        "properties": {
+          "period": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "touchpoints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttributionTouchpoint"
+            }
+          },
+          "unattributed_amount": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "period",
+          "touchpoints"
+        ]
+      },
+      "QuoteRequest": {
+        "type": "object",
+        "description": "Billing plan quote request; presentation/validation only.",
+        "additionalProperties": false,
+        "properties": {
+          "plan_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "plan_ref",
+          "currency"
+        ]
+      },
+      "UpgradeQuote": {
+        "type": "object",
+        "description": "Canonical billing upgrade quote.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "plan_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "Public contract string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "public_id",
+          "plan_ref",
+          "amount",
+          "expires_at"
+        ]
+      },
+      "PaymentCreate": {
+        "type": "object",
+        "description": "Asynchronous payment creation request; provider-neutral.",
+        "additionalProperties": false,
+        "properties": {
+          "quote_ref": {
+            "$ref": "#/components/schemas/EntityRef"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "quote_ref",
+          "amount",
+          "currency",
+          "idempotency_key"
+        ]
+      },
+      "Payment": {
+        "type": "object",
+        "description": "Payment state; never raw card data and not CRM Revenue.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "subscription_ref": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntityRef"
+              }
+            ]
+          },
+          "invoice_ref": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntityRef"
+              }
+            ]
+          },
+          "provider": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "status": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "idempotency_ref": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "public_id",
+          "status",
+          "amount",
+          "currency"
+        ]
+      },
+      "Invoice": {
+        "type": "object",
+        "description": "Platform Billing invoice.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "status": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "issued_at": {
+            "type": "string",
+            "description": "Public contract string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "public_id",
+          "status",
+          "amount",
+          "issued_at"
+        ]
+      },
+      "InvoiceList": {
+        "type": "object",
+        "description": "Cursor-paginated platform invoice list.",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Invoice"
+            }
+          },
+          "page_info": {
+            "$ref": "#/components/schemas/PageInfo"
+          }
+        },
+        "required": [
+          "items",
+          "page_info"
+        ]
+      },
+      "UploadRequest": {
+        "type": "object",
+        "description": "Signed upload request.",
+        "additionalProperties": false,
+        "properties": {
+          "filename": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "filename",
+          "content_type"
+        ]
+      },
+      "FileAsset": {
+        "type": "object",
+        "description": "File metadata without sensitive provider payload.",
+        "additionalProperties": false,
+        "properties": {
+          "public_id": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "filename": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "public_id",
+          "filename",
+          "content_type"
+        ]
+      },
+      "FileDownload": {
+        "type": "object",
+        "description": "Authorized file download response.",
+        "additionalProperties": false,
+        "properties": {
+          "download_url": {
+            "type": "string",
+            "description": "Public contract string",
+            "format": "uri"
+          },
+          "expires_at": {
+            "type": "string",
+            "description": "Public contract string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "download_url",
+          "expires_at"
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "description": "Liveness or DB/Redis readiness health response.",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "checks": {
+            "type": "object"
+          },
+          "request_id": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "Empty": {
+        "type": "object",
+        "description": "Empty response body.",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "CreateDiscoveryJob": {
+        "$ref": "#/components/schemas/DiscoveryJobCreate"
+      },
+      "Lead360DTO": {
+        "$ref": "#/components/schemas/Lead360"
+      },
+      "CloseDeal": {
+        "$ref": "#/components/schemas/CloseDealRequest"
+      },
+      "LoginRequestBody": {
+        "type": "object",
+        "description": "Session login request.",
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "password": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "InviteRequestBody": {
+        "type": "object",
+        "description": "Workspace invitation request.",
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Public contract string"
+          },
+          "role": {
+            "type": "string",
+            "description": "Public contract string"
+          }
+        },
+        "required": [
+          "email",
+          "role"
+        ]
+      },
+      "LoginRequest": {
+        "$ref": "#/components/schemas/LoginRequestBody"
+      },
+      "InviteRequest": {
+        "$ref": "#/components/schemas/InviteRequestBody"
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Authentication required.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Correlation identifier."
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Permission or entitlement denied.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Correlation identifier."
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Scoped resource not found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Correlation identifier."
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Idempotency or optimistic concurrency conflict.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Correlation identifier."
+          }
+        }
+      },
+      "ValidationError": {
+        "description": "Malformed or semantically invalid request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Correlation identifier."
+          }
+        }
+      },
+      "RateLimited": {
+        "description": "Rate limited.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Correlation identifier."
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "Service or provider unavailable.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        },
+        "headers": {
+          "X-Request-ID": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Correlation identifier."
+          }
+        }
+      }
+    },
+    "parameters": {
+      "IfMatch": {
+        "name": "If-Match",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Optimistic concurrency version token."
+      },
+      "Id": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Workspace-scoped public ID."
+      }
+    }
+  }
+}

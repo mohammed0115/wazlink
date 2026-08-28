@@ -35,3 +35,7 @@
 | INTERNAL_ERROR | 500 | safe generic failure |
 
 No error reveals stack traces, secrets, cross-workspace existence, provider credentials, or raw payment details.
+
+## B0-FIX.1 transport mapping
+
+OpenAPI reuses `ErrorEnvelope` and the named response components `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`, `ValidationError`, `RateLimited`, and `ServiceUnavailable`. Endpoint responses are applied by semantic applicability rather than mechanically.

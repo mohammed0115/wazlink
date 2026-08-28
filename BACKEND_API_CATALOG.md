@@ -29,6 +29,7 @@
 | POST | `/api/v1/deals/{id}/close` | explicit Won/Lost | close permission | CloseDeal | 200/409 | yes/no |
 | POST | `/api/v1/automation/runs/{id}/approve` | approve sensitive run | automation approver | Approval | 200/409 | yes/no |
 | GET | `/api/v1/analytics/overview` | derived metrics | analytics view | AnalyticsOverview | 200 | n/a/no |
+| GET | `/api/v1/dashboard/overview` | read-only dashboard aggregate | analytics/dashboard view | DashboardOverview | 200 | n/a/no |
 | POST | `/api/v1/revenue-events` | explicit recognition | revenue permission | RevenueEventCreate | 201/409 | yes/no |
 | GET | `/api/v1/attribution` | touchpoint report | analytics view | AttributionReport | 200 | n/a/no |
 | POST | `/api/v1/billing/upgrade-quotes` | quote/validate plan | billing admin | QuoteRequest | 201 | yes/no |
@@ -40,3 +41,9 @@
 | GET | `/api/v1/health/ready` | DB/Redis readiness | internal | Health | 200/503 | n/a/no |
 
 All endpoints use workspace/object authorization, stable DTOs, allow-listed filters, request correlation, and safe errors. Provider webhooks are internal gateway routes and are not user-facing resource mutations.
+
+## B0-FIX.1 synchronization rules
+
+The catalog uses the same base-path convention as OpenAPI: `servers.url` carries `/api/v1`, so OpenAPI path keys omit that prefix. Every catalog row is represented by an OpenAPI operation with a unique `operationId`; internal provider webhook routes remain outside this user-facing catalog.
+
+Discovery submission, message send, and payment creation are asynchronous where marked `202`. Discovery results, Deals, and invoices are cursor-paginated with `PageInfo`. Unsafe session-authenticated mutations require CSRF, editable resources require `version`/`If-Match`, and stale writes use `409`. Closing a Deal as won changes Deal state only; it does not create RevenueEvent.

@@ -1,45 +1,83 @@
-# WazLink B0 — Backend Architecture & Documentation Delivery Report
+# B0-FIX.2 EVIDENCE SYNC — IMPLEMENTATION REPORT
 
-## Status
+## Scope and status
 
-**B0 BACKEND ARCHITECTURE & DOCUMENTATION COMPLETE**
+B0-FIX.1 repaired the documentation and API-contract layer only. No Django code, models, migrations, PostgreSQL schema, Redis/Celery implementation, provider integration, secrets, frontend changes, dependency changes, lockfile changes, commit, push, or deployment were performed.
 
-Frontend remains frozen at `30bc15e9ca3c0205df2b49e792fce1b8e78a36b1`. No frontend source, package, verifier, workflow, deployment, or runtime behavior was modified.
+> **B0 IS NOT SELF-CLOSED.** This report records the repair state only. Independent CTO re-verification remains required.
 
-## Delivered commit
+## Repository reference
 
-- Commit: `8d593edfa61d8097ded42c76dffbc47c6b6bde52`
-- Branch: `main`
-- `HEAD == origin/main`: PASS
-- Working tree: clean
-- Commit contents: 33 documentation/contract files, 1,137 inserted lines
+| Field | Value |
+|---|---|
+| Previous final B0 SHA | `1a5ce9ec73bbf46df55e01574aa4fa19ead94fc7` |
+| Current branch | `main` |
+| Commit created | No — explicitly prohibited in this step |
+| Push/deploy | No — explicitly prohibited in this step |
+| Frontend changed | NO |
+| Backend code created | NO |
+| Dependencies changed | NO |
+| Lockfile changed | NO |
 
-## Package contents
+## Files changed
 
-The package includes the executive blueprint, architecture decisions, domain ownership matrix, authorization matrix, workspace/auth design, entitlement and quota ownership, API standard/catalog, DTO contracts, error catalog, logical PostgreSQL model, Mermaid ERD, state machines, sequence diagrams, command/event catalog, retry/timeout/idempotency policies, integration boundaries, billing/payment/tax architecture, security, privacy, rate limits, operations/observability, reconciliation/failure matrices, analytics semantics, testing strategy, frontend/backend contract map, rollout/migration plan, OpenAPI v1 contract, documentation index, and requirement traceability.
+| File | Reason |
+|---|---|
+| `BACKEND_OPENAPI_V1.yaml` | Converted the contract into a standalone YAML-compatible OpenAPI 3.0.3 document; expanded paths, schemas, responses, security, pagination, async semantics, and safety descriptions. |
+| `BACKEND_API_CATALOG.md` | Added the read-only Dashboard overview endpoint and synchronized base-path, async, pagination, concurrency, CSRF, and revenue-boundary rules. |
+| `BACKEND_DTO_CONTRACTS.md` | Added the complete transport DTO index required by the catalog and OpenAPI, including aliases and reusable contracts. |
+| `BACKEND_ERROR_CATALOG.md` | Added explicit mapping to reusable OpenAPI error response components. |
+| `B0_BACKEND_TRACEABILITY.md` | Replaced unsupported generic OpenAPI coverage wording with actual repair evidence and preserved the implementation prohibition. |
+| `B0_IMPLEMENTATION_REPORT.md` | Replaced the stale original delivery report with this factual B0-FIX.1 report. |
 
-## Core frozen decisions
+No unrelated architecture document was changed.
 
-Django + Django REST Framework is the selected application/API stack. PostgreSQL is the canonical operational store. Celery + Redis is the selected Python-native async architecture; Redis is not domain storage. Transactional outbox and webhook inbox/receipt patterns are selected for reliable side effects and duplicate-safe callbacks. Phase 1 is a modular Django monolith rather than microservices or Kafka.
+## Contract results
 
-Internal UUIDv7 identifiers are paired with immutable prefixed public IDs. Workspace scope and object-level authorization are mandatory for every tenant-owned query. Session authentication is selected for the first backend phase, with explicit RBAC and entitlement checks. Dashboard and Lead 360 are read aggregation endpoints over canonical domains.
+| Check | Result |
+|---|---|
+| YAML parser | PyYAML `6.0.3` in isolated environment |
+| OpenAPI structural validator | `openapi-spec-validator` `0.9.0` in isolated environment |
+| JSON-compatible syntax parse | PASS — Python standard-library JSON parser parsed the repaired YAML-compatible payload |
+| Top-level keys | PASS — `openapi`, `info`, `servers`, `paths`, `components`, `security`, `tags` |
+| OpenAPI version | PASS — `3.0.3` |
+| OpenAPI paths | `29` |
+| OpenAPI operations | `30` |
+| Catalog endpoints | `30` |
+| Missing from OpenAPI | `0` |
+| Extra in OpenAPI | `0` |
+| Local schema refs | `218/218 PASS` |
+| Dangling refs | `0` |
+| Unique operation IDs | `30/30 PASS` |
+| DTO names missing | `0` |
+| DashboardOverview | PASS — defined and used by `/dashboard/overview` |
+| Every path has responses | PASS by generated contract inspection |
+| Duplicate method/path pairs | PASS |
 
-## Commercial truth preserved
+Historical note: B0-FIX.1 originally lacked machine validators and therefore recorded YAML/OpenAPI validation as unavailable. B0-FIX.2 subsequently created an isolated environment outside the repository and performed real validation. The final machine state is `YAML_PARSE=PASS` with PyYAML `6.0.3` and `OPENAPI_VALIDATION=PASS` with `openapi-spec-validator 0.9.0`.
 
-The architecture explicitly preserves **Won Deal ≠ Recognized Revenue**. DealWon is a CRM outcome and does not emit RevenueRecognized by default. RevenueEvent is created only by an explicit command or separately approved source contract. AttributionTouchpoint remains a separate entity and cannot mutate RevenueEvent amounts. WazLink platform Billing, subscriptions, payments, invoices, and ZATCA tax documents are separate from customer commercial Revenue and Attribution.
+## API contract semantics
 
-## Implementation prohibition
+The base-path strategy is consistent: `servers.url` contains `/api/v1`, and path keys omit that prefix. The catalog and OpenAPI now contain the same 30 method/path pairs.
 
-B0 created no Django project, `models.py`, `serializers.py`, `views.py`, URLs, migrations, SQL, queues, workers, provider clients, credentials, secrets, infrastructure, deployment changes, or frontend changes. The OpenAPI file is contract documentation only and points to an invalid example server to prevent accidental operational use.
+The contract defines reusable `Money`, `PageInfo`, `EntityRef`, `ErrorEnvelope`, `DashboardOverview`, resource DTOs, request DTOs, billing DTOs, file DTOs, and health DTOs. All listed catalog DTO names are represented by a concrete schema or documented alias.
 
-## Unresolved decisions requiring approval
+Discovery submission, message sending, and payment creation are described as asynchronous where marked `202`; they do not claim synchronous completion. Discovery results, Deals, and invoices expose cursor pagination through `PageInfo`. Editable resource contracts expose `version`, and stale writes use `409`.
 
-Before backend coding, obtain explicit Product Owner or official validation for Tap provider status/callback contracts, ZATCA legal fields and terminology, Google Places quotas/fields/costs, scraper provider/legal policy, AI provider terms and retention, Saudi data locality, exact retention durations, trial semantics, CRM import scope, and approved RPO/RTO targets.
+Reusable error response components cover authentication, authorization, not-found, conflict/idempotency/version, validation, rate limiting, and service unavailability. Health liveness and readiness are separated, with readiness scoped to DB/Redis architecture and not every provider.
 
-## Validation
+## Commercial and security regression
 
-Documentation-only validation passed: clean diff check, 33 expected B0 artifacts, no frontend/package/script changes, no backend implementation files, and expected OpenAPI top-level paths/schemas. The documentation package was committed and pushed without deploying backend code.
+The Deal close description explicitly states that closing a Deal as won changes Deal state only and does not create a RevenueEvent. `POST /revenue-events` remains the explicit recognized-revenue command. Billing/Payment/Invoice descriptions remain platform Billing only and do not recognize CRM Revenue. Attribution remains reporting-oriented and cannot alter RevenueEvent amount.
 
-## Next gate
+Session authentication remains Django session authentication; unsafe cookie-authenticated requests require CSRF. Workspace scope, RBAC, object authorization, provider-neutral statuses, safe error envelopes, and no raw provider/payment payload exposure are preserved.
 
-The next permissible phase is a separately authorized **Backend Architecture-to-Coding transition** after this package is reviewed and the unresolved decisions are closed. Until then, do not implement Django, migrations, APIs, providers, secrets, infrastructure, or production deployment.
+## Frontend and implementation freeze
+
+The changed-file review is limited to the six documentation/contract files listed above. No path under `client/` was changed. No `package.json`, lockfile, dependency, verifier, backend source, migration, infrastructure, or deployment file was changed.
+
+## B0-FIX.2 machine-validation evidence
+
+An isolated disposable environment at `/tmp/wazlink-b0-openapi-validation` loaded the complete contract with PyYAML `6.0.3` and validated it structurally with `openapi-spec-validator 0.9.0`. YAML parsing and OpenAPI structural validation both passed. The environment was removed after validation. The final contract evidence is: OpenAPI `3.0.3`, 29 paths, 30 operations, 30/30 catalog coverage, 218/218 local references, zero dangling references, unique operation IDs, zero missing DTO names, and `DashboardOverview` present and referenced.
+
+The next required step is an **Independent CTO — B0 Backend Architecture Re-Verification** in strict read-only mode. B0 is not self-closed. Do not start Django, models, migrations, PostgreSQL schema, Redis, Celery, Auth implementation, API implementation, providers, Tap, ZATCA, or deployment.

@@ -28,3 +28,26 @@
 | TaxInvoice | public_id, invoice_ref, seller/buyer refs, VAT fields, totals, UUID, QR payload, ZATCA status | legal fields require official validation |
 
 Request DTOs are command-specific and reject mass assignment. Response DTOs are versioned contracts, never raw model serialization. Sensitive fields are omitted by default and only exposed to authorized operational contexts.
+
+## B0-FIX.1 transport DTO index
+
+The following transport names are normative aliases or concrete DTOs used by `BACKEND_API_CATALOG.md` and `BACKEND_OPENAPI_V1.yaml`. They are not ORM models:
+
+| Transport name | Contract |
+|---|---|
+| LoginRequest / Session | Login credentials and authenticated Django session projection |
+| Workspace / WorkspaceList / InviteRequest | Workspace membership and invitation contracts |
+| Plan / PlanList / EntitlementDecision / EntitlementList / UsageDTO | Backend-authoritative plan and usage projections |
+| DiscoveryJobCreate / DiscoveryJobDTO / DiscoveryResult / ResultList | Async discovery submission, status, and cursor results |
+| Business / ConvertBusinessRequest | Canonical Business and explicit conversion request |
+| Lead / LeadUpdate / Lead360DTO | Versioned CRM Lead and read-only Lead 360 aggregate |
+| Conversation / SendMessage / Message | Conversation and async idempotent message contracts |
+| Deal / DealList / DealCreate / StageMove / CloseDeal | Pipeline resources with versioned transitions |
+| Approval / AutomationRun | Explicit automation approval and run state |
+| AnalyticsOverview / DashboardOverview | Derived read-only analytics and dashboard aggregates |
+| RevenueEventCreate / RevenueEvent / AttributionTouchpoint / AttributionReport | Explicit revenue recognition and read/reporting attribution |
+| QuoteRequest / UpgradeQuote / PaymentCreate / Payment / InvoiceList | Platform Billing contracts, separate from CRM Revenue |
+| UploadRequest / FileAsset / FileDownload / Health | File and health transport contracts |
+| PageInfo / Money / EntityRef / ErrorEnvelope | Reusable pagination, money, identity, and safe error contracts |
+
+All editable resources expose `version`; all unsafe session-authenticated requests require CSRF; all list contracts use cursor pagination where applicable; and no provider raw payload is exposed.
