@@ -34,8 +34,8 @@ stateDiagram-v2
   PaymentPending --> PaymentFailed
   PaymentCaptured --> Refunded
 
-  [*] --> SubscriptionTrialing
-  SubscriptionTrialing --> SubscriptionActive
+  [*] --> SubscriptionTrialing : only when an approved trial policy applies
+  SubscriptionTrialing --> SubscriptionActive : trial valid and activation authorized
   SubscriptionActive --> PastDue
   PastDue --> Suspended
   Suspended --> SubscriptionActive
@@ -43,6 +43,5 @@ stateDiagram-v2
   Cancelled --> Expired
 ```
 
-Discovery transitions require a valid job owner and idempotency key. Business→Lead is explicit and idempotent; viewing results never creates a Lead. Deal transitions permit `open→won` or `open→lost` only with permission and confirmation; Won probability is 100 and Lost is 0. RevenueEvent has its own `pending/recognized/reversed` lifecycle and is not a Deal state.
-
+Discovery transitions require a valid job owner and idempotency key. Business→Lead is explicit and idempotent; viewing results never creates a Lead. Deal transitions permit `open→won` or `open→lost` only with permission and confirmation; Won probability is 100 and Lost is 0. RevenueEvent has its own `pending/recognized/reversed` lifecycle and is not a Deal state. SubscriptionTrialing is conditional, not the default for every subscription: it requires an approved trial policy, a recorded trial end, and a valid entitlement basis. Payment failure transitions to a payment failure/past-due state and cannot silently activate or extend a subscription.
 AutomationRun is `created→awaiting_approval→queued→running→completed/failed/cancelled`; sensitive actions cannot skip approval. WebhookReceipt is `received→verified→queued→processed/failed/duplicate`. FileAsset is `pending→available/quarantined/failed→archived`. TaxInvoice states are conceptual and must be validated against official ZATCA terminology before implementation.

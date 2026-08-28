@@ -81,3 +81,37 @@ The changed-file review is limited to the six documentation/contract files liste
 An isolated disposable environment at `/tmp/wazlink-b0-openapi-validation` loaded the complete contract with PyYAML `6.0.3` and validated it structurally with `openapi-spec-validator 0.9.0`. YAML parsing and OpenAPI structural validation both passed. The environment was removed after validation. The final contract evidence is: OpenAPI `3.0.3`, 29 paths, 30 operations, 30/30 catalog coverage, 218/218 local references, zero dangling references, unique operation IDs, zero missing DTO names, and `DashboardOverview` present and referenced.
 
 The next required step is an **Independent CTO — B0 Backend Architecture Re-Verification** in strict read-only mode. B0 is not self-closed. Do not start Django, models, migrations, PostgreSQL schema, Redis, Celery, Auth implementation, API implementation, providers, Tap, ZATCA, or deployment.
+
+## B0-FIX.3 CTO-finding repair evidence
+
+B0-FIX.3 remained documentation/contract-only. The following findings were addressed without backend implementation: the Money amount contract is now enforced consistently as a decimal string with up to four fractional digits; request-side OpenAPI parameters are explicit and reusable (`cursor`, `limit`, `filters`, `sort`, `Idempotency-Key`, `If-Match`, and path `id`); the canonical public-ID prefix registry is present and indexed; the ADR sequence is explicitly registered as `ADR-001` through `ADR-012` with no duplicates; and the subscription state machine now states that trialing is conditional on an approved trial policy rather than universal. Currency precedence is explicit: `Money.currency` is authoritative and any mirror must match it. The API catalog, DTO contracts, API standard, error catalog, reconciliation, state machine, frontend contract map, documentation index, and architecture decision registry were synchronized where directly required by these findings.
+
+## B0-FIX.3 final regression results
+
+| Check | Result |
+|---|---|
+| OpenAPI version | `3.0.3` |
+| YAML parse | PASS — PyYAML `6.0.3` |
+| OpenAPI structural validation | PASS — `openapi-spec-validator 0.9.0` |
+| OpenAPI paths / operations | `29 / 30` |
+| Unique operation IDs | `30/30 PASS` |
+| Local references | `313/313 PASS` |
+| Dangling references | `0` |
+| Effective Money parsed pattern | `^-?\\d+(\\.\\d{1,4})?$` |
+| Money positive/negative regression | PASS — valid decimals match; malformed/over-precision values reject |
+| Reusable request parameters | PASS — Cursor, Filters, Id, IdempotencyKey, IfMatch, Limit, Sort |
+| Error coverage | `500: 30/30`; `429 + Retry-After: 3`; `402: 3`; `502: 9` |
+| ADR uniqueness | PASS — 12 identifiers, no duplicates |
+| Public-ID registry and index | PASS |
+| DashboardOverview | PASS |
+| ScrapeJob/DiscoveryJob reconciliation | PASS |
+| Conditional subscription trial semantics | PASS |
+| Currency precedence | PASS |
+| Won Deal != Recognized Revenue | PASS |
+| Billing != Customer CRM Revenue | PASS |
+
+## B0-FIX.3 scope gates
+
+No commit, push, deploy, B1 work, backend/Django implementation, model, migration, database schema, Redis/Celery worker, provider integration, secret, frontend change, dependency change, package change, or lockfile change was performed. B0 remains pending independent CTO closure and Product Owner authorization for any subsequent commit or phase transition.
+
+Validation artifacts were created outside the repository at `/tmp/run_b0fix3_final.py`, `/tmp/validate_openapi.py`, and `/tmp/b0fix3-final-validation.txt`; they are not implementation files and are not part of the repository change set.

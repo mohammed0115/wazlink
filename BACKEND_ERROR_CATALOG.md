@@ -24,18 +24,18 @@
 | CONFLICT | 409 | state/version conflict |
 | IDEMPOTENCY_CONFLICT | 409 | same key with different body |
 | STALE_VERSION | 409 | editable resource version changed |
-| PROVIDER_RATE_LIMITED | 429 | provider limit; retry policy applies |
-| PROVIDER_UNAVAILABLE | 502/503 | provider unavailable |
-| PAYMENT_FAILED | 402/422 | final payment failure |
+| PROVIDER_RATE_LIMITED | 429 | provider limit; retry policy applies; response includes `Retry-After` seconds |
+| PROVIDER_UNAVAILABLE | 502/503 | provider unavailable; OpenAPI uses 502 for translated upstream/provider failure and 503 for unavailable service |
+| PAYMENT_FAILED | 402/422 | final payment failure; 402 is applicable to payment-required Billing operations and 422 to semantic payment validation |
 | PAYMENT_PENDING | 202 | payment remains asynchronous |
 | WEBHOOK_INVALID_SIGNATURE | 401 | callback authentication failed |
 | WEBHOOK_DUPLICATE | 200 | harmless duplicate acknowledgement |
 | TAX_VALIDATION_REQUIRED | 422 | missing official tax contract/field |
 | FILE_TYPE_NOT_ALLOWED | 422 | upload policy violation |
-| INTERNAL_ERROR | 500 | safe generic failure |
+| INTERNAL_ERROR | 500 | safe generic failure; every OpenAPI operation declares the reusable 500 response |
 
 No error reveals stack traces, secrets, cross-workspace existence, provider credentials, or raw payment details.
 
-## B0-FIX.1 transport mapping
+## B0-FIX.3 transport mapping
 
-OpenAPI reuses `ErrorEnvelope` and the named response components `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`, `ValidationError`, `RateLimited`, and `ServiceUnavailable`. Endpoint responses are applied by semantic applicability rather than mechanically.
+OpenAPI reuses `ErrorEnvelope` and named response components for unauthorized, forbidden, not found, conflict, validation, rate-limited, internal, provider-unavailable, payment-required, and service-unavailable outcomes. Endpoint responses are applied by semantic applicability. A `429` response carries `Retry-After`; a `500` response is universal; `502` applies to provider-facing surfaces; and `402` applies only to Billing/payment-required operations.

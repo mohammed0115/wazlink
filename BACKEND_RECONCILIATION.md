@@ -13,7 +13,7 @@
 | Subscriptions | Subscription vs payment/invoice | hourly | Billing service |
 | Provider delivery | MessageDelivery vs Meta status | 15 min | Messaging service |
 | Discovery | DiscoveryJob vs provider execution | 15 min | Discovery service |
-| Scraping | ScrapeJob vs provider execution/callback | 15 min | Scraping service |
+| Scraping/provider execution | DiscoveryJob/result/provider execution or callback | 15 min | Discovery service with operations coordinator |
 | Webhooks | receipt state vs processing result | 5 min | Webhook operations |
 | ZATCA | TaxInvoice vs submission status | hourly | Tax service |
 | Usage | UsageLedger vs counters | hourly/daily | Entitlement service |

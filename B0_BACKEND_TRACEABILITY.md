@@ -41,3 +41,29 @@ The following require written approval or external validation before implementat
 ## Implementation prohibition
 
 No file in this package is executable backend implementation. Do not create Django apps, models, serializers, views, URLs, migrations, SQL, workers, queues, provider clients, secrets, deployment configuration, or frontend changes under B0.
+
+## B0-FIX.3 CTO-finding repair and regression evidence
+
+B0-FIX.3 repaired the documented contract findings without backend implementation. The repaired package now has an explicit decimal Money pattern, reusable request parameters, canonical public-ID registry and index entry, unique ADR registry (`ADR-001`–`ADR-012`), conditional subscription-trial semantics, and explicit Money currency precedence. Directly affected API, DTO, error, reconciliation, state-machine, frontend-contract-map, index, and architecture-decision documents were synchronized.
+
+| Regression gate | Result |
+|---|---|
+| PyYAML 6.0.3 parse | PASS |
+| openapi-spec-validator 0.9.0 | PASS |
+| OpenAPI 3.0.3 | PASS |
+| Paths / operations | 29 / 30 |
+| Catalog coverage | 30/30; no missing or extra endpoints |
+| Local refs | 313/313; dangling refs 0 |
+| Unique operation IDs | 30/30 |
+| Money parsed pattern | PASS; four-decimal maximum and malformed-value rejection |
+| Request parameter registry | PASS; cursor/limit/filters/sort/idempotency/If-Match/id |
+| Error coverage | PASS; all operations define 500; targeted 429/402/502 coverage present |
+| DashboardOverview | PASS |
+| Public-ID registry/index | PASS |
+| ADR uniqueness | PASS; 12 identifiers, no duplicates |
+| State-machine and reconciliation drift | PASS |
+| Currency precedence | PASS |
+| Won Deal != Recognized Revenue | PASS |
+| Billing != Customer CRM Revenue | PASS |
+
+B0 is **not self-closed**. Independent CTO closure remains required. No commit, push, deploy, B1, backend implementation, frontend modification, dependency/package/lockfile change, migration, provider integration, or secret work was performed in B0-FIX.3.

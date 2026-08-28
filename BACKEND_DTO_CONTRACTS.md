@@ -7,7 +7,7 @@
 
 ## Common DTOs
 
-`MoneyDTO = { amount: string, currency: string }`; `PageInfo = { next_cursor: string|null, has_next: boolean }`; `EntityRef = { public_id: string, entity_type: string }`; `ErrorEnvelope` follows the API standard; every entity DTO includes `public_id`, `workspace_id` only where permitted, `created_at`, `updated_at`, and `version` where editable.
+`MoneyDTO = { amount: string, currency: string }`; `MoneyDTO.amount` matches `^-?\\d+(\\.\\d{1,4})?$` after parsing; `MoneyDTO.currency` is the authoritative ISO-4217 currency for that amount. Any legacy or transport-level currency mirror must equal `MoneyDTO.currency` and never override it. `PageInfo = { next_cursor: string|null, has_next: boolean }`; `EntityRef = { public_id: string, entity_type: string }`; `ErrorEnvelope` follows the API standard; every entity DTO includes `public_id`, `workspace_id` only where permitted, `created_at`, `updated_at`, and `version` where editable.
 
 ## Core resource DTOs
 

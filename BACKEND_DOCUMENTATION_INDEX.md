@@ -34,7 +34,16 @@
 | `BACKEND_TEST_STRATEGY.md` | future test pyramid |
 | `BACKEND_DATA_GOVERNANCE.md` | data, ORM, cache, money, time policies |
 | `BACKEND_OPENAPI_V1.yaml` | architecture-level OpenAPI contract |
+| `BACKEND_PUBLIC_ID_REGISTRY.md` | canonical public-ID prefix registry |
+| `BACKEND_INTEGRATION_BOUNDARIES.md` | provider and anti-corruption boundaries |
+| `BACKEND_BILLING_TAX_ARCHITECTURE.md` | Platform Billing, Payment, Tax, and ZATCA separation |
+| `BACKEND_ANALYTICS_SEMANTICS.md` | metric formulas and recognized-revenue semantics |
+| `BACKEND_WORKSPACE_AUTH.md` | workspace, authentication, authorization, and tenancy |
+| `BACKEND_OPERATIONS_OBSERVABILITY.md` | operations, observability, backup, and disaster recovery |
+| `BACKEND_ROLLOUT_MIGRATION.md` | frontend freeze, rollout, and migration plan |
+| `B0_BACKEND_TRACEABILITY.md` | B0 requirement traceability and implementation gate |
+| `B0_IMPLEMENTATION_REPORT.md` | factual B0/B0-FIX delivery evidence |
 
 ## Required next-phase gate
 
-Before implementation, resolve all items marked `PRODUCT DECISION REQUIRED`, `REQUIRES OFFICIAL ZATCA VALIDATION`, or `REQUIRES PROVIDER CONTRACT VALIDATION`; approve the API/DTO/ERD documents as frozen; then authorize Backend Architecture-to-Coding transition explicitly. This package contains no implementation.
+Before implementation, resolve all items marked `PRODUCT DECISION REQUIRED`, `REQUIRES OFFICIAL ZATCA VALIDATION`, or `REQUIRES PROVIDER CONTRACT VALIDATION`; approve the API/DTO/ERD/OpenAPI/identity documents as frozen; then authorize Backend Architecture-to-Coding transition explicitly. This package contains no implementation. B0-FIX.3 repairs are documentation/contract-only and do not self-close B0.

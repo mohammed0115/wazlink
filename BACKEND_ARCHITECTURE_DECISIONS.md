@@ -52,3 +52,7 @@ Persist money as PostgreSQL `NUMERIC(19,4)` plus ISO-4217 currency; never float.
 ## ADR-012 — Unresolved decisions
 
 Exact ZATCA invoice/legal fields, hosting/data locality, provider sandbox credentials, retention durations, RPO/RTO, and contractual provider limits are marked for validation rather than invented.
+
+## ADR identifier registry
+
+The normative ADR sequence is `ADR-001` through `ADR-012`, with one identifier per decision in this document. No duplicate ADR identifier exists in the B0 package. Future decisions must append the next unused identifier and update the documentation index/traceability entry; identifiers must never be reused or assigned in a second document.

@@ -42,8 +42,8 @@
 
 All endpoints use workspace/object authorization, stable DTOs, allow-listed filters, request correlation, and safe errors. Provider webhooks are internal gateway routes and are not user-facing resource mutations.
 
-## B0-FIX.1 synchronization rules
+## B0-FIX.3 synchronization rules
 
 The catalog uses the same base-path convention as OpenAPI: `servers.url` carries `/api/v1`, so OpenAPI path keys omit that prefix. Every catalog row is represented by an OpenAPI operation with a unique `operationId`; internal provider webhook routes remain outside this user-facing catalog.
 
-Discovery submission, message send, and payment creation are asynchronous where marked `202`. Discovery results, Deals, and invoices are cursor-paginated with `PageInfo`. Unsafe session-authenticated mutations require CSRF, editable resources require `version`/`If-Match`, and stale writes use `409`. Closing a Deal as won changes Deal state only; it does not create RevenueEvent.
+Discovery submission, message send, and payment creation are asynchronous where marked `202`. Discovery results, Deals, and invoices are cursor-paginated with `PageInfo`. List endpoints expose the standard `cursor`, `limit` (1–100), allow-listed `filters`, and allow-listed `sort` where applicable. Durable mutation commands use `Idempotency-Key`; unsafe session-authenticated mutations require CSRF; editable resources require `version`/`If-Match`, and stale writes use `409`. Closing a Deal as won changes Deal state only; it does not create RevenueEvent. Money uses decimal `amount` plus authoritative ISO-4217 `currency`; any mirrored currency must match it.
