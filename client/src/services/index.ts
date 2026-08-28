@@ -88,7 +88,13 @@ export const messageService: MessageService = {
 
 export const taskService: TaskService & { getTasksWorkspace: typeof getTasksWorkspace; completeLeadTask: typeof completeLeadTask } = { async list(_filters): Promise<TaskView[]> { return getTasksWorkspace() as TaskView[]; }, async complete(id): Promise<TaskMutationResult> { return { success: Boolean(completeLeadTask(id)), id }; }, getTasksWorkspace, completeLeadTask };
 export const appointmentService: AppointmentService & { getAppointments: typeof getAppointments; createAppointment: typeof bridge.createAppointment; getLeadAppointments: typeof bridge.getLeadAppointments } = { async list(_filters): Promise<AppointmentView[]> { return getAppointments() as AppointmentView[]; }, getAppointments, createAppointment: bridge.createAppointment, getLeadAppointments: bridge.getLeadAppointments };
-export const analyticsService: AnalyticsService & Record<string, unknown> = {
+export const analyticsService: AnalyticsService & {
+  metricDefinitions: typeof analyticsEngine.analyticsMetricDefinitions; referenceDate: string; activeFilters: typeof analyticsEngine.activeAnalyticsFilters;
+  normalizeContext: typeof analyticsEngine.normalizeAnalyticsContext; getOptions: typeof analyticsEngine.getAnalyticsOptions; getFunnel: typeof analyticsEngine.getAnalyticsFunnel;
+  getMetricDrilldown: typeof analyticsEngine.getMetricDrilldown; getDataQuality: typeof analyticsEngine.getDataQuality; getJobPerformance: typeof analyticsEngine.getJobPerformance;
+  getConversationAnalytics: typeof analyticsEngine.getConversationAnalytics; getAppointmentAnalytics: typeof analyticsEngine.getAppointmentAnalytics; getTaskAnalytics: typeof analyticsEngine.getTaskAnalytics;
+  getAutomationAnalytics: typeof analyticsEngine.getAutomationAnalytics; getIntelligenceAnalytics: typeof analyticsEngine.getIntelligenceAnalytics; getAnalyticsExportRows: typeof analyticsEngine.getAnalyticsExportRows;
+} = {
   metricDefinitions: analyticsEngine.analyticsMetricDefinitions,
   referenceDate: analyticsEngine.ANALYTICS_REFERENCE_DATE,
   activeFilters: analyticsEngine.activeAnalyticsFilters,

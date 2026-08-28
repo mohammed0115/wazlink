@@ -1,4 +1,17 @@
-import { dashboardService } from "@services";
+import { dashboardService, analyticsService } from "@services";
+import { dashboardProjection } from "../../services/dashboardProjection";
+import type {
+  AnalyticsAttributionTraceView,
+  AnalyticsSourcePerformanceView,
+  BusinessSummary,
+  ContactView,
+  ConversationView,
+  DashboardActivityItem,
+  DashboardPipelineSummary,
+  DiscoveryJobSummary,
+  MessageView,
+  PipelineStageView,
+} from "../../services/contracts/services";
 /**
  * الرئيسية — لوحة القيادة التنفيذية (S2 / S2-FIX).
  *
@@ -9,9 +22,11 @@ import { dashboardService } from "@services";
 import { useState, type CSSProperties } from "react";
 import { appConfig } from "@config/env";
 import { getAgentActions } from "@domain/sales-ai.js";
-import { analyticsService, onboardingService, workspaceService } from "@services";
+import { onboardingService, workspaceService } from "@services";
 
-const { getOverview: getAnalyticsOverview, getAttributionTraces, getSourcePerformance } = analyticsService as typeof analyticsService & Record<string, any>;
+type DashboardPipelineStageRow = DashboardPipelineSummary & { stage: PipelineStageView };
+type DashboardConversationRow = { conversation: ConversationView; business?: BusinessSummary | null; contact?: ContactView | null; latest?: MessageView | null; needsReply: boolean };
+type DashboardAgentAction = { id: string; type: string; status: string; confidence: number };
 import { go } from "../../shared/router/useHashRoute";
 import { useSession } from "../../shared/context/AppProviders";
 import { useToast } from "../../shared/store/toast";
@@ -94,15 +109,15 @@ export function Dashboard() {
   const [dashboardTimeframe, setDashboardTimeframe] = useState("اليوم");
   const [activationDismissed, setActivationDismissed] = useState(false);
   const [dashboardView, setDashboardView] = useState("ready");
-  const data = dashboardService.getDashboardOverview();
+  const projection = dashboardProjection.getSnapshot();
   const onboardingProfile = onboardingService.profileFromWorkspace(workspaceService.getCurrent());
   const onboardingRecommendation = onboardingDone && onboardingProfile.companyName ? onboardingService.recommend(onboardingProfile) : null;
 
   const dashboardDateRange = dateRangeByTimeframe[dashboardTimeframe] || "all";
-  const analytics = getAnalyticsOverview({ dateRange: dashboardDateRange });
+  const analytics = analyticsService.getOverview({ dateRange: dashboardDateRange });
   const analyticsFunnel = analytics.funnel.stages;
-  const analyticsSources = getSourcePerformance();
-  const business = (id: string) => dashboardService.listBusinesses().find((item: { id: string }) => item.id === id);
+  const analyticsSources = analyticsService.getSourcePerformance() as AnalyticsSourcePerformanceView[];
+
   const maxFunnel = analyticsFunnel[0]?.count || 1;
 
   const dashboardMetrics = [
@@ -114,7 +129,7 @@ export function Dashboard() {
     { label: "فرص عالية", value: analytics.metrics.highOpportunityBusinesses.value, format: "number", tone: "amber", trend: "تاريخ تحليل الفرصة", note: "درجة الفرصة لا تساوي احتمال الصفقة" },
   ];
 
-  const upcomingActivities = dashboardService.getUpcomingActivities();
+  const upcomingActivities = dashboardService.getUpcomingActivities() as DashboardActivityItem[];
   const revenueSummary = {
     revenue: analytics.metrics.revenue.value,
     pipeline: analytics.metrics.openPipeline.value,
@@ -124,7 +139,7 @@ export function Dashboard() {
     averageCycle: "—",
   };
 
-  const attributionSummary = getAttributionTraces(analytics.context).map((trace: any) => {
+  const attributionSummary = analyticsService.getAttributionTraces(analytics.context).map((trace: AnalyticsAttributionTraceView) => {
     const touch = trace.touchpoints[0];
     return {
       label: trace.event.id,
@@ -138,10 +153,10 @@ export function Dashboard() {
     };
   });
 
-  const pipelineSummary = dashboardService.getPipelineStageSummary().filter(({ stage }: any) => stage.kind === "open");
-  const maxPipelineStageValue = Math.max(...pipelineSummary.map((item: any) => item.value), 1);
-  const recentConversations = dashboardService.getInboxConversations({ search: "", filter: "all", ownerId: "all", channel: "whatsapp", sort: "latest" }).slice(0, 4);
-  const agentActions = getAgentActions().slice(0, 4);
+  const pipelineSummary = (dashboardService.getPipelineStageSummary() as DashboardPipelineStageRow[]).filter(({ stage }) => stage.kind === "open");
+  const maxPipelineStageValue = Math.max(...pipelineSummary.map((item) => item.value || 0), 1);
+  const recentConversations = (dashboardService.getInboxConversations({ search: "", filter: "all", ownerId: "all", channel: "whatsapp", sort: "latest" }) as DashboardConversationRow[]).slice(0, 4);
+  const agentActions = getAgentActions().slice(0, 4) as DashboardAgentAction[];
   const automationMetrics = dashboardService.getAutomationMetrics();
   const timeframeTitle = timeframeTitles[dashboardTimeframe];
 
@@ -266,6 +281,28 @@ export function Dashboard() {
         <span>تطبق الفترة على event metrics؛ أما Pipeline واللقطات الحالية فتظهر كلقطات حالية صراحة.</span>
       </div>
 
+      <section className="card dashboard-adaptive-context" aria-label="السياق التكيفي للوحة القيادة">
+        <header className="card-head">
+          <div>
+            <h2>سياق القرار الحالي</h2>
+            <p>ملخص قراءة فقط مشتق من رحلة العميل والخطة والاستخدام الفعلي.</p>
+          </div>
+          <span className="status contact">{projection.plan.planName}</span>
+        </header>
+        <div className="revenue-summary">
+          <div><span>Business مكتشفة</span><b>{fmt(projection.journey.discovered)}</b></div>
+          <div><span>Leads</span><b>{fmt(projection.journey.leads)}</b></div>
+          <div><span>محادثات</span><b>{fmt(projection.journey.conversations)}</b></div>
+          <div><span>Deals</span><b>{fmt(projection.journey.deals)}</b></div>
+          <div><span>Won</span><b>{fmt(projection.journey.won)}</b></div>
+          <div><span>Revenue معترف به</span><b>{money(projection.journey.recognizedRevenue)}</b></div>
+        </div>
+        <div className="mock-strip">
+          <b>عنق الزجاجة الحالي: {projection.journey.bottleneck}</b>
+          <span>الاستخدام: {fmt(projection.plan.discoveryRunsUsed)} من {projection.plan.discoveryRunsLimit === null ? "غير محدود" : fmt(projection.plan.discoveryRunsLimit)} عملية اكتشاف · المتبقي {projection.plan.discoveryRunsRemaining === null ? "غير محدود" : fmt(projection.plan.discoveryRunsRemaining)}</span>
+        </div>
+      </section>
+
       <StateSwitcher view={dashboardView} onChange={setDashboardView} />
 
       <section className="exec-kpi-grid" aria-label="مؤشرات الأداء الرئيسية">
@@ -291,7 +328,7 @@ export function Dashboard() {
             </div>
           </header>
           <div className="attention-list">
-            {data.attentionItems.map((item: any, index: number) => (
+            {projection.attentionItems.map((item, index) => (
               <article className="attention-item" key={item.id}>
                 <i className={`attention-mark ${item.tone}`}>{String(index + 1).padStart(2, "0")}</i>
                 <div>
@@ -309,13 +346,12 @@ export function Dashboard() {
         <article className="card">
           <header className="card-head">
             <div>
-              <h2>توصيات الذكاء الاصطناعي</h2>
-              <p>توصيات قابلة للتنفيذ وليست نافذة محادثة.</p>
+              <h2>توصيات القرار</h2>
+              <p>توصيات مشتقة من Intelligence والبيانات المحلية وليست نافذة محادثة.</p>
             </div>
           </header>
           <div className="ai-recommendation-list">
-            {data.aiRecommendations.map((recommendation: any) => {
-              const related = business(recommendation.businessId);
+            {projection.aiRecommendations.map((recommendation) => {
               return (
                 <article className="ai-recommendation" key={recommendation.id}>
                   <header>
@@ -329,7 +365,7 @@ export function Dashboard() {
                     <button
                       type="button"
                       className="button compact primary"
-                      onClick={() => openRoute(recommendation.primaryRoute, related?.id)}
+                      onClick={() => go(recommendation.primaryRoute)}
                     >
                       {recommendation.primary}
                     </button>
@@ -363,7 +399,7 @@ export function Dashboard() {
           </button>
         </header>
         <div className="funnel-exec">
-          {analyticsFunnel.map((stage: any, index: number) => (
+          {analyticsFunnel.map((stage, index) => (
             <article className="funnel-stage-exec" key={stage.id}>
               <span>{stage.label}</span>
               <b>{fmt(stage.count)}</b>
@@ -371,7 +407,7 @@ export function Dashboard() {
                 <small>
                   {stage.conversion === null
                     ? "— · لا يوجد مقام سابق"
-                    : `${stage.conversion}% انتقال من ${fmt(stage.denominator)}`}
+                    : `${stage.conversion}% انتقال من ${fmt(stage.denominator ?? 0)}`}
                 </small>
               ) : (
                 <small>نقطة بداية القمع</small>
@@ -394,15 +430,15 @@ export function Dashboard() {
             </button>
           </header>
           <div className="pipeline-summary">
-            {pipelineSummary.map(({ stage, count, value }: any) => (
+            {pipelineSummary.map(({ stage, count, value }: DashboardPipelineStageRow) => (
               <button type="button" key={stage.id} onClick={() => go("pipeline")}>
                 <span>{stage.name}</span>
-                <b>{fmt(count)} صفقة</b>
-                <small>{money(value)}</small>
+                <b>{fmt(count ?? 0)} صفقة</b>
+                <small>{money(value ?? 0)}</small>
                 <i
                   style={
                     {
-                      "--share": `${Math.min(100, Math.max(8, Math.round((value / maxPipelineStageValue) * 100)))}%`,
+                      "--share": `${Math.min(100, Math.max(8, Math.round(((value ?? 0) / maxPipelineStageValue) * 100)))}%`,
                     } as CSSProperties
                   }
                 />
@@ -422,7 +458,7 @@ export function Dashboard() {
             </button>
           </header>
           <div className="source-performance">
-            {analyticsSources.map((source: any) => (
+            {analyticsSources.map((source) => (
               <div className="source-bar info" key={source.sourceId ?? source.sourceName}>
                 <div>
                   <span>{source.sourceName}</span>
@@ -442,7 +478,7 @@ export function Dashboard() {
           <header className="card-head">
             <div>
               <h2>صفقات قريبة من الإغلاق</h2>
-              <p>ثلاث صفقات تحتاج خطوة واضحة لتقليل وقت الإغلاق.</p>
+              <p>{projection.nearClosingDeals.length ? `${fmt(projection.nearClosingDeals.length)} صفقات تحتاج خطوة واضحة لتقليل وقت الإغلاق.` : "لا توجد صفقات مفتوحة تحتاج خطوة الآن."}</p>
             </div>
             <button type="button" className="button ghost" onClick={() => go("deals")}>
               كل الصفقات
@@ -461,12 +497,12 @@ export function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {data.nearClosingDeals.map((deal: any) => {
-                  const item = business(deal.businessId);
+                {projection.nearClosingDeals.map((deal) => {
+                  const item = dashboardService.listBusinesses().find((candidate) => candidate.id === deal.businessId);
                   return (
                     <tr key={deal.id}>
                       <td>
-                        <button type="button" onClick={() => openRoute("lead-profile", deal.businessId)}>
+                        <button type="button" onClick={() => go(`deals/${encodeURIComponent(deal.id)}`)}>
                           {item?.short || item?.name || deal.id}
                           <small className="mono">{deal.id}</small>
                         </button>
@@ -515,7 +551,7 @@ export function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {dashboardService.listDiscoveryJobs().slice(0, 3).map((job: any) => (
+                {(dashboardService.listDiscoveryJobs() as DiscoveryJobSummary[]).slice(0, 3).map((job) => (
                   <tr key={job.id}>
                     <td className="mono">
                       {job.id}
@@ -523,10 +559,10 @@ export function Dashboard() {
                     </td>
                     <td>{job.source}</td>
                     <td>{job.location}</td>
-                    <td>{fmt(job.current)}</td>
-                    <td>{fmt(job.highScore)}</td>
-                    <td>{fmt(job.crmAdded)}</td>
-                    <td>{fmt(job.qualified)}</td>
+                    <td>{fmt(job.current ?? 0)}</td>
+                    <td>{fmt(job.highScore ?? 0)}</td>
+                    <td>{fmt(job.crmAdded ?? 0)}</td>
+                    <td>{fmt(job.qualified ?? 0)}</td>
                     <td>
                       <span className={`status ${job.status === "completed" ? "qualified" : "contact"}`}>
                         {job.status === "completed" ? "مكتمل" : "قيد المعالجة"}
@@ -552,8 +588,8 @@ export function Dashboard() {
             </button>
           </header>
           <div className="mini-list">
-            {upcomingActivities.map((activity: any) => {
-              const item = business(activity.businessId);
+            {upcomingActivities.map((activity) => {
+              const item = activity.businessId ? dashboardService.listBusinesses().find((candidate) => candidate.id === activity.businessId) : undefined;
               const className =
                 activity.status === "متأخر" ? "overdue" : activity.status === "اليوم" ? "today" : "upcoming";
               return (
@@ -561,9 +597,9 @@ export function Dashboard() {
                   type="button"
                   className="mini-list-item"
                   key={activity.id ?? `${activity.title}-${activity.when}`}
-                  onClick={() => openRoute(activity.route, activity.businessId)}
+                  onClick={() => openRoute(activity.route || "tasks", activity.businessId)}
                 >
-                  <i className="list-icon">{activity.type.slice(0, 1)}</i>
+                  <i className="list-icon">{(activity.type || "•").slice(0, 1)}</i>
                   <div>
                     <b>{activity.title}</b>
                     <small>
@@ -591,7 +627,7 @@ export function Dashboard() {
             </button>
           </header>
           <div className="mini-list">
-            {recentConversations.map(({ conversation, business: relatedBusiness, contact, latest, needsReply }: any) => {
+            {recentConversations.map(({ conversation, business: relatedBusiness, contact, latest, needsReply }) => {
               const className = needsReply ? "today" : conversation.status === "closed" ? "upcoming" : "today";
               return (
                 <button
@@ -611,7 +647,7 @@ export function Dashboard() {
                     </em>
                     <small>
                       {new Intl.DateTimeFormat("ar-SA", { hour: "2-digit", minute: "2-digit" }).format(
-                        new Date(conversation.lastMessageAt),
+                        new Date(conversation.lastMessageAt || "2026-08-15T00:00:00"),
                       )}
                     </small>
                   </span>
@@ -634,7 +670,7 @@ export function Dashboard() {
         </header>
         <div className="mini-list">
           {agentActions.length ? (
-            agentActions.map((action: any) => (
+            agentActions.map((action) => (
               <button type="button" className="mini-list-item" key={action.id} onClick={() => go("agent")}>
                 <i className="list-icon">✧</i>
                 <div>
@@ -677,10 +713,10 @@ export function Dashboard() {
         </div>
       </section>
 
-      <section className="card">
-        <header className="card-head">
-          <div>
-            <h2>ملخص الإيراد</h2>
+          <section className="card">
+            <header className="card-head">
+              <div>
+                <h2>ملخص الإيراد</h2>
             <p>
               الإيراد المعترف به يأتي من أحداث الإيراد، بينما قيمة مسار المبيعات المفتوحة تأتي من الصفقات الحالية ولا
               تختلط به.

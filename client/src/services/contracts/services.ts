@@ -35,7 +35,28 @@ export interface ConversationService { list(filters?: ConversationFilters): Prom
 export interface MessageService { list(conversationId: string): Promise<Message[]>; send(input: { conversationId: string; body: string }): Promise<Message | null>; }
 export interface TaskService { list(filters?: Record<string, string>): Promise<TaskView[]>; complete(id: string): Promise<TaskMutationResult>; getTasksWorkspace(): TaskView[]; completeLeadTask(id: string): boolean; }
 export interface AppointmentService { list(filters?: Record<string, string>): Promise<AppointmentView[]>; getAppointments(): AppointmentView[]; createAppointment(input: FeatureRow): FeatureRow | null; getLeadAppointments(id: string): AppointmentView[]; }
-export interface AnalyticsService { dashboard(): Promise<DashboardSnapshot>; overview(): Promise<AnalyticsSnapshot>; }
+export type AnalyticsMetricView = { value: number; entityIds: readonly string[] };
+export type AnalyticsFunnelStageView = { id: string; label: string; count: number; conversion: number | null; denominator: number | null };
+export type AnalyticsOverviewView = {
+  metrics: {
+    businessesDiscovered: AnalyticsMetricView; businessesEnriched: AnalyticsMetricView; highOpportunityBusinesses: AnalyticsMetricView;
+    leadsCreated: AnalyticsMetricView; leadsContacted: AnalyticsMetricView; qualifiedLeads: AnalyticsMetricView;
+    openDeals: AnalyticsMetricView; openPipeline: AnalyticsMetricView; weightedPipeline: AnalyticsMetricView; wonDeals: AnalyticsMetricView;
+    revenue: AnalyticsMetricView; attributedRevenue: AnalyticsMetricView;
+  };
+  funnel: { stages: readonly AnalyticsFunnelStageView[] };
+  sales: { averageDealValue?: number | null; winRate: number | null };
+  context: Readonly<Record<string, unknown>>;
+};
+export type AnalyticsAttributionTouchpointView = { source?: { name?: string }; job?: { id?: string } };
+export type AnalyticsAttributionTraceView = { event: { id: string }; touchpoints: readonly AnalyticsAttributionTouchpointView[]; deal?: { status?: string }; attributed: number };
+export type AnalyticsSourcePerformanceView = { sourceId?: string; sourceName: string; leadConversion: number | null };
+export interface AnalyticsService {
+  dashboard(): Promise<DashboardSnapshot>; overview(): Promise<AnalyticsSnapshot>;
+  getOverview(context?: Readonly<Record<string, unknown>>): AnalyticsOverviewView;
+  getAttributionTraces(context?: Readonly<Record<string, unknown>>): AnalyticsAttributionTraceView[];
+  getSourcePerformance(context?: Readonly<Record<string, unknown>>): AnalyticsSourcePerformanceView[];
+}
 export interface AutomationService { list(): Promise<AutomationRuleView[]>; run(id: string): Promise<AutomationExecutionResult>; }
 export interface SettingsService { workspace(): Promise<unknown>; update(input: Record<string, unknown>): Promise<unknown>; }
 export interface IntegrationService { list(): Promise<IntegrationView[]>; }
@@ -62,9 +83,23 @@ export interface BillingService {
 export interface FeatureRow { id?: string; name?: string; status?: string; createdAt?: string; updatedAt?: string; [key: string]: unknown; }
 export type FeatureRows = FeatureRow[];
 export interface DashboardOverviewView extends FeatureRow { attentionItems?: FeatureRows; aiRecommendations?: FeatureRows; nearClosingDeals?: FeatureRows; }
-export interface DashboardActivityItem extends FeatureRow { type?: string; title?: string; at?: string; }
-export interface DashboardPipelineSummary extends FeatureRow { value?: number; count?: number; }
-export interface DiscoveryJobSummary extends FeatureRow { id: string; query?: string; status?: string; resultCount?: number; }
+export type DashboardAttentionTone = "danger" | "warning" | "success" | "info";
+export interface DashboardAttentionItem { id: string; tone: DashboardAttentionTone; title: string; description: string; action: string; route: string; entityId?: string; }
+export interface DashboardRecommendation { id: string; kind: string; title: string; score?: number | null; reason: string; action: string; primary: string; primaryRoute: string; businessId?: string; entityId?: string; secondary?: string; }
+export interface DashboardNearClosingDeal { id: string; businessId: string; stage: string; value: number; probability: number; lastActivity: string; nextAction: string; }
+export interface DashboardJourneyStatus { discovered: number; leads: number; conversations: number; deals: number; won: number; recognizedRevenue: number; bottleneck: string; }
+export interface DashboardPlanContext { planId: string; planName: string; discoveryRunsUsed: number; discoveryRunsLimit: number | null; discoveryRunsRemaining: number | null; discoveryStatus: string; discoveryAllowed: boolean; billingRoute: string; }
+export interface DashboardProjection {
+  attentionItems: DashboardAttentionItem[];
+  aiRecommendations: DashboardRecommendation[];
+  nearClosingDeals: DashboardNearClosingDeal[];
+  journey: DashboardJourneyStatus;
+  plan: DashboardPlanContext;
+}
+export interface DashboardProjectionService { getSnapshot(): DashboardProjection; }
+export interface DashboardActivityItem extends FeatureRow { type?: string; title?: string; at?: string; when?: string; status?: string; businessId?: string; route?: string; }
+export interface DashboardPipelineSummary extends FeatureRow { value?: number; count?: number; stage?: PipelineStageView; totalRules?: number; enabled?: number; runsToday?: number; successful?: number; awaitingApproval?: number; failed?: number; }
+export interface DiscoveryJobSummary extends FeatureRow { id: string; query?: string; keyword?: string; source?: string; location?: string; status?: string; resultCount?: number; current?: number; highScore?: number; crmAdded?: number; qualified?: number; }
 export interface DiscoveryJobDetail extends DiscoveryJobSummary { completedAt?: string; error?: string | null; }
 export interface DiscoveryResultItem extends FeatureRow { businessId?: string; source?: string; phone?: string; website?: string; }
 export interface LeadActivityItem extends FeatureRow { type?: string; title?: string; body?: string; detail?: string; at?: string; createdAt?: string; actorId?: string; metadata?: { dealId?: string; leadId?: string; [key: string]: unknown }; }
