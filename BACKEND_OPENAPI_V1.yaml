@@ -1,0 +1,106 @@
+# WazLink Backend Architecture & Documentation
+
+> **B0 status:** Architecture and contracts only. Backend coding is not authorized. This document is normative for future backend implementation agents.
+
+**Frontend reference:** `30bc15e9ca3c0205df2b49e792fce1b8e78a36b1`  
+**Scope:** Django + PostgreSQL backend design; no production implementation, migrations, endpoints, provider calls, secrets, infrastructure, or frontend changes are included in B0.
+
+openapi: 3.0.3
+info:
+  title: WazLink API
+  version: 1.0.0
+  description: Architecture-level contract only; no server implementation is authorized in B0.
+servers:
+  - url: https://api.example.invalid/api/v1
+security:
+  - sessionCookie: []
+paths:
+  /health/live:
+    get:
+      operationId: healthLive
+      security: []
+      responses:
+        '200': {description: Process is alive}
+  /dashboard/overview:
+    get:
+      operationId: getDashboardOverview
+      responses:
+        '200': {description: Canonical dashboard read model, content: {application/json: {schema: {$ref: '#/components/schemas/DashboardOverview'}}}}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+  /leads/{public_id}/360:
+    get:
+      operationId: getLead360
+      parameters:
+        - {$ref: '#/components/parameters/PublicId'}
+      responses:
+        '200': {description: Lead 360 aggregate, content: {application/json: {schema: {$ref: '#/components/schemas/Lead360'}}}}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /discovery/jobs:
+    post:
+      operationId: createDiscoveryJob
+      parameters:
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/DiscoveryJobCreate'}}}}
+      responses:
+        '202': {description: Async job accepted, content: {application/json: {schema: {$ref: '#/components/schemas/DiscoveryJob'}}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /businesses/{public_id}/convert-to-lead:
+    post:
+      operationId: convertBusinessToLead
+      parameters:
+        - {$ref: '#/components/parameters/PublicId'}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      responses:
+        '201': {description: Lead created or existing idempotent Lead returned, content: {application/json: {schema: {$ref: '#/components/schemas/Lead'}}}}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /deals/{public_id}/close:
+    post:
+      operationId: closeDeal
+      parameters:
+        - {$ref: '#/components/parameters/PublicId'}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CloseDealRequest'}}}}
+      responses:
+        '200': {description: Deal state updated, content: {application/json: {schema: {$ref: '#/components/schemas/Deal'}}}}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /revenue-events:
+    post:
+      operationId: recordRevenueEvent
+      parameters:
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/RevenueEventCreate'}}}}
+      responses:
+        '201': {description: Explicit RevenueEvent, content: {application/json: {schema: {$ref: '#/components/schemas/RevenueEvent'}}}}
+        '409': {$ref: '#/components/responses/Conflict'}
+  /billing/payments:
+    post:
+      operationId: createPayment
+      parameters:
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/PaymentCreate'}}}}
+      responses:
+        '202': {description: Payment pending provider webhook, content: {application/json: {schema: {$ref: '#/components/schemas/Payment'}}}}
+        '403': {$ref: '#/components/responses/Forbidden'}
+components:
+  securitySchemes:
+    sessionCookie: {type: apiKey, in: cookie, name: sessionid}
+  parameters:
+    PublicId: {name: public_id, in: path, required: true, schema: {type: string}}
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 16, maxLength: 128}}
+  responses:
+    Unauthorized: {description: Authentication required}
+    Forbidden: {description: Permission or entitlement denied}
+    NotFound: {description: Scoped resource not found}
+    Conflict: {description: Version or idempotency conflict}
+  schemas:
+    Money: {type: object, required: [amount, currency], properties: {amount: {type: string, example: '85000.00'}, currency: {type: string, example: SAR}}}
+    DiscoveryJobCreate: {type: object, required: [query], properties: {query: {type: object}}}
+    DiscoveryJob: {type: object, required: [public_id, status], properties: {public_id: {type: string}, status: {type: string, enum: [queued, running, partial, completed, failed, cancelled]}}}
+    Lead: {type: object, required: [public_id, business_ref, status], properties: {public_id: {type: string}, business_ref: {type: string}, status: {type: string}, version: {type: integer}}}
+    Lead360: {type: object, required: [lead, activities], properties: {lead: {$ref: '#/components/schemas/Lead'}, activities: {type: array, items: {type: object}}}}
+    Deal: {type: object, required: [public_id, status, value, currency, probability], properties: {public_id: {type: string}, status: {type: string, enum: [open, won, lost]}, value: {$ref: '#/components/schemas/Money'}, currency: {type: string}, probability: {type: integer, minimum: 0, maximum: 100}}}
+    CloseDealRequest: {type: object, required: [outcome, version], properties: {outcome: {type: string, enum: [won, lost]}, lost_reason: {type: string}, version: {type: integer}}}
+    RevenueEventCreate: {type: object, required: [source_type, source_ref, gross, currency, recognized_at], properties: {source_type: {type: string}, source_ref: {type: string}, gross: {$ref: '#/components/schemas/Money'}, currency: {type: string}, recognized_at: {type: string, format: date-time}, deal_ref: {type: string, nullable: true}}}
+    RevenueEvent: {type: object, required: [public_id, source_type, gross, currency, status], properties: {public_id: {type: string}, source_type: {type: string}, gross: {$ref: '#/components/schemas/Money'}, currency: {type: string}, status: {type: string, enum: [pending, recognized, reversed]}}}
+    PaymentCreate: {type: object, required: [subscription_ref, amount, currency], properties: {subscription_ref: {type: string}, amount: {$ref: '#/components/schemas/Money'}, currency: {type: string}}}
+    Payment: {type: object, required: [public_id, status, amount, currency], properties: {public_id: {type: string}, status: {type: string, enum: [created, pending, authorized, captured, failed, cancelled, refunded]}, amount: {$ref: '#/components/schemas/Money'}, currency: {type: string}}}
