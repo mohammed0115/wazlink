@@ -1,3 +1,5 @@
+import type { CapabilityId, EntitlementDecision, EntitlementStatus, PlanDefinition, PlanId, UsageMetric, UsageMetricKey } from "./entitlements";
+
 import type { Conversation, Deal, Lead, Message } from "@domain/types.js";
 
 export type SortDirection = "asc" | "desc";
@@ -60,6 +62,31 @@ export interface AnalyticsService {
 export interface AutomationService { list(): Promise<AutomationRuleView[]>; run(id: string): Promise<AutomationExecutionResult>; }
 export interface SettingsService { workspace(): Promise<unknown>; update(input: Record<string, unknown>): Promise<unknown>; }
 export interface IntegrationService { list(): Promise<IntegrationView[]>; }
+export type UpgradeReasonKind = "locked" | "limited" | "exhausted" | "available" | "unknown";
+export type UsagePressure = "normal" | "approaching_limit" | "near_limit" | "exhausted" | "unlimited" | "unknown";
+export interface UpgradeAction { label: string; route: string; kind: "billing" | "dismiss" | "product"; }
+export interface UpgradeContext {
+  capability: CapabilityId;
+  capabilityLabel: string;
+  status: EntitlementStatus | "UNKNOWN";
+  reason: UpgradeReasonKind;
+  reasonLabel: string;
+  explanation: string;
+  currentPlan: PlanDefinition;
+  targetPlan: PlanDefinition | null;
+  usage: UsageMetric | null;
+  usageMetric: UsageMetricKey | null;
+  pressure: UsagePressure;
+  canUse: boolean;
+  showUpgrade: boolean;
+  action: UpgradeAction | null;
+  billingRoute: string;
+}
+export interface UpgradeProjectionService {
+  getContext(capability: CapabilityId): UpgradeContext;
+  getCapabilityContexts(capabilities: readonly CapabilityId[]): UpgradeContext[];
+}
+
 export interface BillingService {
   plans(): ServiceResult<BillingPlan[]>;
   currentSubscription(): ServiceResult<BillingSubscription | null>;

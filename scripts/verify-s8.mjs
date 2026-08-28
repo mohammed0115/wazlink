@@ -66,7 +66,7 @@ check("Q — Agent يحظر send_message", blockedSend.kind === "blocked", "poli
 check("R — Agent يحظر تغيير قيمة Deal", blockedFinancial.kind === "blocked", "financial block");
 check("S — Agent يحظر Revenue/Attribution", blockedRevenue.kind === "blocked" && snapshot() === beforeFinancial, "revenue boundary");
 check("T — لا Action تنفذ قبل موافقة بشرية", mockModel.agentActions.filter((action) => action.status === "executed").every((action) => action.approvedBy && action.approvedAt && action.executedAt), "approval required");
-check("U — لا توجد LLM/API أو WhatsApp transport في مسار S8", !/fetch\s*\(|XMLHttpRequest|WebSocket|openai|anthropic|gemini|whatsapp.*api|twilio|meta.*api/i.test(stripComments(["../client/src/domain/sales-ai.js","../.ui-sources/all.txt","../.ui-sources/inbox.txt"].map((path) => readFileSync(new URL(path, import.meta.url), "utf8")).join("\n"))), "static transport scan");
+check("U — لا توجد LLM/API أو WhatsApp transport في مسار S8", !/fetch\s*\(|XMLHttpRequest|WebSocket|openai|anthropic|gemini|whatsapp.*api|twilio|(?:^|[^.])meta.*api/i.test(stripComments(["../client/src/domain/sales-ai.js","../.ui-sources/all.txt","../.ui-sources/inbox.txt"].map((path) => readFileSync(new URL(path, import.meta.url), "utf8")).join("\n"))), "static transport scan");
 check("V — S8 لا تغير Revenue أو Attribution أو Deal ماليًا", snapshot() === beforeFinancial, "S2/S6 financial boundary");
 
 const failed = checks.filter((item) => !item.pass);

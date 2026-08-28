@@ -7,9 +7,11 @@
  */
 import { useState } from "react";
 import { billingService, entitlementService } from "@services";
+import type { CapabilityId } from "../../services/contracts/entitlements";
+import { upgradeProjection } from "../../services/upgradeProjection";
 import { mutate } from "../../shared/store/appStore";
 import { useToast } from "../../shared/store/toast";
-import { go } from "../../shared/router/useHashRoute";
+import { go, useHashRoute } from "../../shared/router/useHashRoute";
 import { PageHead } from "../../shared/components/PageHead";
 import { AuditList, GovernanceRail, fmtDate, sar } from "./shared";
 
@@ -20,6 +22,8 @@ const usageLabels: Record<string, string> = {
   leads: "العملاء المحتملون", discoveryRuns: "عمليات الاكتشاف", seats: "المقاعد النشطة",
   automationRuns: "تشغيلات الأتمتة", aiAnalyses: "تحليلات الذكاء",
 };
+const commercialCapabilities: readonly CapabilityId[] = ["discovery.basic", "crm.core", "export.csv", "pipeline.core", "inbox.copilot", "automation.rules"];
+
 const billingStatusLabel: Record<string, string> = {
   trial: "تجربة", active_mock: "نشط تجريبيًا", past_due_mock: "استحقاق تجريبي", cancelled: "ملغي",
 };
@@ -29,6 +33,7 @@ const invoiceStatusLabel: Record<string, string> = {
 
 export function Billing() {
   const toast = useToast();
+  const { query } = useHashRoute();
   const [previewPlanId, setPreviewPlanId] = useState<string | null>(null);
   const subscription = currentSubscription() as Row;
   const planRows = entitlementService.planCatalog();
@@ -44,6 +49,10 @@ export function Billing() {
   const payment = paymentRows[0] as Row;
   const invoiceRows = invoices() as Row[];
   const preview = previewPlanId ? (previewPlanChange({ planId: previewPlanId }) as Row) : null;
+  const capabilityParam = query.get("capability");
+  const upgradeContext = capabilityParam && commercialCapabilities.includes(capabilityParam as CapabilityId)
+    ? upgradeProjection.getContext(capabilityParam as CapabilityId)
+    : null;
 
   return (
     <div className="s11-workspace">
@@ -53,6 +62,24 @@ export function Billing() {
         title="الفوترة والاستخدام"
         description="اشتراك وخطط وفواتير تجريبية محلية. منفصلة تمامًا عن إيراد العملاء وإسناده في S10."
       />
+
+      {upgradeContext && (
+        <section className="s11-billing-section s6-upgrade-context" aria-label="سياق الترقية">
+          <header>
+            <div>
+              <p className="eyebrow">سبب الوصول إلى الفوترة</p>
+              <h2>{upgradeContext.capabilityLabel} · {upgradeContext.reasonLabel}</h2>
+              <p>{upgradeContext.explanation}</p>
+            </div>
+            <span className={`s11-status ${upgradeContext.showUpgrade ? "warning" : "success"}`}>{upgradeContext.currentPlan.name}</span>
+          </header>
+          <div className="s6-upgrade-context-detail">
+            {upgradeContext.usage?.limit.kind === "finite" && <span>الاستخدام: {upgradeContext.usage.used} من {upgradeContext.usage.limit.value} · المتبقي {upgradeContext.usage.remaining}</span>}
+            {upgradeContext.usage?.limit.kind === "unlimited" && <span>الاستخدام: غير محدود</span>}
+            {upgradeContext.targetPlan && <span>الخطة التي توسع هذه القدرة: {upgradeContext.targetPlan.name}</span>}
+          </div>
+        </section>
+      )}
 
       <section className="s11-billing-section">
         <header>

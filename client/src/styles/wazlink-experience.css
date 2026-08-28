@@ -187,6 +187,10 @@
 .entitlement-status { display:inline-flex; width:max-content; border-radius:999px; padding:4px 9px; font-size:10px; font-weight:800; }
 .entitlement-status.exhausted { background:#fff0e2; color:#a85b22; }
 .entitlement-status.locked { background:#f1eefb; color:#6551a2; }
+.entitlement-status.limited { background:#eef8f6; color:#23786d; }
+.entitlement-status.available { background:#edf7f1; color:#28734f; }
+.entitlement-status.unknown { background:#f1f3f5; color:#5d6872; }
+.entitlement-inline-note { margin:10px 0; padding:8px 12px; border-inline-start:3px solid #63b8ca; border-radius:8px; background:#f4fbfc; color:#35636b; font-size:12px; line-height:1.7; }
 .app-shell .usage-card { gap:7px; }
 .app-shell .usage-card .meter i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#63b8ca,#efb366); transition:width 180ms ease-out; }
 .app-shell .sidebar-upgrade { align-self:flex-start; border:0; padding:0; background:transparent; color:#9bd5df; cursor:pointer; font:700 10px/1.4 inherit; }
