@@ -30,8 +30,8 @@ add("C", "CRM Value Is Explicit", scraperCrmPackages.crm.features.some((item) =>
 add("D", "Completed Job Only", job?.status === "completed" && exportRows.length === job.resultBusinessIds.length, "التصدير يتغذى من نتائج Job مكتملة فقط");
 add("E", "Local CSV Export", appSource.includes("new Blob") && appSource.includes("text/csv") && appSource.includes("nomo-scraper-"), "Excel التجريبي تنزيل CSV محلي واضح");
 add("F", "No Network Export", !appSource.includes("fetch(") && !appSource.includes("XMLHttpRequest") && !appSource.includes("navigator.sendBeacon"), "مسار التصدير لا ينفذ طلب شبكة");
-add("G", "Decision Gate In Actual Results", intelligenceSource.includes("Excel أو CRM نمو") && intelligenceSource.includes("CRM اختياري"), "البوابة موجودة في renderer النتائج الفعلي S4");
-add("H", "Landing Defers Package Decision", landingSource.includes("لا تقرر الباقة الآن") && landingSource.includes("Excel فقط أو CRM نمو") && landingSource.includes("الخطوة ١ من ٤"), "Landing تبدأ بالاستخراج وتؤجل قرار الباقة حتى النتائج");
+add("G", "Decision Gate In Actual Results", intelligenceSource.includes("Excel أو CRM wazlink") && intelligenceSource.includes("CRM اختياري"), "البوابة موجودة في renderer النتائج الفعلي S4");
+add("H", "Landing Defers Package Decision", landingSource.includes("لا تقرر الباقة الآن") && landingSource.includes("Excel أو CRM") && landingSource.includes("بعد النتائج المكتملة"), "Landing تبدأ بالاستخراج وتؤجل قرار الباقة حتى النتائج");
 add("I", "Modal Choice Disclosure", read(".ui-sources/discovery.txt").includes("كل الخيارات محلية وتجريبية فقط"), "Modal يعلن أن المسارين محليان وتجريبيان");
 add("J", "Duplicate Protection", duplicate?.kind === "duplicate" && duplicate?.lead?.businessId === existingBusinessId, "Business القائمة لا تنشئ Lead مكررة");
 add("K", "CRM Conversion Is Guarded", Boolean(created?.lead?.id) && created.kind === "created" && mockModel.leads.length === leadSnapshot + 1, "Business الجديدة فقط تتحول إلى Lead محلية");
@@ -41,7 +41,7 @@ add("N", "Mobile Decision Layout", cssSource.includes("@media(max-width:540px)")
 add("O", "Unique Package Features", unique(scraperCrmPackages.scraper.features) && unique(scraperCrmPackages.crm.features), "قائمة مزايا كل باقة خالية من التكرار");
 add("P", "Export Column Contract", scraperExportColumns.some((column) => column.id === "phone") && scraperExportColumns.some((column) => column.id === "email") && scraperExportColumns.some((column) => column.id === "website") && scraperExportColumns.some((column) => column.id === "instagram"), "كتالوج Excel يعلن حقول الاتصال والحضور الرقمي");
 add("Q", "Actual Results Data Visibility", intelligenceSource.includes("بيانات Scraper قابلة للتحديد والتصدير") && intelligenceSource.includes("scraperExportColumns.map") && intelligenceSource.includes("واتساب"), "سطح النتائج الفعلي يشرح الحقول القابلة للتصدير قبل قرار CRM");
-add("R", "Selected Columns Drive Local Export", appSource.includes("state.scraperCrmUi.exportColumns") && appSource.includes("scraperExportColumns") && appSource.includes("columns.map"), "التنزيل المحلي يقرأ الأعمدة المختارة بدل قائمة ثابتة");
+add("R", "Selected Columns Drive Local Export", read("client/src/features/intelligence/export.ts").includes("exportColumnIds") && read("client/src/features/intelligence/export.ts").includes("const selected = new Set") && read("client/src/features/intelligence/export.ts").includes("const columns =") && read("client/src/features/intelligence/export.ts").includes("columns.map"), "التنزيل المحلي يقرأ الأعمدة المختارة بدل قائمة ثابتة");
 add("S", "Responsive Export Panel", dataVisibilityCss.includes("scraper-availability-grid") && dataVisibilityCss.includes("@media(max-width:540px)"), "لوحة أعمدة Excel تتكدس بوضوح على الجوال");
 
 // This process-local fixture mutation is only to prove guarded conversion; nothing is persisted to the project or runtime session.

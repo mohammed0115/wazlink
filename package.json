@@ -16,6 +16,7 @@
     "verify-v2-s4": "node scripts/verify-v2-s4.mjs",
     "verify-v2-s5": "node scripts/verify-v2-s5.mjs",
     "verify-v2-s6": "node scripts/verify-v2-s6.mjs",
+    "verify-v2-s7-final-frontend": "node scripts/verify-v2-s7-final-frontend.mjs",
     "verify-v2-s0-fix": "node scripts/verify-v2-s0-fix.mjs",
     "format": "prettier --write ."
   },
