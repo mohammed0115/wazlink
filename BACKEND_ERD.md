@@ -26,6 +26,9 @@ erDiagram
   DEAL ||--o{ REVENUE_EVENT : may_reference
   REVENUE_EVENT ||--o{ ATTRIBUTION_TOUCHPOINT : attributed_by
   BUSINESS ||--o{ ATTRIBUTION_TOUCHPOINT : sourced_by
+  WORKSPACE ||--o{ UPGRADE_QUOTE : scopes
+  PLAN ||--o{ UPGRADE_QUOTE : quotes
+  UPGRADE_QUOTE ||--o| PAYMENT : authorizes
   SUBSCRIPTION ||--o{ INVOICE : bills
   INVOICE ||--o{ PAYMENT : paid_by
   INVOICE ||--o{ TAX_INVOICE : documented_by
@@ -33,4 +36,4 @@ erDiagram
   WORKSPACE ||--o{ AUDIT_LOG : records
 ```
 
-The diagram is conceptual; no migration or executable schema is authorized in B0. RevenueEvent, AttributionTouchpoint, Deal, Invoice, Payment, and TaxInvoice remain separate entities with explicit relationships and permissions.
+The diagram is conceptual; no migration or executable schema is authorized in B0. RevenueEvent, AttributionTouchpoint, Deal, Invoice, Payment, and TaxInvoice remain separate entities with explicit relationships and permissions. UPGRADE_QUOTE is workspace-scoped Platform Billing state that authorizes at most one Payment lineage; it has no relationship to REVENUE_EVENT and never participates in customer CRM revenue.

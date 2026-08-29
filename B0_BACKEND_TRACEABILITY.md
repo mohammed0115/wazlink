@@ -19,7 +19,7 @@ This checklist maps the B0 protocol requirements to the architecture package. It
 | Files/storage | `BACKEND_INTEGRATION_BOUNDARIES.md`, `BACKEND_SECURITY_ARCHITECTURE.md` | Covered |
 | Webhooks/async/retries/timeouts | `BACKEND_INTEGRATION_BOUNDARIES.md`, `BACKEND_RETRY_POLICY.md`, `BACKEND_TIMEOUT_POLICY.md`, `BACKEND_IDEMPOTENCY_STANDARD.md` | Covered |
 | Transactions/events/outbox/inbox | `BACKEND_COMMAND_EVENT_CATALOG.md`, `BACKEND_DATA_GOVERNANCE.md`, `BACKEND_FAILURE_MATRIX.md` | Covered |
-| API/versioning/DTO/errors/OpenAPI | `BACKEND_API_STANDARD.md`, `BACKEND_API_CATALOG.md`, `BACKEND_DTO_CONTRACTS.md`, `BACKEND_ERROR_CATALOG.md`, `BACKEND_OPENAPI_V1.yaml`, `B0-FIX.2 evidence-sync report` | Machine validated: PyYAML 6.0.3 PASS; openapi-spec-validator 0.9.0 PASS; 30/30 catalog endpoints; 218/218 local refs; 30/30 unique operation IDs; 61 schemas; 0 missing endpoints; 0 missing DTO names |
+| API/versioning/DTO/errors/OpenAPI | `BACKEND_API_STANDARD.md`, `BACKEND_API_CATALOG.md`, `BACKEND_DTO_CONTRACTS.md`, `BACKEND_ERROR_CATALOG.md`, `BACKEND_OPENAPI_V1.yaml` | Machine validated at B0-FIX.6 (current): PyYAML 6.0.3 PASS; openapi-spec-validator 0.9.0 PASS; OpenAPI 3.0.3; 29 paths / 30 operations; 30/30 catalog endpoints; 306/306 local refs, 0 dangling; 30/30 unique operation IDs; 61 schemas; 0 missing endpoints; 0 missing DTO names |
 | PostgreSQL/ERD/indexes/JSONB | `BACKEND_DATA_MODEL.md`, `BACKEND_ERD.md`, `BACKEND_DATA_GOVERNANCE.md` | Covered |
 | Security/privacy/tenant isolation/secrets | `BACKEND_SECURITY_ARCHITECTURE.md`, `BACKEND_PRIVACY_AND_DATA_HANDLING.md`, `BACKEND_WORKSPACE_AUTH.md` | Covered |
 | Observability/health/backups/DR | `BACKEND_OPERATIONS_OBSERVABILITY.md` | Covered; RPO/RTO proposed |
@@ -32,7 +32,7 @@ This checklist maps the B0 protocol requirements to the architecture package. It
 
 ## B0-FIX.2 evidence-sync and machine-validation evidence
 
-The B0-FIX.1 validator-unavailable statements are historical only. B0-FIX.2 created a disposable isolated environment outside the repository and performed real validation with PyYAML `6.0.3` and `openapi-spec-validator 0.9.0`. The final machine state is `YAML_PARSE=PASS` and `OPENAPI_VALIDATION=PASS`. The validated contract has 29 paths, 30 operations, 218/218 resolved local references, zero dangling references, 30/30 catalog coverage, zero extra endpoints, unique operation IDs, zero missing DTO names, and `DashboardOverview=PASS`.
+The B0-FIX.1 validator-unavailable statements are historical only. B0-FIX.2 created a disposable isolated environment outside the repository and performed real validation with PyYAML `6.0.3` and `openapi-spec-validator 0.9.0`. **The figures in this paragraph are the historical B0-FIX.2 state and are superseded by the current B0-FIX.6 gate table below.** The FIX.2 machine state was `YAML_PARSE=PASS` and `OPENAPI_VALIDATION=PASS`, over a contract with 29 paths, 30 operations, 218/218 resolved local references at that time, zero dangling references, 30/30 catalog coverage, zero extra endpoints, unique operation IDs, zero missing DTO names, and `DashboardOverview=PASS`.
 
 ## Explicit unresolved decisions
 
@@ -122,3 +122,37 @@ Two earlier evidence statements are corrected here rather than edited in place. 
 | Architecture regression | NONE |
 
 The FIX.5 worktree is intentionally uncommitted and unpushed, and touches only `BACKEND_OPENAPI_V1.yaml`, `BACKEND_PUBLIC_ID_REGISTRY.md`, `B0_IMPLEMENTATION_REPORT.md`, and `B0_BACKEND_TRACEABILITY.md`. B0 self-closure, B1 authorization, and backend implementation authorization remain `NO`; independent CTO re-verification is still required.
+
+## B0-FIX.6 UpgradeQuote durability and public-ID completeness evidence
+
+FIX.6 repaired the two Major blockers and four Minor findings from the Independent CTO countersign audit of `4131bce7e455a8d76972835409ec04b70d5b9f71`, without backend implementation.
+
+Two further evidence corrections are recorded here rather than edited in place. The FIX.5 claim `47 identifiers inventoried` understated the frozen-frontend inventory: an independent recomputation finds **55** identifier prefixes. The FIX.5 statement that `QRT-` was "promoted from fixture to canonical UpgradeQuote" was factually wrong — `QRT-*` is `quickReplyTemplates` in the frozen tree — and that wording no longer exists as repository truth. FIX.6 also finds that literal-only scanning (used by FIX.5 and by the countersign audit alike) cannot see namespaces produced only at runtime; recovering generator call sites adds `AUTOLOG-` and `AUTONOT-`, which no prior pass reported.
+
+| Regression gate | Result |
+|---|---|
+| PyYAML 6.0.3 parse | PASS |
+| openapi-spec-validator 0.9.0 | PASS |
+| OpenAPI 3.0.3 | PASS |
+| Paths / operations | 29 / 30 |
+| Catalog coverage | 30/30; missing 0; extra 0 |
+| Local refs | 306 total; 306 resolved; dangling 0 |
+| Unique operation IDs | 30/30; duplicates 0 |
+| Retry-After on 429 | PASS — declared once on `components.responses.RateLimited` as `integer`/`minimum 1`; all 4 `429` responses resolve to it |
+| Payment-initiation rate limit | PASS — `POST /billing/payments` now declares `429` via the reusable component, matching `BACKEND_RATE_LIMIT_POLICY.md` |
+| UpgradeQuote durability | PASS — `upgrade_quotes` table, Billing ownership, ERD entity, `active/expired/consumed/cancelled` lifecycle, server-authoritative plan/amount/currency, expiry, single-lineage consumption, transactional concurrency protection, retry safety, cross-workspace protection, frozen error contract |
+| Public-ID prefixes | `UPQ-` canonical persistent (A); `QRT-` Quick Reply Template fixture (B); namespace collision 0 |
+| Frozen frontend prefixes | 55 identifiers inventoried; unclassified 0; multi-classified 0; persistent undocumented 0 |
+| Public-ID registry | A 28, B 34, C 3, plus a documented non-identifier exclusion table; generation rule and collision policy PASS; `WORK-*`, `USR-*`, `SES-*`, `JOB-*` frozen for B1 |
+| PIPE classification | 1 canonical persistent row; contradictions 0 |
+| Pagination / filtering / sorting | mismatches 0 / 0 / 0 |
+| Request parameters / error components / error semantics | orphans 0; drift 0; over-application 0 |
+| ADR uniqueness | PASS; 12 identifiers aligned across Blueprint and architecture decisions |
+| Money / currency | PASS; regex doc drift 0; currency fields without ISO-4217 pattern 0 |
+| State machine / DTO naming / required-field drift | PASS; drift 0 / 0 / 0 |
+| Won Deal != Recognized Revenue | PASS |
+| Billing != Customer CRM Revenue | PASS — UpgradeQuote is platform commercial authorization and never recognizes revenue |
+| Attribution separation | PASS |
+| Architecture regression | NONE |
+
+The FIX.6 worktree is intentionally uncommitted and unpushed. B0 self-closure, B1 authorization, and backend implementation authorization remain `NO`; independent CTO countersign is still required.

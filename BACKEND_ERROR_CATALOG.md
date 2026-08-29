@@ -32,7 +32,13 @@
 | WEBHOOK_DUPLICATE | 200 | harmless duplicate acknowledgement |
 | TAX_VALIDATION_REQUIRED | 422 | missing official tax contract/field |
 | FILE_TYPE_NOT_ALLOWED | 422 | upload policy violation |
+| QUOTE_EXPIRED | 409 | referenced UpgradeQuote passed `expires_at`; re-quote required |
+| QUOTE_ALREADY_CONSUMED | 409 | referenced UpgradeQuote already authorized a payment lineage |
+| QUOTE_NOT_ACTIVE | 409 | referenced UpgradeQuote is cancelled or otherwise not in `active` state |
+| QUOTE_MISMATCH | 422 | request mirror (amount/currency/plan) disagrees with the stored UpgradeQuote |
 | INTERNAL_ERROR | 500 | safe generic failure; every OpenAPI operation declares the reusable 500 response |
+
+An UpgradeQuote that is absent, archived, or owned by another workspace resolves to `ENTITY_NOT_FOUND` with `404` on `POST /billing/payments`; the response never distinguishes "does not exist" from "exists in another workspace". Quote state failures are `409` (`QUOTE_EXPIRED`, `QUOTE_ALREADY_CONSUMED`, `QUOTE_NOT_ACTIVE`), a commercial mirror disagreement is `422` (`QUOTE_MISMATCH`), a concurrent second consumption of the same quote is `409 CONFLICT`, and reuse of an `Idempotency-Key` with a different body remains `409 IDEMPOTENCY_CONFLICT`. These reuse the existing envelope, status doctrine, and reusable response components; no new error taxonomy is introduced.
 
 No error reveals stack traces, secrets, cross-workspace existence, provider credentials, or raw payment details.
 

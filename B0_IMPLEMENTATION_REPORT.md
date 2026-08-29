@@ -78,7 +78,7 @@ The changed-file review is limited to the six documentation/contract files liste
 
 ## B0-FIX.2 machine-validation evidence
 
-An isolated disposable environment at `/tmp/wazlink-b0-openapi-validation` loaded the complete contract with PyYAML `6.0.3` and validated it structurally with `openapi-spec-validator 0.9.0`. YAML parsing and OpenAPI structural validation both passed. The environment was removed after validation. The final contract evidence is: OpenAPI `3.0.3`, 29 paths, 30 operations, 30/30 catalog coverage, 218/218 local references, zero dangling references, unique operation IDs, zero missing DTO names, and `DashboardOverview` present and referenced.
+An isolated disposable environment at `/tmp/wazlink-b0-openapi-validation` loaded the complete contract with PyYAML `6.0.3` and validated it structurally with `openapi-spec-validator 0.9.0`. YAML parsing and OpenAPI structural validation both passed. The environment was removed after validation. **The figures in this section are the historical B0-FIX.2 state and are superseded by the current B0-FIX.6 gate table below.** The FIX.2 contract evidence was: OpenAPI `3.0.3`, 29 paths, 30 operations, 30/30 catalog coverage, 218/218 local references at that time, zero dangling references, unique operation IDs, zero missing DTO names, and `DashboardOverview` present and referenced.
 
 The next required step is an **Independent CTO — B0 Backend Architecture Re-Verification** in strict read-only mode. B0 is not self-closed. Do not start Django, models, migrations, PostgreSQL schema, Redis, Celery, Auth implementation, API implementation, providers, Tap, ZATCA, or deployment.
 
@@ -186,10 +186,77 @@ These corrections amend the record without altering the historical FIX.3/FIX.4 s
 
 ### Prefix inventory corrections
 
-The audit's ten-item list required correction against the frozen tree. `LOG-` is **not** a frontend prefix: the literal is `AGA-LOG-8001`, so a numeric-suffix pattern split a compound prefix. Three real prefixes the list omitted — `AUTOACT-`, `AUTORUN-`, and `AUTOEXEC-` — were also classified. Separately, `CON-` (Contact), `PLAN-` (Plan), and `QRT-` (UpgradeQuote) were promoted from fixture to canonical because the frozen OpenAPI already references them through `Lead360.contacts[]`, `QuoteRequest.plan_ref`/`EntitlementDecision.target_plan_ref`, and `UpgradeQuote.public_id`/`PaymentCreate.quote_ref`; `contacts` and `plans` already exist in the data model and `UpgradeQuote` is already a frozen schema, so no new domain or table was introduced. Eight section-B rows that named prefixes absent from the frozen frontend were removed as unverifiable.
+The audit's ten-item list required correction against the frozen tree. `LOG-` is **not** a frontend prefix: the literal is `AGA-LOG-8001`, so a numeric-suffix pattern split a compound prefix. Three real prefixes the list omitted — `AUTOACT-`, `AUTORUN-`, and `AUTOEXEC-` — were also classified. Separately, `CON-` (Contact) and `PLAN-` (Plan) were promoted to canonical because the frozen OpenAPI already references them through `Lead360.contacts[]` and `QuoteRequest.plan_ref`/`EntitlementDecision.target_plan_ref`, and `contacts` and `plans` already exist in the data model, so no new domain or table was introduced. **WITHDRAWN BY B0-FIX.6:** FIX.5 additionally promoted `QRT-` to canonical UpgradeQuote on the reasoning that "`UpgradeQuote` is already a frozen schema". That reasoning was wrong — a wire schema is not a persistence concept, and in the frozen frontend `QRT-*` is `quickReplyTemplates`, an unrelated messaging fixture. FIX.6 withdraws that promotion: the canonical UpgradeQuote prefix is `UPQ-`, backed by a real `upgrade_quotes` persistence concept, and `QRT-` is classified in section B. This sentence is retained only as chronology and is not current repository truth. Eight section-B rows that named prefixes absent from the frozen frontend were removed as unverifiable.
 
 `PM-` was deliberately **not** promoted: B0 Phase 1 stores no raw card data and prefers the Tap-hosted/tokenized flow, so PaymentMethod is not modelled as independent persistent domain truth and frontend fixture identity does not freeze a Backend PaymentMethod public ID. `NOTE-`, `OPP-`, `AGA-LOG-`, `SVC-`, `AIR-`, `ATTN-`, and `AGT-` were likewise classified against existing B0 concepts rather than by creating new ones.
 
 ### FIX.5 scope
 
 The FIX.5 tree modifies `BACKEND_OPENAPI_V1.yaml`, `BACKEND_PUBLIC_ID_REGISTRY.md`, `B0_IMPLEMENTATION_REPORT.md`, and `B0_BACKEND_TRACEABILITY.md` only, and remains intentionally uncommitted, unpushed, and undeployed. No backend, Django, model, serializer, view, URL, migration, PostgreSQL, Redis/Celery, provider, auth, frontend, dependency, lockfile, secret, or deployment change was made, and B1 was not started. B0 is not closed; B0 closure, B1 authorization, and backend implementation authorization remain `NO` pending independent CTO re-verification and Product Owner approval.
+
+## B0-FIX.6 UpgradeQuote durability and public-ID completeness repair
+
+B0-FIX.6 repaired the two Major blockers and the four Minor findings raised by the Independent CTO countersign audit of the published candidate `4131bce7e455a8d76972835409ec04b70d5b9f71`. It is documentation/OpenAPI-contract only. No backend, Django, migration, provider, dependency, lockfile, secret, deployment, or frontend file changed, and B1 was not started.
+
+### MAJOR-1 — UpgradeQuote is now a durable, server-authoritative Billing resource
+
+The countersign audit was correct on both grounds. `QRT-` was registered as a canonical persistent public ID for UpgradeQuote while no quote table, aggregate, ERD entity, lifecycle, or persisting sequence step existed; and in the frozen frontend `QRT-*` already denotes `quickReplyTemplates` (`client/src/domain/data.js:228-233`, read by `listQuickReplyTemplates()` at `client/src/services/index.ts:212`), an unrelated messaging/UI concept.
+
+FIX.6 does **not** resolve this by demoting the prefix and leaving the lifecycle undefined. The frozen contract already requires durable cross-request identity — `UpgradeQuote.public_id` and `expires_at` are required, and a separate later request resolves `PaymentCreate.quote_ref` — so UpgradeQuote is made genuinely durable:
+
+- **New canonical prefix `UPQ-`** replaces `QRT-` in registry section A. `QRT-` moves to section B as the Quick Reply Template fixture. The two namespaces are disjoint and the registry states so explicitly.
+- **`upgrade_quotes`** added to the Billing table group in `BACKEND_DATA_MODEL.md` with unique `public_id`, `workspace_id NOT NULL`, FK `plan_id`, `amount NUMERIC(19,4)` plus ISO-4217 `currency`, constrained `status`, `expires_at` UTC, nullable `consumed_at`/`payment_id`, a partial unique index on `payment_id`, and a `(workspace_id, status, expires_at)` index.
+- **`UPGRADE_QUOTE`** added to `BACKEND_ERD.md`, scoped by `WORKSPACE`, quoted from `PLAN`, authorizing at most one `PAYMENT`, with no relationship to `REVENUE_EVENT`.
+- **Billing ownership** in `BACKEND_DOMAIN_OWNERSHIP.md`: aggregate root `Subscription/Invoice/UpgradeQuote`, authoritative table `upgrade_quotes`, commands `CreateUpgradeQuote`/`CancelUpgradeQuote`, events `UpgradeQuoteIssued`/`UpgradeQuoteConsumed`. No new top-level domain was created.
+- **Lifecycle** frozen in `BACKEND_STATE_MACHINES.md`: `active → expired | consumed | cancelled`, with `active` the only state that may initiate a payment and the other three terminal.
+- **Server-authoritative pricing** frozen in `BACKEND_BILLING_TAX_ARCHITECTURE.md`, `BACKEND_API_STANDARD.md`, and the OpenAPI descriptions: the server computes and stores plan, amount, and currency; `PaymentCreate.amount`/`currency` are retained as non-authoritative validation mirrors that must equal the stored quote; the provider request is always built from stored quote values. `QuoteRequest.currency` is a requested presentation currency the server may reject but never prices from.
+- **Consumption and concurrency**: one quote authorizes at most one payment-initiation lineage. The quote row is locked, re-checked for `active` and unexpired, and transitioned with the Payment created in the same PostgreSQL transaction; the partial unique index makes a second independent lineage impossible. Retries under the same `Idempotency-Key` and body replay the original result and are not a second consumption. No Redis lock is used as canonical protection.
+- **Error contract** frozen in `BACKEND_ERROR_CATALOG.md` using existing doctrine: `404 ENTITY_NOT_FOUND` for absent or cross-workspace quotes without disclosing existence elsewhere; `409 QUOTE_EXPIRED`/`QUOTE_ALREADY_CONSUMED`/`QUOTE_NOT_ACTIVE`; `422 QUOTE_MISMATCH`; `409 CONFLICT` for concurrent consumption; `409 IDEMPOTENCY_CONFLICT` unchanged.
+
+Payment initiation now also declares `404` in OpenAPI so the workspace-scoped quote lookup has a contract-level outcome.
+
+### MAJOR-2 — public-ID inventory recomputed and completed
+
+The inventory was rebuilt from `30bc15e9ca3c0205df2b49e792fce1b8e78a36b1` without trusting the prior 47 figure or the auditor's 53 figure. The reconstruction rule is mechanical and compound-aware — a token's namespace is its leading run of all-uppercase alphabetic segments, and a token is an identifier only if a later segment is numeric — and it additionally recovers namespaces from runtime generator call sites (`nextNumericId`/`s11Id`/`s11Audit`), not only from literals.
+
+**The frozen frontend contains 55 identifier prefixes.** Both earlier figures were low. Beyond the seven the countersign audit identified, generator-site recovery found **two further namespaces that no previous pass had reported**, because neither ever appears as a literal in the frozen tree:
+
+- `AUTOLOG-` — `nextNumericId("AUTOLOG", mockModel.automationActivities)` at `client/src/domain/data.js:928`, the automation audit trail appended by `recordAutomationAudit`.
+- `AUTONOT-` — `nextNumericId("AUTONOT", mockModel.automationNotifications)` at `client/src/domain/data.js:971`, in-app automation notifications.
+
+All nine newly classified prefixes are section B against existing B0 concepts; none adds a domain, table, or aggregate. `CHK-` is ephemeral checkout UI state whose durable identities are `UPQ-`/`PAY-`/`INV-BILL-`/`SUB-`; `REC-BUSINESS-`/`REC-DEAL-`/`REC-JOB-` are dashboard read-model projections of the same class as `ATTN-`; `EVT-LEGACY-`/`EVT-MANUAL-`/`MANUAL-` are synthetic, non-opaque composed automation trigger identifiers whose canonical execution identity is `RUN-*`; `AUTOLOG-` is an activity/audit entry whose canonical identity is `ACT-*`/`AUD-*`; `AUTONOT-` is notification data on an existing identity.
+
+### FIX.6 verified results (current)
+
+| Gate | Result |
+|---|---|
+| YAML parse | PASS — PyYAML `6.0.3`, isolated environment outside the repository |
+| OpenAPI structural validation | PASS — `openapi-spec-validator 0.9.0` |
+| OpenAPI version | `3.0.3` |
+| Paths / operations | `29 / 30` |
+| Catalog coverage | 30/30; missing 0; extra 0 |
+| Local references | 306 total; 306 resolved; dangling 0 |
+| Operation IDs | 30/30 unique; missing 0; duplicates 0 |
+| Components | 61 schemas; 10 responses; 7 parameters; orphan request parameters 0 |
+| `RateLimited` references / `429` responses | 4 / 4; every `429` resolves to the reusable component |
+| `Retry-After` declarations in file | 1 — canonically on `components.responses.RateLimited` (`integer`, `minimum 1`) |
+| Error coverage | `500: 30/30`; `402: 2`; `502: 8`; `404: 12`; `422: 2`; `503: 3` |
+| Reconstructed frontend prefixes | **55** identifier prefixes from `30bc15e9...` |
+| `UNCLASSIFIED_FRONTEND_PREFIXES` | 0 |
+| `MULTI_CLASSIFIED_FRONTEND_PREFIXES` | 0 |
+| `PERSISTENT_PREFIXES_UNDOCUMENTED` | 0 |
+| Registry sections | A 28, B 34, C 3 (65 rows), plus a documented non-identifier exclusion table |
+| `QRT-` / `UPQ-` | `QRT-`=B (Quick Reply Template); `UPQ-`=A (UpgradeQuote); namespace collision 0 |
+| UpgradeQuote contract | persistent, table, owner, ERD, workspace-scoped, server-authoritative plan/amount/currency, expiry, consumption, concurrency, retry-safety, cross-workspace protection, error contract — all PASS |
+| `PIPE-` classification | 1 row, canonical persistent (section A); contradictions 0 |
+| Pagination / filter / sort mismatches | 0 / 0 / 0 |
+| Reusable error component drift / semantic over-application | 0 / 0 |
+| ADR identifier collisions | 0 — 12 identifiers aligned across Blueprint and architecture decisions |
+| Money / currency | PASS; regex doc drift 0; currency fields without ISO-4217 pattern 0 |
+| State machine / DTO naming / required-field drift | 0 / 0 / 0 |
+| Business invariants | Won Deal != Recognized Revenue; Billing != Customer CRM Revenue; Attribution separation — PASS |
+| Architecture regression | NONE |
+
+### FIX.6 scope
+
+The FIX.6 tree modifies documentation and the OpenAPI contract only, and remains intentionally uncommitted, unpushed, and undeployed. No backend, Django, model, serializer, view, URL, migration, PostgreSQL, Redis/Celery, provider, auth, frontend, dependency, lockfile, secret, or deployment change was made, and B1 was not started. B0 is not closed; B0 closure, B1 authorization, and backend implementation authorization remain `NO` pending independent CTO countersign and Product Owner approval.

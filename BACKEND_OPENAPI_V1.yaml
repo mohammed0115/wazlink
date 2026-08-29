@@ -1538,7 +1538,7 @@
             "$ref": "#/components/responses/PaymentRequired"
           }
         },
-        "description": "Platform Billing only; does not recognize customer CRM Revenue.",
+        "description": "Creates a durable, server-priced UpgradeQuote persisted in upgrade_quotes with an immutable UPQ- public ID, a workspace scope, an issue timestamp, and a server-enforced expiry. The server computes the authoritative plan, amount, and currency; the request never sets them. Platform Billing only; does not recognize customer CRM Revenue.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1596,6 +1596,9 @@
           "403": {
             "$ref": "#/components/responses/Forbidden"
           },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
           "409": {
             "$ref": "#/components/responses/Conflict"
           },
@@ -1617,6 +1620,9 @@
               }
             }
           },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
           "503": {
             "$ref": "#/components/responses/ServiceUnavailable"
           },
@@ -1630,7 +1636,7 @@
             "$ref": "#/components/responses/PaymentRequired"
           }
         },
-        "description": "Provider-neutral asynchronous payment creation. Redirects are not payment truth.",
+        "description": "Provider-neutral asynchronous payment creation. The server loads the stored UpgradeQuote named by quote_ref under workspace scope and derives the authoritative plan, amount, and currency from it; client-supplied commercial values are validated mirrors only. Rate limited per BACKEND_RATE_LIMIT_POLICY.md payment-initiation limits. Redirects are not payment truth.",
         "requestBody": {
           "required": true,
           "content": {
@@ -2982,7 +2988,8 @@
           },
           "currency": {
             "type": "string",
-            "description": "Public contract string"
+            "description": "ISO-4217 reporting currency for this report scope. Report-level only; it never overrides the authoritative Money.currency stored on any individual monetary value.",
+            "pattern": "^[A-Z]{3}$"
           },
           "metrics": {
             "type": "array",
@@ -3023,7 +3030,8 @@
           },
           "currency": {
             "type": "string",
-            "description": "Public contract string"
+            "description": "ISO-4217 reporting currency for this dashboard scope. Report-level only; it never overrides the authoritative Money.currency stored on any individual monetary value.",
+            "pattern": "^[A-Z]{3}$"
           },
           "kpis": {
             "type": "array",
@@ -3203,7 +3211,7 @@
       },
       "QuoteRequest": {
         "type": "object",
-        "description": "Billing plan quote request; presentation/validation only.",
+        "description": "Billing plan quote request. The client names the target plan and the currency it wishes to be quoted in; the server computes and persists the authoritative commercial values on the resulting UpgradeQuote. No field of this request is commercially authoritative.",
         "additionalProperties": false,
         "properties": {
           "plan_ref": {
@@ -3211,7 +3219,8 @@
           },
           "currency": {
             "type": "string",
-            "description": "Public contract string"
+            "description": "Requested ISO-4217 presentation currency. Non-authoritative: the server resolves the quotable currency from the plan catalog and billing policy and stores it on the UpgradeQuote. An unsupported request currency is a validation error; it never silently reprices the plan.",
+            "pattern": "^[A-Z]{3}$"
           }
         },
         "required": [
@@ -3221,12 +3230,12 @@
       },
       "UpgradeQuote": {
         "type": "object",
-        "description": "Canonical billing upgrade quote.",
+        "description": "Durable, server-authoritative Billing upgrade quote persisted in upgrade_quotes with an immutable UPQ- public ID. It is workspace-scoped Platform Billing truth, never customer CRM Revenue, and is the sole commercial source of truth for a later payment initiation.",
         "additionalProperties": false,
         "properties": {
           "public_id": {
             "type": "string",
-            "description": "Public contract string"
+            "description": "Immutable UPQ- public identifier of the stored quote."
           },
           "plan_ref": {
             "$ref": "#/components/schemas/EntityRef"
@@ -3234,22 +3243,48 @@
           "amount": {
             "$ref": "#/components/schemas/Money"
           },
+          "status": {
+            "type": "string",
+            "description": "Quote lifecycle state: active, expired, consumed, or cancelled. Only an active, unexpired quote may initiate a payment."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "UTC issue timestamp.",
+            "format": "date-time"
+          },
           "expires_at": {
             "type": "string",
-            "description": "Public contract string",
+            "description": "UTC expiry timestamp. Server-enforced; an expired quote cannot initiate a payment.",
             "format": "date-time"
+          },
+          "consumed_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "UTC timestamp at which this quote was consumed by a payment-initiation lineage; null while unconsumed.",
+            "format": "date-time"
+          },
+          "payment_ref": {
+            "nullable": true,
+            "description": "The payment lineage that consumed this quote; null while unconsumed.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntityRef"
+              }
+            ]
           }
         },
         "required": [
           "public_id",
           "plan_ref",
           "amount",
+          "status",
+          "created_at",
           "expires_at"
         ]
       },
       "PaymentCreate": {
         "type": "object",
-        "description": "Asynchronous payment creation request; provider-neutral.",
+        "description": "Asynchronous payment creation request; provider-neutral. quote_ref is the commercial source of truth: the server loads the stored UpgradeQuote under workspace scope and derives the authoritative plan, amount, and currency from it. amount and currency in this request are non-authoritative validation mirrors and can never reprice, re-plan, or re-currency the payment.",
         "additionalProperties": false,
         "properties": {
           "quote_ref": {
@@ -3260,7 +3295,7 @@
           },
           "currency": {
             "type": "string",
-            "description": "ISO-4217 currency code; authoritative for sibling monetary fields in this DTO. If a Money object is also present, this mirror MUST equal Money.currency; disagreement is a validation error.",
+            "description": "ISO-4217 currency code. Non-authoritative validation mirror: it MUST equal both the sibling Money.currency and the currency stored on the referenced UpgradeQuote. Disagreement is a validation error and never overrides the stored quote.",
             "pattern": "^[A-Z]{3}$"
           },
           "idempotency_key": {
@@ -3303,6 +3338,20 @@
           "provider": {
             "type": "string",
             "description": "Public contract string"
+          },
+          "provider_payment_ref": {
+            "type": "string",
+            "nullable": true,
+            "description": "Opaque provider-side payment reference. Null until the provider interaction has produced one; never required at creation and never a provider credential or raw payload."
+          },
+          "quote_ref": {
+            "nullable": true,
+            "description": "The UpgradeQuote this payment lineage consumed; the authoritative source of the plan, amount, and currency.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntityRef"
+              }
+            ]
           },
           "status": {
             "type": "string",

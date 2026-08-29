@@ -61,15 +61,19 @@ sequenceDiagram
   participant B as Billing
   participant T as Tap
   participant W as Webhook
+  participant DB as PostgreSQL
   U->>API: request upgrade quote
-  API->>B: validate permission/entitlement
-  B-->>U: quote
-  U->>API: initiate payment + key
-  API->>T: tokenized hosted session
+  API->>B: validate workspace/permission/entitlement
+  B->>DB: transaction: server-priced upgrade_quotes row (UPQ-*, amount, currency, expires_at) + outbox
+  B-->>U: UpgradeQuote (public_id, amount, expires_at)
+  U->>API: initiate payment + quote_ref + key
+  API->>B: workspace-scoped load of UPQ-* quote
+  B->>DB: lock quote, assert active/unexpired, derive plan/amount/currency, consume + create Payment in one transaction
+  API->>T: tokenized hosted session using server-authoritative quote values
   T-->>U: redirect/status (not truth)
   T->>W: signed payment webhook
   W->>B: receipt + async processing
   B->>API: reconcile payment → subscription → entitlement → invoice
 ```
 
-Revenue recognition is a separate sequence: an authorized actor/system submits `RecordRevenueEvent`; the Revenue service validates source, amount, currency, idempotency, and relations, then commits RevenueEvent and outbox. `DealWon` alone ends without that write.
+The quote is the commercial source of truth in that sequence: client-supplied amount and currency are validated mirrors and never reach the provider request. Revenue recognition is a separate sequence: an authorized actor/system submits `RecordRevenueEvent`; the Revenue service validates source, amount, currency, idempotency, and relations, then commits RevenueEvent and outbox. `DealWon` alone ends without that write.

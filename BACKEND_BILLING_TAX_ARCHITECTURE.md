@@ -4,17 +4,32 @@
 
 ## Separation
 
-Platform Billing owns WazLink plans, subscriptions, usage, invoices, payment attempts, refunds, and tax documents. Customer Revenue owns RevenueEvent, AttributionTouchpoint, and sales outcomes. The two domains use separate tables, services, permissions, DTOs, events, and analytics semantics.
+Platform Billing owns WazLink plans, subscriptions, upgrade quotes, usage, invoices, payment attempts, refunds, and tax documents. Customer Revenue owns RevenueEvent, AttributionTouchpoint, and sales outcomes. The two domains use separate tables, services, permissions, DTOs, events, and analytics semantics.
 
 ## Billing flow
 
 ```text
 select plan → server validates workspace/permission/entitlement
-→ quote → tokenized/hosted Tap session → provider result
+→ server-priced durable quote (UPQ-*, expiring) → payment initiation loads and consumes the stored quote
+→ tokenized/hosted Tap session → provider result
 → signed webhook receipt → payment reconciliation
 → subscription update → entitlement update → invoice
 → TaxInvoice/ZATCA handling
 ```
+
+## UpgradeQuote — durable server-authoritative pricing
+
+`POST /api/v1/billing/upgrade-quotes` creates a **durable** UpgradeQuote row in `upgrade_quotes` with an immutable `UPQ-*` public ID. The quote is Platform Billing truth, workspace-scoped, and server-priced.
+
+The server computes and stores the authoritative plan, amount, and currency from the Entitlements plan catalog and billing policy at issue time, together with `status`, `created_at`, and `expires_at`. Nothing a client sends sets those values: `QuoteRequest.plan_ref` names the target plan and `QuoteRequest.currency` is a requested presentation currency that the server may reject but never prices from.
+
+Payment initiation is quote-driven. `POST /api/v1/billing/payments` resolves `PaymentCreate.quote_ref` to a stored `UPQ-*` row **under workspace scope before object resolution**, then derives the plan, amount, and currency from that row. A client MUST NOT be able to alter the quoted plan, the authoritative amount, the authoritative currency, or any discount/price calculation by changing fields in `PaymentCreate`. `PaymentCreate.amount` and `PaymentCreate.currency` are retained as **non-authoritative validation mirrors**: they must equal the stored quote, a mismatch is a validation error, and the provider payment request is always built from the stored quote values, never from the request body.
+
+A quote is usable only while `active` and unexpired. One quote authorizes **at most one payment-initiation lineage**: consumption sets `status = consumed`, `consumed_at`, and `payment_id` in the same transaction that creates the Payment, so a concurrent or later independent attempt against the same quote conflicts. Retries carrying the same `Idempotency-Key` and body replay the original result and are not a second consumption. A cross-workspace quote is treated as absent and never discloses that the object exists elsewhere.
+
+An UpgradeQuote is commercial authorization only. Issuing, consuming, expiring, or cancelling a quote never creates, implies, or mutates a customer `REV-*` RevenueEvent.
+
+## Payment truth
 
 A browser redirect is never payment truth. `PaymentSucceeded` requires a verified provider callback or reconciled provider query. Subscription activation requires a captured payment or an explicitly accepted provider state. Query parameters cannot grant a plan or entitlement.
 

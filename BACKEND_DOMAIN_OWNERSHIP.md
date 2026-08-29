@@ -22,7 +22,7 @@
 | Revenue | revenue | RevenueEvent | revenue_events, reversals | revenue service only | Analytics, finance ops | RecordRevenueEvent, ReverseRevenueEvent | RevenueRecognized, RevenueReversed | payment/invoice source | no DealWon implicit write |
 | Attribution | attribution | AttributionTouchpoint | touchpoints | attribution service | Analytics | RecordTouchpoint | TouchpointRecorded | discovery/campaign | no amount mutation |
 | Analytics | analytics | none/read model | query/projection tables | projection workers only | Dashboard, Analytics | RefreshProjection | ProjectionUpdated | canonical domains | no independent truth |
-| Billing | billing | Subscription/Invoice | subscriptions, invoices, payments, refunds | billing/payment services | Billing, Admin | InitiateUpgrade, ReconcilePayment | PaymentSucceeded, SubscriptionActivated | Tap | no CRM Revenue |
+| Billing | billing | Subscription/Invoice/UpgradeQuote | subscriptions, upgrade_quotes, invoices, payments, refunds | billing/payment services | Billing, Admin | CreateUpgradeQuote, CancelUpgradeQuote, InitiateUpgrade, CreatePayment, ReconcilePayment | UpgradeQuoteIssued, UpgradeQuoteConsumed, PaymentSucceeded, SubscriptionActivated | Tap | no CRM Revenue; quote never recognizes revenue |
 | Tax | tax | TaxInvoice | tax_invoices, lines, submissions | tax service | Billing/Admin | SubmitTaxInvoice | TaxSubmitted | ZATCA | no payment truth |
 | Files | files | FileAsset | file_assets | file service | exports, attachments | CreateUpload, DeleteAsset | FileUploaded | Hostinger | no arbitrary paths |
 | Webhooks | webhooks | WebhookReceipt | receipts | gateway only | operations | ReceiveWebhook, RetryWebhook | WebhookProcessed | all callbacks | no direct domain mutation |
@@ -31,4 +31,4 @@
 
 ## Ownership principles
 
-Every tenant-owned table includes `workspace_id`. Revenue and Billing have separate tables, permissions, DTOs, events, and analytics semantics. Cross-domain writes occur only through commands/application services and emit typed events; ORM imports across bounded contexts are not permitted in domain code.
+UpgradeQuote is owned by Billing because Billing authorizes payment initiation; it is not a new top-level domain and the Entitlements-owned `plans` catalog remains the sole source of plan definitions that a quote references. Every tenant-owned table includes `workspace_id`. Revenue and Billing have separate tables, permissions, DTOs, events, and analytics semantics. Cross-domain writes occur only through commands/application services and emit typed events; ORM imports across bounded contexts are not permitted in domain code.

@@ -20,10 +20,10 @@ All tables use UUIDv7 `id` internally, immutable prefixed `public_id`, UTC `crea
 | Pipeline | pipelines, pipeline_stages, deals | workspace/public_id; deal/stage/status indexes; version column |
 | Automation | automation_rules, triggers, conditions, actions, runs, step_runs, approvals | event/rule/action idempotency unique |
 | Revenue/Attribution | revenue_events, revenue_reversals, attribution_touchpoints | source/idempotency unique; event/date and relation indexes |
-| Billing | billing_customers, subscriptions, invoices, invoice_lines, payments, payment_attempts, refunds | provider IDs unique; subscription status/time indexes |
+| Billing | billing_customers, subscriptions, upgrade_quotes, invoices, invoice_lines, payments, payment_attempts, refunds | provider IDs unique; subscription status/time indexes; `upgrade_quotes` unique `public_id` (`UPQ-*`), `workspace_id` NOT NULL, FK `plan_id`, `amount NUMERIC(19,4)` + ISO-4217 `currency`, constrained `status` in (`active`,`expired`,`consumed`,`cancelled`), `expires_at` UTC NOT NULL, nullable `consumed_at`/`payment_id`, partial unique index on `payment_id` so one quote yields at most one payment lineage; index `(workspace_id, status, expires_at)` |
 | Tax | tax_invoices, tax_invoice_lines, tax_submissions | invoice relation unique; provider reference unique |
 | Files | file_assets | workspace/storage_key unique; checksum index |
 | Webhooks | webhook_receipts | provider/dedup key unique; payload hash index |
 | Operations | outbox_events, worker_executions, audit_logs | dispatch/status/time; immutable audit indexes |
 
-Money uses `NUMERIC(19,4)` and currency ISO code. Foreign keys use restrictive behavior for financial/audit records and explicit archive semantics for operational entities. JSONB is allowed only for provider metadata, raw snapshots, structured flexible metadata, and before/after audit details—not for core relationships, state, or ownership.
+`upgrade_quotes` is server-priced Platform Billing state: the row stores the authoritative plan, amount, and currency computed at issue time, and no client request may write those columns. Money uses `NUMERIC(19,4)` and currency ISO code. Foreign keys use restrictive behavior for financial/audit records and explicit archive semantics for operational entities. JSONB is allowed only for provider metadata, raw snapshots, structured flexible metadata, and before/after audit details—not for core relationships, state, or ownership.
