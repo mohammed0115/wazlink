@@ -219,14 +219,16 @@ Payment initiation now also declares `404` in OpenAPI so the workspace-scoped qu
 
 The inventory was rebuilt from `30bc15e9ca3c0205df2b49e792fce1b8e78a36b1` without trusting the prior 47 figure or the auditor's 53 figure. The reconstruction rule is mechanical and compound-aware — a token's namespace is its leading run of all-uppercase alphabetic segments, and a token is an identifier only if a later segment is numeric — and it additionally recovers namespaces from runtime generator call sites (`nextNumericId`/`s11Id`/`s11Audit`), not only from literals.
 
-**The frozen frontend contains 55 identifier prefixes.** Both earlier figures were low. Beyond the seven the countersign audit identified, generator-site recovery found **two further namespaces that no previous pass had reported**, because neither ever appears as a literal in the frozen tree:
+**The frozen frontend contains 55 identifier prefixes.** *(Superseded by B0-FIX.7: the correct figure is **56**. This paragraph's generator-site recovery used a hardcoded helper list — `nextNumericId`/`s11Id`/`s11Audit` — which omitted `nextId` in `client/src/domain/sales-ai.js` and therefore missed `AID-`. Retained as chronology; see the B0-FIX.7 section below for current truth.)* Both earlier figures were low. Beyond the seven the countersign audit identified, generator-site recovery found **two further namespaces that no previous pass had reported**, because neither ever appears as a literal in the frozen tree:
 
 - `AUTOLOG-` — `nextNumericId("AUTOLOG", mockModel.automationActivities)` at `client/src/domain/data.js:928`, the automation audit trail appended by `recordAutomationAudit`.
 - `AUTONOT-` — `nextNumericId("AUTONOT", mockModel.automationNotifications)` at `client/src/domain/data.js:971`, in-app automation notifications.
 
 All nine newly classified prefixes are section B against existing B0 concepts; none adds a domain, table, or aggregate. `CHK-` is ephemeral checkout UI state whose durable identities are `UPQ-`/`PAY-`/`INV-BILL-`/`SUB-`; `REC-BUSINESS-`/`REC-DEAL-`/`REC-JOB-` are dashboard read-model projections of the same class as `ATTN-`; `EVT-LEGACY-`/`EVT-MANUAL-`/`MANUAL-` are synthetic, non-opaque composed automation trigger identifiers whose canonical execution identity is `RUN-*`; `AUTOLOG-` is an activity/audit entry whose canonical identity is `ACT-*`/`AUD-*`; `AUTONOT-` is notification data on an existing identity.
 
-### FIX.6 verified results (current)
+### FIX.6 verified results (historical — partly superseded by B0-FIX.7)
+
+> The `Reconstructed frontend prefixes`, `UNCLASSIFIED_FRONTEND_PREFIXES`, `Registry sections`, and `required-field drift` rows below are **superseded by B0-FIX.7**: the inventory is 56 (not 55), `AID-` was unclassified (so `UNCLASSIFIED_FRONTEND_PREFIXES` was 1, not 0), the registry is A 28 / B 35 / C 3 (66 rows), and `RevenueEvent`/`AttributionTouchpoint` carried a `source_ref` required-field drift. All other rows remain current. See the B0-FIX.7 section at the end of this report.
 
 | Gate | Result |
 |---|---|
@@ -260,3 +262,33 @@ All nine newly classified prefixes are section B against existing B0 concepts; n
 ### FIX.6 scope
 
 The FIX.6 tree modifies documentation and the OpenAPI contract only, and remains intentionally uncommitted, unpushed, and undeployed. No backend, Django, model, serializer, view, URL, migration, PostgreSQL, Redis/Celery, provider, auth, frontend, dependency, lockfile, secret, or deployment change was made, and B1 was not started. B0 is not closed; B0 closure, B1 authorization, and backend implementation authorization remain `NO` pending independent CTO countersign and Product Owner approval.
+
+## B0-FIX.7 — registry completeness and contract cleanup
+
+FIX.7 repairs the three findings returned by the final Independent CTO countersign of `0e107d5410006e67d97c47d486301113bdc687f0` (`CRITICAL 0 / MAJOR 1 / MINOR 2`). It is documentation and contract repair only, scoped to five files.
+
+### MAJOR-1 — `AID-` classified; recovery rule made shape-based
+
+**Before:** `BACKEND_PUBLIC_ID_REGISTRY.md` claimed "**55 identifier prefixes**, every one of which is classified exactly once", and its recovery rule named a fixed helper list (`nextNumericId`/`s11Id`/`s11Audit`). `AID-` appeared in no section and in no exclusion row.
+
+**Root cause:** the rule was a hardcoded list, so it structurally could not see `nextId` at `client/src/domain/sales-ai.js:23` — the generator that produces `AID-`. `AGA-` and `AGA-LOG-` come from the same generator but were caught incidentally as literals, which masked the gap.
+
+**After:** the rule is replaced by a five-pass normative discovery procedure. Pass 1 discovers prefix generators **by shape** — any helper composing an identifier from its own parameter immediately followed by `-` — plus prefix-forwarding wrappers, transitively. Applied to the frozen baseline it finds exactly `nextNumericId` (`data.js:546`), `s11Id` (`data.js:1014`), `nextId` (`sales-ai.js:23`), and the wrapper `s11Audit` (`data.js:1015`). Passes 2–5 cover call-sites, literals, template/concatenation composition, and entity-identity filtering. The count is corrected to **56** and `AID-` is added to section B with cross-domain semantics.
+
+**Evidence for section B (not A or C):** `mockModel.aiDecisionRecords` is initialised empty at `client/src/domain/data.js:269`; no `AID-` literal exists anywhere in the frozen tree; records are created only at runtime by `runCopilotAnalysis` (`sales-ai.js:98`); the namespace never crosses `client/src/services/` and has no service, contract type, or DTO; the suffix is a session-local display counter (`Math.max(8000, …) + aiIdTick`), not an opaque server-issued token; and its only inbound references — `recommendationId` on an `AGA-*` action (`sales-ai.js:150`) and `suggestionId` on `state.inboxAssistance` (`sales-ai.js:171`) — are in-memory frontend correlation. No persistence, table, aggregate, ERD entity, or public-ID reservation is created, and `AID-` does not collide with `AGA-`/`RUN-`: `AGA-` is a governed agent action resolved to `RUN-*`, while `AID-` is the advisory output an action may cite. The legacy `Docs/reference/ENTITY_MODEL.md` mention of a V1 `CopilotDecisionRecord` is corroborating evidence only and is explicitly not promoted over the frozen frontend and current B0.
+
+### MINOR-1 — `source_ref` required-field drift closed
+
+**Before:** `BACKEND_DTO_CONTRACTS.md` listed `source_ref` as required for `RevenueEvent` and `AttributionTouchpoint` and asserted its required-field lists were synchronized with the OpenAPI, but both schemas omitted `source_ref` from `required[]` while also not declaring it nullable.
+
+**After:** `source_ref` is added to `required[]` in both schemas. It was **not** made nullable, since ADR-007 and `RevenueEventCreate` (which already requires it) make the source mandatory. `REQUIRED_FIELD_DRIFT = 0` and `DTO_NAMING_DRIFT = 0` recomputed.
+
+### MINOR-2 — public endpoints no longer inherit session security
+
+**Before:** the global `security: [{sessionAuth: []}]` applied to every operation. `POST /auth/login` (described "Public, rate-limited login") and the health probes declared no override, so the contract required a session cookie in order to create one.
+
+**After:** `security: []` is declared on exactly three operations — `login`, `getLiveness`, `getReadiness`. The global requirement is retained and all 27 other operations still resolve to `sessionAuth`; no authenticated endpoint was made public and no tenant data is exposed. `BACKEND_API_STANDARD.md` now states the doctrine normatively, including that the health probes are "internal" in the sense of network/deployment restriction rather than session authentication.
+
+### FIX.7 scope
+
+Five files changed: `BACKEND_OPENAPI_V1.yaml`, `BACKEND_PUBLIC_ID_REGISTRY.md`, `BACKEND_API_STANDARD.md`, `B0_BACKEND_TRACEABILITY.md`, and `B0_IMPLEMENTATION_REPORT.md`. `BACKEND_DTO_CONTRACTS.md` and `BACKEND_API_CATALOG.md` were deliberately **not** modified: both already stated the correct contract, and the repair moved the OpenAPI into agreement with them. The tree remains intentionally uncommitted, unpushed, and undeployed. No backend, Django, model, serializer, view, URL, migration, PostgreSQL, Redis/Celery, provider, auth, frontend, dependency, lockfile, secret, or deployment change was made, and B1 was not started. B0 closure, B1 authorization, and backend implementation authorization remain `NO` pending independent CTO countersign and Product Owner approval.

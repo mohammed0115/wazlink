@@ -127,6 +127,8 @@ The FIX.5 worktree is intentionally uncommitted and unpushed, and touches only `
 
 FIX.6 repaired the two Major blockers and four Minor findings from the Independent CTO countersign audit of `4131bce7e455a8d76972835409ec04b70d5b9f71`, without backend implementation.
 
+> **Historical section.** The FIX.6 gate table below is the record of what FIX.6 measured at `0e107d5410006e67d97c47d486301113bdc687f0`. Its `Frozen frontend prefixes`, `Public-ID registry`, and `State machine / DTO naming / required-field drift` rows are **superseded by the B0-FIX.7 gate table below**: the prefix inventory is 56 (not 55) with `AID-` classified in section B, the registry is A 28 / B 35 / C 3, and `RevenueEvent`/`AttributionTouchpoint` carried a `source_ref` required-field drift that FIX.6 did not detect. All other FIX.6 rows remain current.
+
 Two further evidence corrections are recorded here rather than edited in place. The FIX.5 claim `47 identifiers inventoried` understated the frozen-frontend inventory: an independent recomputation finds **55** identifier prefixes. The FIX.5 statement that `QRT-` was "promoted from fixture to canonical UpgradeQuote" was factually wrong — `QRT-*` is `quickReplyTemplates` in the frozen tree — and that wording no longer exists as repository truth. FIX.6 also finds that literal-only scanning (used by FIX.5 and by the countersign audit alike) cannot see namespaces produced only at runtime; recovering generator call sites adds `AUTOLOG-` and `AUTONOT-`, which no prior pass reported.
 
 | Regression gate | Result |
@@ -156,3 +158,45 @@ Two further evidence corrections are recorded here rather than edited in place. 
 | Architecture regression | NONE |
 
 The FIX.6 worktree is intentionally uncommitted and unpushed. B0 self-closure, B1 authorization, and backend implementation authorization remain `NO`; independent CTO countersign is still required.
+
+## B0-FIX.7 registry completeness and contract cleanup evidence
+
+FIX.7 repaired the one Major and two Minor findings from the final Independent CTO countersign of `0e107d5410006e67d97c47d486301113bdc687f0`, without backend implementation. It changed five documentation/contract files and no others.
+
+The Major finding was that the frozen-frontend prefix inventory was incomplete: `AID-` — generated only at runtime by `nextId("AID", mockModel.aiDecisionRecords)` at `client/src/domain/sales-ai.js:71` — was classified nowhere. The root cause was methodological, not clerical: FIX.6's stated recovery rule enumerated a **hardcoded** generator-name list (`nextNumericId`/`s11Id`/`s11Audit`) and therefore could not see `nextId` (`client/src/domain/sales-ai.js:23`). FIX.7 replaces that list with a five-pass normative discovery procedure whose first pass finds prefix generators **by shape** — any helper interpolating or concatenating its own parameter immediately followed by `-` — so a future frontend helper cannot silently introduce an unclassified namespace. Re-running the procedure discovers exactly three generator definitions plus one prefix-forwarding wrapper, and yields 56 identifier prefixes.
+
+Evidence establishes `AID-` as section B: `mockModel.aiDecisionRecords` is initialised empty (`client/src/domain/data.js:269`), no `AID-` literal exists in the frozen tree, the namespace never crosses `client/src/services/`, its suffix is a session-local display counter rather than an opaque server token, and its only inbound references (`recommendationId`, `suggestionId`) are in-memory frontend correlation. No persistence, table, aggregate, or public-ID reservation is created.
+
+**Superseded figures.** The FIX.6 rows `Frozen frontend prefixes = 55`, `Public-ID registry A 28, B 34, C 3`, and `required-field drift 0` are superseded by this table. The FIX.2, FIX.3, and FIX.5 sections remain historically accurate records of what those passes measured.
+
+| Regression gate | Result |
+|---|---|
+| PyYAML parse | PASS |
+| OpenAPI 3.0.3 | PASS |
+| Paths / operations | 29 / 30 |
+| Catalog coverage | 30/30; missing 0; extra 0 |
+| Local refs | 306 total; 306 resolved; dangling 0; external 0 |
+| Unique operation IDs | 30/30; duplicates 0 |
+| Prefix recovery rule | PASS — shape-based five-pass procedure replaces the hardcoded generator list; 3 generator definitions + 1 wrapper discovered structurally |
+| Frozen frontend prefixes | **56** identifiers inventoried; unclassified **0**; multi-classified 0; persistent undocumented 0 |
+| Public-ID registry | **A 28, B 35, C 3** (66 rows), plus a documented non-identifier exclusion table; 66 rows − 10 backend-only section-A prefixes = 56, reconciling exactly with the recomputed frontend inventory |
+| `AID-` classification | PASS — section B, runtime Copilot decision record; non-persistent; no collision with `AGA-`/`RUN-` |
+| Required-field drift | **0** — `source_ref` added to `required[]` for `RevenueEvent` and `AttributionTouchpoint`, matching `BACKEND_DTO_CONTRACTS.md`, `RevenueEventCreate`, and ADR-007 |
+| DTO naming drift | 0 |
+| Public-endpoint security | PASS — `security: []` on exactly 3 operations (`login`, `getLiveness`, `getReadiness`); 27 operations remain `sessionAuth`; global requirement retained |
+| Retry-After on 429 | PASS — all 4 `429` responses resolve to `components.responses.RateLimited` (`integer`/`minimum 1`) |
+| Payment-initiation rate limit | PASS — `POST /billing/payments` retains `429` |
+| Pagination / filtering / sorting | mismatches 0 / 0 / 0; `filters`/`sort` confined to `GET /deals` and `GET /billing/invoices` |
+| Idempotency-Key / If-Match | PASS — 13 idempotent mutation operations; `If-Match` on `PATCH /leads/{id}`; stale-write doctrine remains `409` |
+| Money / currency | PASS — `^-?\d+(\.\d{1,4})?$`; 9/9 currency fields `^[A-Z]{3}$` |
+| UpgradeQuote durability | PASS — unchanged by FIX.7 |
+| QRT / UPQ | PASS — `QRT-` section B, `UPQ-` section A, namespace collision 0 |
+| Payment authority | PASS — quote-derived, server-authoritative; mirrors non-authoritative |
+| Won Deal != Recognized Revenue | PASS |
+| Billing != Customer CRM Revenue | PASS |
+| Attribution separation | PASS |
+| Tenancy / RBAC / IDOR | PASS — unchanged; public-endpoint overrides expose no tenant data |
+| ADR uniqueness | PASS; 12 identifiers |
+| Architecture regression | NONE |
+
+The FIX.7 worktree is intentionally uncommitted and unpushed. B0 self-closure, B1 authorization, and backend implementation authorization remain `NO`; independent CTO countersign is still required.

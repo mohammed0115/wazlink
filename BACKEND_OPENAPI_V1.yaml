@@ -112,6 +112,7 @@
             }
           }
         },
+        "security": [],
         "parameters": []
       }
     },
@@ -1865,6 +1866,8 @@
     },
     "/health/live": {
       "get": {
+        "description": "Unauthenticated infrastructure liveness probe; restricted by network/deployment policy, not by session authentication.",
+        "security": [],
         "operationId": "getLiveness",
         "summary": "Get process liveness",
         "tags": [
@@ -1929,7 +1932,8 @@
             "$ref": "#/components/responses/InternalError"
           }
         },
-        "description": "Readiness covers the DB/Redis architecture and does not depend on every provider.",
+        "description": "Readiness covers the DB/Redis architecture and does not depend on every provider. Unauthenticated infrastructure probe; restricted by network/deployment policy, not by session authentication.",
+        "security": [],
         "parameters": []
       }
     }
@@ -3145,6 +3149,7 @@
         "required": [
           "public_id",
           "source_type",
+          "source_ref",
           "gross",
           "net",
           "currency",
@@ -3181,6 +3186,7 @@
         "required": [
           "public_id",
           "source_type",
+          "source_ref",
           "occurred_at",
           "position"
         ]
