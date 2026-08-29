@@ -91,3 +91,34 @@ The published B0-FIX.3 candidate was already the local `main` HEAD and `origin/m
 | Architecture regression | NONE |
 
 Current FIX.4 worktree status is intentionally uncommitted and unpushed. B0 self-closure, B1 authorization, and backend implementation authorization remain `NO`.
+
+## B0-FIX.5 surgical closure repair evidence
+
+FIX.5 repaired the three remaining blockers from the Final Independent CTO B0 Closure Audit of `372f0c9b32f0081cf5a531b031e2175e75b47d0b`, without backend implementation and without architecture change. The local checkout was two commits behind the published candidate at start (HEAD `4902944bd1283cce8b1438c2942786091e48ed57`, clean, divergence `0 2`); a single `git pull --ff-only` aligned it, producing `HEAD == origin/main == 372f0c9b32f0081cf5a531b031e2175e75b47d0b` with no merge commit.
+
+Two earlier evidence statements are corrected here rather than edited in place. The FIX.3 claim `429 + Retry-After: 3` was true for FIX.3, where the header was declared inline; FIX.4's move to `$ref: RateLimited` dropped it and the published FIX.4 tree contained none. The FIX.4 claim `unclassified frontend prefixes 0` overstated the FIX.4 state. FIX.5 repairs both conditions.
+
+| Regression gate | Result |
+|---|---|
+| PyYAML 6.0.3 parse | PASS |
+| openapi-spec-validator 0.9.0 | PASS |
+| OpenAPI 3.0.3 | PASS |
+| Paths / operations | 29 / 30 |
+| Catalog coverage | 30/30; missing 0; extra 0 |
+| Local refs | 302 total; 302 resolved; dangling 0 |
+| Unique operation IDs | 30/30; duplicates 0 |
+| Retry-After on 429 | PASS — declared once on `components.responses.RateLimited` as `integer`/`minimum 1`; all 3 `429` responses resolve to it |
+| PIPE classification | 1 canonical persistent row; contradictions 0 |
+| Frozen frontend prefixes | 47 identifiers inventoried; unclassified 0; multi-classified 0; persistent undocumented 0 |
+| Public-ID registry | A 28, B 24, C 3, plus documented non-identifier exclusions; generation rule and collision policy PASS; `WORK-*`, `USR-*`, `SES-*`, `JOB-*` frozen for B1 |
+| Pagination / filtering / sorting | mismatches 0 / 0 / 0 |
+| Request parameters / error components / error semantics | orphans 0; drift 0; over-application 0 |
+| ADR uniqueness | PASS; 12 identifiers aligned across Blueprint and architecture decisions |
+| Money / currency | PASS; regex doc drift 0; 5 sibling currency mirrors conforming |
+| State machine / DTO naming / contract map | PASS; drift 0 |
+| Won Deal != Recognized Revenue | PASS |
+| Billing != Customer CRM Revenue | PASS |
+| Attribution separation | PASS |
+| Architecture regression | NONE |
+
+The FIX.5 worktree is intentionally uncommitted and unpushed, and touches only `BACKEND_OPENAPI_V1.yaml`, `BACKEND_PUBLIC_ID_REGISTRY.md`, `B0_IMPLEMENTATION_REPORT.md`, and `B0_BACKEND_TRACEABILITY.md`. B0 self-closure, B1 authorization, and backend implementation authorization remain `NO`; independent CTO re-verification is still required.

@@ -19,6 +19,7 @@ The generation rule is `public_id = <PREFIX>-<opaque immutable token>`. The toke
 | `RES-` | DiscoveryResult | Discovery | DiscoveryResult | Workspace-scoped | `RES-01J...` |
 | `BUS-` | Business | Discovery/CRM | Business | Workspace-scoped | `BUS-01J...` |
 | `LEAD-` | Lead | CRM | Lead | Workspace-scoped | `LEAD-01J...` |
+| `CON-` | Contact | CRM | Contact | Workspace-scoped | `CON-01J...` |
 | `CONV-` | Conversation | Messaging | Conversation | Workspace-scoped | `CONV-01J...` |
 | `MSG-` | Message | Messaging | Message | Workspace-scoped | `MSG-01J...` |
 | `TSK-` | Task | CRM | Task | Workspace-scoped | `TSK-01J...` |
@@ -30,7 +31,9 @@ The generation rule is `public_id = <PREFIX>-<opaque immutable token>`. The toke
 | `RUN-` | AutomationRun | Automation | AutomationRun | Workspace-scoped | `RUN-01J...` |
 | `REV-` | RevenueEvent | Revenue | RevenueEvent | Workspace-scoped | `REV-01J...` |
 | `ATT-` | AttributionTouchpoint | Attribution | AttributionTouchpoint | Workspace-scoped | `ATT-01J...` |
+| `PLAN-` | Plan | Entitlements | Plan | Global bounded catalog | `PLAN-01J...` |
 | `SUB-` | Subscription | Billing | Subscription | Workspace-scoped | `SUB-01J...` |
+| `QRT-` | UpgradeQuote | Billing | UpgradeQuote | Workspace-scoped | `QRT-01J...` |
 | `INV-BILL-` | Platform Invoice | Billing | Invoice | Workspace-scoped | `INV-BILL-01J...` |
 | `PAY-` | Payment | Billing | Payment | Workspace-scoped | `PAY-01J...` |
 | `TAX-` | TaxInvoice | Tax | TaxInvoice | Workspace-scoped | `TAX-01J...` |
@@ -40,41 +43,53 @@ The generation rule is `public_id = <PREFIX>-<opaque immutable token>`. The toke
 
 For every row in this section, the persistence concept stores the generated public ID with a unique constraint, the generation rule above applies, and the ID is immutable. `WORK-*`, `USR-*`, `SES-*`, and `JOB-*` are Foundation identifiers and are explicitly frozen for B1; the implementation agent must not invent alternative prefixes.
 
+Section A is closed under the frozen `BACKEND_OPENAPI_V1.yaml` contract: every entity that the contract exposes through a required `public_id` or references through an `EntityRef` has a row here. `CON-` (Contact) is required by `Lead360.contacts[]`, `PLAN-` (Plan) by `QuoteRequest.plan_ref`, `UpgradeQuote.plan_ref`, and `EntitlementDecision.target_plan_ref`, and `QRT-` (UpgradeQuote) by `UpgradeQuote.public_id` and `PaymentCreate.quote_ref`. These three prefixes are canonical because `contacts` and `plans` already exist in `BACKEND_DATA_MODEL.md` and `UpgradeQuote` is already a frozen OpenAPI schema; no new domain, table, or aggregate is introduced by registering them. `PLAN-` is a global bounded catalog identity, consistent with Plans and Capabilities being explicitly global in `BACKEND_WORKSPACE_AUTH.md`.
+
 ## B — frontend fixture/UI/internal identifiers, not persisted as Backend public IDs
 
-| Prefix | Frontend meaning/evidence | Classification rule |
+| Prefix | Frozen frontend evidence | Classification rule |
 |---|---|---|
-| `SET-` | SettingsActivity fixture | UI/audit fixture; map to canonical `AUD-*` only if a future product decision creates a persistent audit resource |
-| `NP-` | NotificationPreference fixture | UI fixture; preference rows use the owning User/Workspace identity, not a new public-ID resource |
-| `INV-` | TeamInvitation fixture | UI fixture; invitation identity is not the platform Invoice `INV-BILL-*` prefix |
-| `INT-` | Intelligence screen fixture | UI intelligence/Opportunity fixture; no persistent B0 API resource |
-| `INTA-` | IntegrationActivity fixture | UI/audit fixture; not a frozen persistent B0 resource |
-| `PLAN-` | Plan fixture | Bounded catalog fixture; Plan has no frozen external public-ID prefix in the B0 API registry |
-| `BILL-` | BillingActivity fixture | UI activity fixture; platform billing resources use `SUB-*`, `INV-BILL-*`, `PAY-*`, and `TAX-*` |
-| `SIG-` | Signal fixture | Frontend intelligence fixture; no persistent B0 API resource |
-| `CMP-` | Campaign/comparison fixture | Frontend fixture; no persistent B0 API resource |
-| `SRC-` | Source fixture | Frontend attribution/source fixture; no new persistent B0 API resource |
-| `ANL-` | Analytics fixture | Frontend read-model fixture; no persistent B0 API resource |
-| `COND-` | Automation condition fixture | UI rule fragment; not an independent persistent public-ID resource |
-| `AUTO-` | Automation fixture | UI fixture; canonical persisted execution identity is `RUN-*` |
-| `CON-` | Generic contact/connection fixture | Ambiguous UI token; not a canonical public-ID prefix |
-| `TEAM-` | Team fixture | UI membership fixture; B0 uses Workspace/User/membership concepts, not a separate frozen Team public ID |
-| `QRT-` | Quote fixture | UI billing fixture; quote identity is not a frozen persistent public-ID resource |
-| `CONT-` | Contact screen fixture | UI screen identifier; Contact is not a separately frozen B0 public-ID resource |
-| `COMP-` | Company screen fixture | UI screen identifier; Business remains the canonical B0 commercial identity |
-| `PIPE-` | Pipeline screen fixture | UI screen identifier; a future Pipeline resource may use a new approved prefix, not the screen ID |
-| `INBX-` | Inbox screen fixture | UI screen identifier; canonical persistent messaging identity is `CONV-*` |
-| `WA-` | WhatsApp screen fixture | Channel/view identifier; canonical persistent identity remains `CONV-*`/`MSG-*` |
-| `CALL-` | Calls screen fixture | UI activity fixture; canonical persistent activity identity is `ACT-*` |
-| `AI-` | Copilot/Agent screen fixture | UI intelligence fixture; no persistent B0 public-ID resource |
-| `ANLY-` | Analytics screen fixture | UI read-model identifier; no persistent B0 public-ID resource |
-| `INTG-` | Integrations screen fixture | UI screen identifier; provider connection metadata remains future/unfrozen |
-| `TASK-` | Tasks screen fixture | UI label/lookalike; canonical CRM Task public IDs are `TSK-*` |
+| `SIG-` | `SIG-1042-A` intelligence signal | Signal rows are embedded in the `Lead360.intelligence` object, which the contract types as an opaque object rather than an `EntityRef`; no independent public-ID resource |
+| `ANL-` | `ANL-1042` lead analysis | `lead_intelligence_analyses` is reached through `Lead360.intelligence`, not by public-ID reference |
+| `OPP-` | `{id:"OPP-1042", analysisId:"ANL-1042", businessId:"BUS-1042", status, reasonSignalIds[]}` | Intelligence projection derived from an analysis and its signals; canonical truth is `BUS-*` plus the analysis, so no independent public-ID resource |
+| `AIR-` | `{id:"AIR-1042", kind, businessId, score, reason}` | AI recommendation read-model card over Business/Intelligence; not persisted domain truth |
+| `SVC-` | `{id:"SVC-1001", name, gapCodes[], description}` | Service-offering catalog fixture; no B0 domain or table owns it, and FIX.5 introduces none |
+| `AGT-` | `{id:"AGT-1001", name, status}` | Copilot/agent UI fixture; agent configuration is not a B0 persistent resource |
+| `CMP-` | `CMP-1042` campaign/comparison | Frontend fixture; attribution source identity is carried by `AttributionTouchpoint.source_ref`, not a campaign public ID |
+| `SRC-` | `SRC-1004` discovery source | `DiscoveryJob.provider_source` is a plain contract string, not an `EntityRef` |
+| `AUTO-` | `AUTO-1002` automation rule | Rule CRUD is future/non-Core; canonical persisted execution identity is `RUN-*` |
+| `COND-` | `COND-1001` rule condition | Rule fragment inside a rule definition; not an independently addressable resource |
+| `AUTOACT-` | `actionType:"AUTOACT-1001"` | Automation action fragment referenced by a rule; same class as `COND-`, not an independent resource |
+| `AUTOEXEC-` | `{id:"AUTOEXEC-1001", automationRunId:"AUTORUN-1001", actionId, status}` | Automation step-run execution detail; `step_runs` is internal and is not exposed by the Core contract, whose automation identity is `RUN-*` |
+| `AGA-LOG-` | `{id:"AGA-LOG-8001", actionId:"AGA-8001", type, actorId, createdAt}` | Agent-action timeline fixture; canonical persisted timeline identity is `ACT-*`/`AUD-*` |
+| `CVA-` | `{id:"CVA-3042-1", conversationId, leadId, actorId, type, createdAt}` | Conversation-activity timeline fixture; canonical persisted timeline identity is `ACT-*` |
+| `SET-` | `{id:"SET-1001", actorId, type:"settings_changed", createdAt}` | Settings-activity fixture of the same shape; canonical timeline identity is `ACT-*`/`AUD-*` |
+| `BILL-` | `{id:"BILL-1001", subscriptionId, actorId, type, createdAt}` | Billing-activity fixture; platform billing resources are `SUB-*`, `QRT-*`, `INV-BILL-*`, `PAY-*`, and `TAX-*` |
+| `INTA-` | `{id:"INTA-1001", integrationId:"INT-1004", actorId, type}` | Integration-activity fixture; not a frozen persistent B0 resource |
+| `INT-` | `{id:"INT-1001", provider:"google_maps", status, mode:"mock"}` | Provider connection metadata; `BACKEND_INTEGRATION_BOUNDARIES.md` keeps integration configuration future/unfrozen |
+| `NP-` | `{id:"NP-1001", userId:"USR-1001", category, channels[], enabled}` | Notification preference; value data owned by the `USR-*`/`WORK-*` identity, not a separate resource |
+| `NOTE-` | `{id:"NOTE-1042", leadId, authorId, body, createdAt}` | Phase-1 B0 models no standalone Note table or aggregate; frontend fixture identity does not freeze a Backend Note public ID. A future Note resource requires an ADR, data-model change, and a newly approved prefix |
+| `PM-` | `{id:"PM-1001", workspaceId, brand:"Visa", last4, status:"mock"}` | Payment-method fixture. B0 Phase 1 deliberately does **not** model PaymentMethod as independent persistent domain truth: `BACKEND_BILLING_TAX_ARCHITECTURE.md` stores no raw card data and prefers the Tap-hosted/tokenized flow, so the instrument remains provider-held under `billing_customers`/`PAY-*`. Frontend fixture identity does not freeze a Backend PaymentMethod public ID; creating one requires an ADR and data-model change |
+| `ATTN-` | `{id:"ATTN-1001", tone, title, route}` plus `ATTN-<TYPE>` enum values | Dashboard read-model element; `DashboardOverview.attention` carries no public ID in the frozen contract |
+| `TEAM-` | `teamId:"TEAM-1001"` on a user | B0 uses Workspace/User/Membership; no separate Team table or frozen Team public ID |
+| `INV-` | `{id:"INV-1001", teamId, email, role, status, invitedBy}` | Team-invitation fixture. `invitations` exists in the data model but is not exposed by the Core contract, and this short prefix must never be used for platform invoices, whose canonical prefix is `INV-BILL-*` |
+
+Section B rows describe identifiers that exist in the frozen frontend at `30bc15e9ca3c0205df2b49e792fce1b8e78a36b1` and are deliberately **not** promoted to Backend public IDs. A relational fixture shape alone does not justify a persistent resource: `OPP-`, `AIR-`, and `ATTN-` are projections, `AGA-LOG-`, `CVA-`, `SET-`, `BILL-`, and `INTA-` are activity/audit entries, `COND-`, `AUTOACT-`, and `AUTOEXEC-` are rule or execution fragments, and `NP-` is value data on an existing identity. None of them adds a domain, table, or aggregate in FIX.5.
 
 ## C — deprecated or alias identifiers
 
-No C-class identifier is currently accepted as a new persistent public ID. The following lookalikes are explicitly resolved: `TASK-*` is a UI alias for the `TSK-*` Task resource; `CONV-*` is the canonical Conversation prefix while `CON-*` is an unclassified generic UI token; and `COND-*` is a condition fragment, not a Conversation or Contact entity. The short `INV-*` fixture prefix must not be used for platform invoices, whose canonical prefix is `INV-BILL-*`.
+| Prefix | Canonical replacement | Resolution |
+|---|---|---|
+| `TASK-` | `TSK-` | UI lookalike of the CRM Task resource; `TSK-*` is the canonical Task prefix |
+| `AUTORUN-` | `RUN-` | `{id:"AUTORUN-1001", automationRuleId, ruleNameSnapshot, status}` is an AutomationRun; `RUN-*` is canonical |
+| `AGA-` | `RUN-` | `{id:"AGA-8001", leadId, conversationId, type, status, requiresApproval}` is a governed agent action, which B0 models as an AutomationRun reached through `POST /automation/runs/{id}/approve`; `RUN-*` is canonical |
+
+No C-class identifier is accepted as a new persistent public ID. Lookalike collisions are explicitly resolved: `TSK-` is Task and `TASK-` is its UI alias; `CONV-` is Conversation, `CON-` is Contact, and `COND-` is an automation condition fragment — all three are distinct and none may be substituted for another; `INV-` is a team-invitation fixture while `INV-BILL-` is the platform Invoice; and `PIPE-` is the single canonical Pipeline prefix with no competing screen-fixture classification.
+
+## Excluded non-identifier tokens
+
+The following frozen-frontend literals match a `PREFIX-SUFFIX` shape but are not public IDs and are therefore outside the A/B/C classification: `UTF-8` (character encoding), `PLAN-STARTER`/`PLAN-GROWTH`/`PLAN-SCALE` (plan catalog slugs, not opaque `PLAN-*` identifiers), `ATTN-TASK`/`ATTN-DEAL`/`ATTN-DISCOVERY`/`ATTN-CONVERSATION`/`ATTN-AUTOMATION`/`ATTN-ENTITLEMENT` (attention-type enum values), `EVT-DRY-RUN` (event mode enum), `PKG-SCRAPER`/`PKG-CRM` and `OFFER-SCRAPER`/`OFFER-CRM` (packaging and offer slugs), and `S4-MOCK-v1`/`S8-DETERMINISTIC-v1` (deterministic test-fixture markers). None has a numeric identifier segment and none is used as an entity `id` or reference field.
 
 ## Cross-domain invariants
 
-`BUS-*`, `LEAD-*`, `CONV-*`, and `DEAL-*` are resolved by typed public-ID references and workspace authorization, never by display name. `DEAL-*` does not imply `REV-*`; a `REV-*` exists only after the explicit revenue-recognition command. `ATT-*` is attribution metadata, never recognized-revenue amount truth, and cannot mutate `REV-*`. `SUB-*`, `INV-BILL-*`, `PAY-*`, and `TAX-*` are Platform Billing/Tax identities and are not customer CRM revenue identities. Any new canonical prefix requires an ADR update, API/DTO update, index update, and traceability entry before implementation.
+`BUS-*`, `LEAD-*`, `CONV-*`, and `DEAL-*` are resolved by typed public-ID references and workspace authorization, never by display name. `DEAL-*` does not imply `REV-*`; a `REV-*` exists only after the explicit revenue-recognition command. `ATT-*` is attribution metadata, never recognized-revenue amount truth, and cannot mutate `REV-*`. `SUB-*`, `QRT-*`, `INV-BILL-*`, `PAY-*`, and `TAX-*` are Platform Billing/Tax identities and are not customer CRM revenue identities. Any new canonical prefix requires an ADR update, API/DTO update, index update, and traceability entry before implementation.

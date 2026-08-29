@@ -3632,6 +3632,13 @@
               "type": "string"
             },
             "description": "Correlation identifier."
+          },
+          "Retry-After": {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Seconds until retry is permitted."
           }
         }
       },
