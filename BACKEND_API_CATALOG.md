@@ -29,7 +29,7 @@
 | POST | `/api/v1/deals/{id}/close` | explicit Won/Lost | close permission | CloseDeal | 200/409 | yes/no |
 | POST | `/api/v1/automation/runs/{id}/approve` | approve sensitive run | automation approver | Approval | 200/409 | yes/no |
 | GET | `/api/v1/analytics/overview` | derived metrics | analytics view | AnalyticsOverview | 200 | n/a/no |
-| GET | `/api/v1/dashboard/overview` | read-only dashboard aggregate | analytics/dashboard view | DashboardOverview | 200 | n/a/no |
+| GET | `/api/v1/dashboard/overview` | read-only dashboard aggregate/read model | analytics/dashboard view | DashboardOverview | 200 | n/a/no |
 | POST | `/api/v1/revenue-events` | explicit recognition | revenue permission | RevenueEventCreate | 201/409 | yes/no |
 | GET | `/api/v1/attribution` | touchpoint report | analytics view | AttributionReport | 200 | n/a/no |
 | POST | `/api/v1/billing/upgrade-quotes` | quote/validate plan | billing admin | QuoteRequest | 201 | yes/no |
@@ -40,10 +40,14 @@
 | GET | `/api/v1/health/live` | process liveness | public/internal | Health | 200 | n/a/no |
 | GET | `/api/v1/health/ready` | DB/Redis readiness | internal | Health | 200/503 | n/a/no |
 
-All endpoints use workspace/object authorization, stable DTOs, allow-listed filters, request correlation, and safe errors. Provider webhooks are internal gateway routes and are not user-facing resource mutations.
+All endpoints use workspace/object authorization, stable DTOs, request correlation, and safe errors. Filtering and sorting are supported only where the explicit catalog markers below say so. Provider webhooks are internal gateway routes and are not user-facing resource mutations.
 
-## B0-FIX.3 synchronization rules
+## B0-FIX.4 synchronization rules
 
 The catalog uses the same base-path convention as OpenAPI: `servers.url` carries `/api/v1`, so OpenAPI path keys omit that prefix. Every catalog row is represented by an OpenAPI operation with a unique `operationId`; internal provider webhook routes remain outside this user-facing catalog.
 
-Discovery submission, message send, and payment creation are asynchronous where marked `202`. Discovery results, Deals, and invoices are cursor-paginated with `PageInfo`. List endpoints expose the standard `cursor`, `limit` (1–100), allow-listed `filters`, and allow-listed `sort` where applicable. Durable mutation commands use `Idempotency-Key`; unsafe session-authenticated mutations require CSRF; editable resources require `version`/`If-Match`, and stale writes use `409`. Closing a Deal as won changes Deal state only; it does not create RevenueEvent. Money uses decimal `amount` plus authoritative ISO-4217 `currency`; any mirrored currency must match it.
+Discovery submission, message send, and payment creation are asynchronous where marked `202`. Discovery results, Deals, and invoices are cursor-paginated with `PageInfo`; the discovery-results operation exposes `cursor` and `limit`. Workspace, Plan, and Entitlement lists are bounded cursor collections. Aggregate/report endpoints (`usage`, `analytics/overview`, `dashboard/overview`, and `attribution`) do not expose meaningless pagination. Durable mutation commands use `Idempotency-Key`; unsafe session-authenticated mutations require CSRF; editable resources require `version`/`If-Match`, and stale writes use `409`. Closing a Deal as won changes Deal state only; it does not create RevenueEvent. Money uses decimal `amount` plus authoritative ISO-4217 `currency`; any mirrored currency must match it.
+
+### Explicit filtering and sorting markers
+
+Filtering and sorting are supported only for `GET /api/v1/deals` and `GET /api/v1/billing/invoices`. On those two collection endpoints, `filters` is the allow-listed resource filter expression and `sort` is the allow-listed stable sort expression, both optional and defined in OpenAPI. All other catalog endpoints do not support generic filtering or sorting. `GET /api/v1/workspaces`, `/plans`, and `/entitlements` expose pagination only; `GET /api/v1/discovery/jobs/{id}/results` exposes pagination only.

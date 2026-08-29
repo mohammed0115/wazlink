@@ -36,6 +36,6 @@
 
 No error reveals stack traces, secrets, cross-workspace existence, provider credentials, or raw payment details.
 
-## B0-FIX.3 transport mapping
+## B0-FIX.4 transport mapping
 
-OpenAPI reuses `ErrorEnvelope` and named response components for unauthorized, forbidden, not found, conflict, validation, rate-limited, internal, provider-unavailable, payment-required, and service-unavailable outcomes. Endpoint responses are applied by semantic applicability. A `429` response carries `Retry-After`; a `500` response is universal; `502` applies to provider-facing surfaces; and `402` applies only to Billing/payment-required operations.
+OpenAPI uses the canonical reusable response components `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`, `ValidationError`, `RateLimited`, and `ServiceUnavailable` wherever those outcomes are applicable, with `InternalError`, `ProviderUnavailable`, and `PaymentRequired` for their dedicated cases. Endpoint responses are applied by semantic applicability rather than copied generically. A `429` response carries `Retry-After`; a `500` response is universal; `502` applies only to provider-dependent operations; and `402` applies only to Billing/payment-required commands. `GET /billing/invoices` is a local read and does not return `402` or `502`.

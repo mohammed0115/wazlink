@@ -67,3 +67,27 @@ B0-FIX.3 repaired the documented contract findings without backend implementatio
 | Billing != Customer CRM Revenue | PASS |
 
 B0 is **not self-closed**. Independent CTO closure remains required. No commit, push, deploy, B1, backend implementation, frontend modification, dependency/package/lockfile change, migration, provider integration, or secret work was performed in B0-FIX.3.
+
+## B0-FIX.4 final validation evidence
+
+The published B0-FIX.3 candidate was already the local `main` HEAD and `origin/main` at the start of FIX.4 (`8b958412697f595124aaebb4651d4db9f511f51d`), with a clean, non-divergent repository; no fast-forward was required. FIX.4 repaired the second CTO findings without commit, push, deploy, or implementation.
+
+| Gate | Result |
+|---|---|
+| OpenAPI / YAML | `3.0.3`; PyYAML `6.0.3` PASS; openapi-spec-validator `0.9.0` PASS |
+| Operations | 30; catalog coverage 30/30; missing 0; extra 0 |
+| Local references | 302 total; 302 resolved; dangling 0 |
+| Operation IDs | 30/30 unique; duplicates 0 |
+| Pagination | PageInfo response operations all carry cursor/limit; mismatches 0 |
+| Filtering/sorting | Only GET `/deals` and GET `/billing/invoices`; mismatches 0 |
+| Reusable errors | Unauthorized 28, Forbidden 21, NotFound 11, Conflict 12, ValidationError 14, RateLimited 3, ServiceUnavailable 3 uses |
+| Error semantics | 402 only Billing commands; 502 only provider-dependent operations; invoice read has neither |
+| ADR registry | Blueprint/architecture IDs 12/12 aligned; heading duplicates 0 |
+| Public IDs | Persistent undocumented 0; unclassified frontend prefixes 0; WORK-* explicit; collision policy PASS |
+| Contract map | Dangling DTO names 0; nonexistent Core routes 0 |
+| Money/currency | Regex, sibling currency mirrors, and authoritative precedence PASS |
+| Payment states | cancelled and partially_refunded represented; provider mapping remains unresolved |
+| Business invariants | Won Deal != Recognized Revenue; Billing != Customer CRM Revenue; Attribution separation — PASS |
+| Architecture regression | NONE |
+
+Current FIX.4 worktree status is intentionally uncommitted and unpushed. B0 self-closure, B1 authorization, and backend implementation authorization remain `NO`.

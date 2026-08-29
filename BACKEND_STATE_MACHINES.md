@@ -32,6 +32,9 @@ stateDiagram-v2
   PaymentPending --> PaymentAuthorized
   PaymentAuthorized --> PaymentCaptured
   PaymentPending --> PaymentFailed
+  PaymentPending --> PaymentCancelled
+  PaymentAuthorized --> PaymentCancelled
+  PaymentCaptured --> PartiallyRefunded
   PaymentCaptured --> Refunded
 
   [*] --> SubscriptionTrialing : only when an approved trial policy applies
@@ -44,4 +47,4 @@ stateDiagram-v2
 ```
 
 Discovery transitions require a valid job owner and idempotency key. Business→Lead is explicit and idempotent; viewing results never creates a Lead. Deal transitions permit `open→won` or `open→lost` only with permission and confirmation; Won probability is 100 and Lost is 0. RevenueEvent has its own `pending/recognized/reversed` lifecycle and is not a Deal state. SubscriptionTrialing is conditional, not the default for every subscription: it requires an approved trial policy, a recorded trial end, and a valid entitlement basis. Payment failure transitions to a payment failure/past-due state and cannot silently activate or extend a subscription.
-AutomationRun is `created→awaiting_approval→queued→running→completed/failed/cancelled`; sensitive actions cannot skip approval. WebhookReceipt is `received→verified→queued→processed/failed/duplicate`. FileAsset is `pending→available/quarantined/failed→archived`. TaxInvoice states are conceptual and must be validated against official ZATCA terminology before implementation.
+Payment uses provider-neutral states `created→pending→authorized→captured`, terminal `failed` or `cancelled`, and captured-payment outcomes `partially_refunded` or `refunded`; Tap-specific status mapping remains unresolved pending provider-contract validation. AutomationRun is `created→awaiting_approval→queued→running→completed/failed/cancelled`; sensitive actions cannot skip approval. WebhookReceipt is `received→verified→queued→processed/failed/duplicate`. FileAsset is `pending→available/quarantined/failed→archived`. TaxInvoice states are conceptual and must be validated against official ZATCA terminology before implementation.

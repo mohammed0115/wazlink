@@ -89,65 +89,13 @@
             }
           },
           "400": {
-            "description": "Malformed or semantically invalid request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ValidationError"
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "429": {
-            "description": "Rate limited.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              },
-              "Retry-After": {
-                "schema": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "description": "Seconds until retry is permitted."
-              }
-            }
+            "$ref": "#/components/responses/RateLimited"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -163,7 +111,8 @@
               }
             }
           }
-        }
+        },
+        "parameters": []
       }
     },
     "/auth/logout": {
@@ -178,22 +127,7 @@
             "description": "No content."
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -204,7 +138,8 @@
           {
             "sessionAuth": []
           }
-        ]
+        ],
+        "parameters": []
       }
     },
     "/workspaces": {
@@ -234,22 +169,7 @@
             }
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -266,14 +186,9 @@
           },
           {
             "$ref": "#/components/parameters/Limit"
-          },
-          {
-            "$ref": "#/components/parameters/Filters"
-          },
-          {
-            "$ref": "#/components/parameters/Sort"
           }
-        ]
+        ],
+        "description": "This is a cursor-paginated collection; only cursor and limit pagination are supported. This is a cursor-paginated collection; only cursor and limit pagination are supported. This is a cursor-paginated collection; only cursor and limit pagination are supported."
       }
     },
     "/workspaces/{id}/invitations": {
@@ -313,94 +228,19 @@
             }
           },
           "400": {
-            "description": "Malformed or semantically invalid request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ValidationError"
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
-            "description": "Scoped resource not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Idempotency or optimistic concurrency conflict.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -424,6 +264,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/Id"
           }
         ]
       }
@@ -455,22 +298,7 @@
             }
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -487,14 +315,9 @@
           },
           {
             "$ref": "#/components/parameters/Limit"
-          },
-          {
-            "$ref": "#/components/parameters/Filters"
-          },
-          {
-            "$ref": "#/components/parameters/Sort"
           }
-        ]
+        ],
+        "description": "This is a cursor-paginated collection; only cursor and limit pagination are supported. This is a cursor-paginated collection; only cursor and limit pagination are supported. This is a cursor-paginated collection; only cursor and limit pagination are supported."
       }
     },
     "/entitlements": {
@@ -524,22 +347,7 @@
             }
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -556,14 +364,9 @@
           },
           {
             "$ref": "#/components/parameters/Limit"
-          },
-          {
-            "$ref": "#/components/parameters/Filters"
-          },
-          {
-            "$ref": "#/components/parameters/Sort"
           }
-        ]
+        ],
+        "description": "This is a cursor-paginated collection; only cursor and limit pagination are supported. This is a cursor-paginated collection; only cursor and limit pagination are supported. This is a cursor-paginated collection; only cursor and limit pagination are supported."
       }
     },
     "/usage": {
@@ -593,40 +396,10 @@
             }
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -637,20 +410,7 @@
             "sessionAuth": []
           }
         ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/Cursor"
-          },
-          {
-            "$ref": "#/components/parameters/Limit"
-          },
-          {
-            "$ref": "#/components/parameters/Filters"
-          },
-          {
-            "$ref": "#/components/parameters/Sort"
-          }
-        ]
+        "parameters": []
       }
     },
     "/discovery/jobs": {
@@ -680,101 +440,19 @@
             }
           },
           "400": {
-            "description": "Malformed or semantically invalid request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ValidationError"
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "409": {
-            "description": "Idempotency or optimistic concurrency conflict.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "429": {
-            "description": "Rate limited.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              },
-              "Retry-After": {
-                "schema": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "description": "Seconds until retry is permitted."
-              }
-            }
+            "$ref": "#/components/responses/RateLimited"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -843,40 +521,10 @@
             }
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Scoped resource not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -888,6 +536,11 @@
         "security": [
           {
             "sessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
           }
         ]
       }
@@ -929,40 +582,10 @@
             }
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "404": {
-            "description": "Scoped resource not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -975,7 +598,19 @@
           {
             "sessionAuth": []
           }
-        ]
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "description": "This is a cursor-paginated collection; only cursor and limit pagination are supported. This is a cursor-paginated collection; only cursor and limit pagination are supported."
       }
     },
     "/businesses/{id}/convert-to-lead": {
@@ -1015,94 +650,19 @@
             }
           },
           "400": {
-            "description": "Malformed or semantically invalid request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ValidationError"
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
-            "description": "Scoped resource not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Idempotency or optimistic concurrency conflict.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -1127,6 +687,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/Id"
           }
         ]
       }
@@ -1168,58 +731,13 @@
             }
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
-            "description": "Scoped resource not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -1228,6 +746,11 @@
         "security": [
           {
             "sessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
           }
         ]
       }
@@ -1269,94 +792,19 @@
             }
           },
           "400": {
-            "description": "Malformed or semantically invalid request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ValidationError"
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
-            "description": "Scoped resource not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Idempotency or optimistic concurrency conflict.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -1384,6 +832,9 @@
           },
           {
             "$ref": "#/components/parameters/IfMatch"
+          },
+          {
+            "$ref": "#/components/parameters/Id"
           }
         ]
       }
@@ -1425,137 +876,25 @@
             }
           },
           "400": {
-            "description": "Malformed or semantically invalid request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ValidationError"
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
-            "description": "Scoped resource not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Idempotency or optimistic concurrency conflict.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "429": {
-            "description": "Rate limited.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              },
-              "Retry-After": {
-                "schema": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "description": "Seconds until retry is permitted."
-              }
-            }
+            "$ref": "#/components/responses/RateLimited"
           },
           "503": {
-            "description": "Service or provider unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ServiceUnavailable"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -1583,6 +922,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/Id"
           }
         ]
       }
@@ -1614,40 +956,10 @@
             }
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -1671,7 +983,8 @@
           {
             "$ref": "#/components/parameters/Sort"
           }
-        ]
+        ],
+        "description": "Filtering is supported only through the allow-listed `filters` expression for this collection. Sorting is supported only through the allow-listed `sort` expression for this collection. Filtering is supported only through the allow-listed `filters` expression for this collection. Sorting is supported only through the allow-listed `sort` expression for this collection. Filtering is supported only through the allow-listed `filters` expression for this collection. Sorting is supported only through the allow-listed `sort` expression for this collection."
       },
       "post": {
         "operationId": "createDeal",
@@ -1699,76 +1012,16 @@
             }
           },
           "400": {
-            "description": "Malformed or semantically invalid request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ValidationError"
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "409": {
-            "description": "Idempotency or optimistic concurrency conflict.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -1793,7 +1046,8 @@
           {
             "$ref": "#/components/parameters/IdempotencyKey"
           }
-        ]
+        ],
+        "description": "Filtering is supported only through the allow-listed `filters` expression for this collection. Sorting is supported only through the allow-listed `sort` expression for this collection. Filtering is supported only through the allow-listed `filters` expression for this collection. Sorting is supported only through the allow-listed `sort` expression for this collection. Filtering is supported only through the allow-listed `filters` expression for this collection. Sorting is supported only through the allow-listed `sort` expression for this collection."
       }
     },
     "/deals/{id}/stage": {
@@ -1833,94 +1087,19 @@
             }
           },
           "400": {
-            "description": "Malformed or semantically invalid request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ValidationError"
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
-            "description": "Scoped resource not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Idempotency or optimistic concurrency conflict.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -1945,6 +1124,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/Id"
           }
         ]
       }
@@ -1986,94 +1168,19 @@
             }
           },
           "400": {
-            "description": "Malformed or semantically invalid request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ValidationError"
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
-            "description": "Scoped resource not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Idempotency or optimistic concurrency conflict.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -2098,6 +1205,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/Id"
           }
         ]
       }
@@ -2139,94 +1249,19 @@
             }
           },
           "400": {
-            "description": "Malformed or semantically invalid request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ValidationError"
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
-            "description": "Scoped resource not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "Idempotency or optimistic concurrency conflict.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -2250,6 +1285,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/IdempotencyKey"
+          },
+          {
+            "$ref": "#/components/parameters/Id"
           }
         ]
       }
@@ -2281,40 +1319,10 @@
             }
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -2325,20 +1333,7 @@
             "sessionAuth": []
           }
         ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/Cursor"
-          },
-          {
-            "$ref": "#/components/parameters/Limit"
-          },
-          {
-            "$ref": "#/components/parameters/Filters"
-          },
-          {
-            "$ref": "#/components/parameters/Sort"
-          }
-        ]
+        "parameters": []
       }
     },
     "/dashboard/overview": {
@@ -2368,40 +1363,10 @@
             }
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -2412,20 +1377,7 @@
             "sessionAuth": []
           }
         ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/Cursor"
-          },
-          {
-            "$ref": "#/components/parameters/Limit"
-          },
-          {
-            "$ref": "#/components/parameters/Filters"
-          },
-          {
-            "$ref": "#/components/parameters/Sort"
-          }
-        ]
+        "parameters": []
       }
     },
     "/revenue-events": {
@@ -2455,76 +1407,16 @@
             }
           },
           "400": {
-            "description": "Malformed or semantically invalid request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ValidationError"
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "409": {
-            "description": "Idempotency or optimistic concurrency conflict.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -2580,40 +1472,10 @@
             }
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -2625,20 +1487,7 @@
             "sessionAuth": []
           }
         ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/Cursor"
-          },
-          {
-            "$ref": "#/components/parameters/Limit"
-          },
-          {
-            "$ref": "#/components/parameters/Filters"
-          },
-          {
-            "$ref": "#/components/parameters/Sort"
-          }
-        ]
+        "parameters": []
       }
     },
     "/billing/upgrade-quotes": {
@@ -2668,76 +1517,16 @@
             }
           },
           "400": {
-            "description": "Malformed or semantically invalid request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ValidationError"
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "409": {
-            "description": "Idempotency or optimistic concurrency conflict.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -2799,76 +1588,16 @@
             }
           },
           "400": {
-            "description": "Malformed or semantically invalid request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ValidationError"
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "409": {
-            "description": "Idempotency or optimistic concurrency conflict.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Conflict"
           },
           "422": {
             "description": "Malformed or semantically invalid request.",
@@ -2889,22 +1618,7 @@
             }
           },
           "503": {
-            "description": "Service or provider unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ServiceUnavailable"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -2966,49 +1680,13 @@
             }
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
-          },
-          "502": {
-            "$ref": "#/components/responses/ProviderUnavailable"
-          },
-          "402": {
-            "$ref": "#/components/responses/PaymentRequired"
           }
         },
         "security": [
@@ -3029,7 +1707,8 @@
           {
             "$ref": "#/components/parameters/Sort"
           }
-        ]
+        ],
+        "description": "Filtering is supported only through the allow-listed `filters` expression for this collection. Sorting is supported only through the allow-listed `sort` expression for this collection. Filtering is supported only through the allow-listed `filters` expression for this collection. Sorting is supported only through the allow-listed `sort` expression for this collection. Filtering is supported only through the allow-listed `filters` expression for this collection. Sorting is supported only through the allow-listed `sort` expression for this collection."
       }
     },
     "/files/uploads": {
@@ -3059,58 +1738,13 @@
             }
           },
           "400": {
-            "description": "Malformed or semantically invalid request.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ValidationError"
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "422": {
             "description": "Malformed or semantically invalid request.",
@@ -3196,58 +1830,13 @@
             }
           },
           "401": {
-            "description": "Authentication required.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Permission or entitlement denied.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
-            "description": "Scoped resource not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/NotFound"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -3259,6 +1848,11 @@
         "security": [
           {
             "sessionAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
           }
         ]
       }
@@ -3292,7 +1886,8 @@
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
-        }
+        },
+        "parameters": []
       }
     },
     "/health/ready": {
@@ -3322,28 +1917,14 @@
             }
           },
           "503": {
-            "description": "Service or provider unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "headers": {
-              "X-Request-ID": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "Correlation identifier."
-              }
-            }
+            "$ref": "#/components/responses/ServiceUnavailable"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
           }
         },
-        "description": "Readiness covers the DB/Redis architecture and does not depend on every provider."
+        "description": "Readiness covers the DB/Redis architecture and does not depend on every provider.",
+        "parameters": []
       }
     }
   },
@@ -3369,7 +1950,8 @@
           },
           "currency": {
             "type": "string",
-            "pattern": "^[A-Z]{3}$"
+            "pattern": "^[A-Z]{3}$",
+            "description": "Authoritative ISO-4217 currency code for amount."
           }
         },
         "required": [
@@ -4174,7 +2756,8 @@
           },
           "currency": {
             "type": "string",
-            "description": "Public contract string"
+            "description": "ISO-4217 currency code; authoritative for sibling monetary fields in this DTO. If a Money object is also present, this mirror MUST equal Money.currency; disagreement is a validation error.",
+            "pattern": "^[A-Z]{3}$"
           },
           "probability": {
             "type": "integer",
@@ -4491,7 +3074,8 @@
           },
           "currency": {
             "type": "string",
-            "description": "Public contract string"
+            "description": "ISO-4217 currency code; authoritative for sibling monetary fields in this DTO. If a Money object is also present, this mirror MUST equal Money.currency; disagreement is a validation error.",
+            "pattern": "^[A-Z]{3}$"
           },
           "recognized_at": {
             "type": "string",
@@ -4537,7 +3121,8 @@
           },
           "currency": {
             "type": "string",
-            "description": "Public contract string"
+            "description": "ISO-4217 currency code; authoritative for sibling monetary fields in this DTO. If a Money object is also present, this mirror MUST equal Money.currency; disagreement is a validation error.",
+            "pattern": "^[A-Z]{3}$"
           },
           "recognized_at": {
             "type": "string",
@@ -4675,7 +3260,8 @@
           },
           "currency": {
             "type": "string",
-            "description": "Public contract string"
+            "description": "ISO-4217 currency code; authoritative for sibling monetary fields in this DTO. If a Money object is also present, this mirror MUST equal Money.currency; disagreement is a validation error.",
+            "pattern": "^[A-Z]{3}$"
           },
           "idempotency_key": {
             "type": "string",
@@ -4720,14 +3306,15 @@
           },
           "status": {
             "type": "string",
-            "description": "Public contract string"
+            "description": "Provider-neutral lifecycle state. Includes cancelled and partially_refunded; Tap-specific mapping remains unresolved pending provider-contract validation."
           },
           "amount": {
             "$ref": "#/components/schemas/Money"
           },
           "currency": {
             "type": "string",
-            "description": "Public contract string"
+            "description": "ISO-4217 currency code; authoritative for sibling monetary fields in this DTO. If a Money object is also present, this mirror MUST equal Money.currency; disagreement is a validation error.",
+            "pattern": "^[A-Z]{3}$"
           },
           "idempotency_ref": {
             "type": "string",

@@ -2,7 +2,7 @@
 
 ## Scope and status
 
-B0-FIX.1 repaired the documentation and API-contract layer only. No Django code, models, migrations, PostgreSQL schema, Redis/Celery implementation, provider integration, secrets, frontend changes, dependency changes, lockfile changes, commit, push, or deployment were performed.
+Historical scope note: B0-FIX.1 repaired the documentation and API-contract layer only. Later B0-FIX.3 was committed and pushed as the published candidate; the current B0-FIX.4 step is a separate uncommitted documentation repair. No Django code, models, migrations, PostgreSQL schema, Redis/Celery implementation, provider integration, secrets, frontend changes, dependency changes, lockfile changes, or deployment were performed.
 
 > **B0 IS NOT SELF-CLOSED.** This report records the repair state only. Independent CTO re-verification remains required.
 
@@ -12,8 +12,8 @@ B0-FIX.1 repaired the documentation and API-contract layer only. No Django code,
 |---|---|
 | Previous final B0 SHA | `1a5ce9ec73bbf46df55e01574aa4fa19ead94fc7` |
 | Current branch | `main` |
-| Commit created | No — explicitly prohibited in this step |
-| Push/deploy | No — explicitly prohibited in this step |
+| Commit created | Historical B0-FIX.3 commit exists; no commit is authorized for current B0-FIX.4 |
+| Push/deploy | Historical B0-FIX.3 was pushed; current B0-FIX.4 has no push or deploy |
 | Frontend changed | NO |
 | Backend code created | NO |
 | Dependencies changed | NO |
@@ -97,7 +97,7 @@ B0-FIX.3 remained documentation/contract-only. The following findings were addre
 | Unique operation IDs | `30/30 PASS` |
 | Local references | `313/313 PASS` |
 | Dangling references | `0` |
-| Effective Money parsed pattern | `^-?\\d+(\\.\\d{1,4})?$` |
+| Effective Money parsed pattern | `^-?\d+(\.\d{1,4})?$` |
 | Money positive/negative regression | PASS — valid decimals match; malformed/over-precision values reject |
 | Reusable request parameters | PASS — Cursor, Filters, Id, IdempotencyKey, IfMatch, Limit, Sort |
 | Error coverage | `500: 30/30`; `429 + Retry-After: 3`; `402: 3`; `502: 9` |
@@ -112,6 +112,28 @@ B0-FIX.3 remained documentation/contract-only. The following findings were addre
 
 ## B0-FIX.3 scope gates
 
-No commit, push, deploy, B1 work, backend/Django implementation, model, migration, database schema, Redis/Celery worker, provider integration, secret, frontend change, dependency change, package change, or lockfile change was performed. B0 remains pending independent CTO closure and Product Owner authorization for any subsequent commit or phase transition.
+The current B0-FIX.4 step remains uncommitted and unpushed, with no deploy or B1 work. No backend/Django implementation, model, migration, database schema, Redis/Celery worker, provider integration, secret, frontend change, dependency change, package change, or lockfile change was performed. B0 remains pending independent CTO closure.
 
 Validation artifacts were created outside the repository at `/tmp/run_b0fix3_final.py`, `/tmp/validate_openapi.py`, and `/tmp/b0fix3-final-validation.txt`; they are not implementation files and are not part of the repository change set.
+
+## B0-FIX.4 final validation and current state
+
+The second CTO closure blockers were repaired in the current uncommitted FIX.4 step. The local repository was already aligned to the published B0-FIX.3 candidate at start (`main`, HEAD and `origin/main` both `8b958412697f595124aaebb4651d4db9f511f51d`, divergence `0 0`); no fast-forward was needed.
+
+| Gate | Result |
+|---|---|
+| OpenAPI machine validation | PASS — OpenAPI 3.0.3, PyYAML 6.0.3, openapi-spec-validator 0.9.0 |
+| Operations / endpoint coverage | 30 operations; catalog 30/30; missing 0; extra 0 |
+| Local references | 302 total; 302 resolved; dangling 0 |
+| Pagination | Six PageInfo collection responses carry cursor/limit; mismatches 0 |
+| Filtering/sorting | Explicit only on GET `/deals` and GET `/billing/invoices`; mismatches 0 |
+| Reusable errors | All seven common named components are referenced; semantic 402/502 placement corrected |
+| ADR registry | Blueprint and architecture decision IDs align 12/12; duplicate headings 0 |
+| Public-ID registry | All canonical and audited frontend prefixes classified; undocumented persistent 0; unclassified frontend 0 |
+| Contract map | No dangling DTO placeholders or nonexistent Core routes |
+| Payment lifecycle | `cancelled` and `partially_refunded` represented; provider mapping remains pending validation |
+| Money/currency | Effective regex, sibling currency mirrors, and authoritative precedence PASS |
+| Business invariants | Won Deal != Recognized Revenue; Billing != Customer CRM Revenue; Attribution separation — PASS |
+| Architecture regression | NONE |
+
+The current FIX.4 tree has documentation/OpenAPI modifications only and remains intentionally uncommitted, unpushed, and undeployed. B0 is not closed; B1 and backend implementation remain unauthorized. No frontend, dependency, lockfile, migration, provider, secret, or deployment file changed.
