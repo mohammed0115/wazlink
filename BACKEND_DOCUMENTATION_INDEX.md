@@ -44,6 +44,42 @@
 | `B0_BACKEND_TRACEABILITY.md` | B0 requirement traceability and implementation gate |
 | `B0_IMPLEMENTATION_REPORT.md` | factual B0/B0-FIX delivery evidence |
 
+## B1 — Tenant & Identity target design (additive; B0 unchanged)
+
+`Docs/backend/B1/` holds the B1 Tenant & Identity target-design package (revision **B1-FIX.1**). It is **additive**: it modifies no frozen B0 file, and B0 remains closed at `261ec27f84f337be0d9318141de260c8b9058a6b`.
+
+B1 declares **two target-contract amendments** to frozen B0, both decided and both requiring controlled CTO approval **before implementation**; B1 itself applies neither. See `Docs/backend/B1/B1_API_DTO_CONTRACTS.md` §1.1.
+
+| Frozen B0 | B1 target | Decision / execution |
+|---|---|---|
+| `POST /workspaces/{id}/invitations` → `201 Workspace` | → `201 Invitation` (new schema; no raw token in any response) | `B1-D-A22` / `B1-D-001` |
+| `Session.workspace_ref` required, non-nullable | required **and** nullable; `required` set unchanged | `B1-D-A23` / `B1-D-019` |
+
+| Document | Purpose |
+|---|---|
+| `Docs/backend/B1/B1_TENANT_IDENTITY_BLUEPRINT.md` | B1 scope, B0 inheritance, design principles, package map |
+| `Docs/backend/B1/B1_BASELINE_GAP_ANALYSIS.md` | reconstructed B0 + frozen-frontend truth and the 15-row gap matrix |
+| `Docs/backend/B1/B1_IDENTITY_DATA_MODEL.md` | logical schema for users, workspaces, memberships, invitations, sessions, roles |
+| `Docs/backend/B1/B1_WORKSPACE_MEMBERSHIP_MODEL.md` | Workspace, User, Membership, Invitation, and Owner semantics |
+| `Docs/backend/B1/B1_AUTH_SESSION_DESIGN.md` | authentication, sessions, active-workspace resolution and switching |
+| `Docs/backend/B1/B1_AUTHORIZATION_RBAC.md` | authorization pipeline, permission catalog and role matrix, resource-authorization doctrine |
+| `Docs/backend/B1/B1_ENTITLEMENT_QUOTA_BOUNDARY.md` | RBAC vs entitlement vs quota separation |
+| `Docs/backend/B1/B1_CONCURRENCY_IDEMPOTENCY.md` | identity race analysis and idempotency requirements |
+| `Docs/backend/B1/B1_API_DTO_CONTRACTS.md` | B1 API surface, DTOs, and error contract |
+| `Docs/backend/B1/B1_STATE_MACHINES.md` | Workspace, Membership, Invitation, Session, User state machines |
+| `Docs/backend/B1/B1_COMMAND_EVENT_CATALOG.md` | identity commands, events, payload and outbox rules |
+| `Docs/backend/B1/B1_SECURITY_THREAT_MODEL.md` | 26-threat identity threat model |
+| `Docs/backend/B1/B1_PRIVACY_AUDIT_MODEL.md` | identity data classification and audit record model |
+| `Docs/backend/B1/B1_FAILURE_SCENARIOS.md` | F1–F21 end-to-end failure scenarios |
+| `Docs/backend/B1/B1_ACCEPTANCE_TEST_MATRIX.md` | 150 deterministic acceptance criteria |
+| `Docs/backend/B1/B1_FRONTEND_TRACEABILITY.md` | frozen frontend to B1 target authority |
+| `Docs/backend/B1/B1_DECISION_REGISTER.md` | Class A/B/C decision register |
+| `Docs/backend/B1/B1_IMPLEMENTATION_READINESS.md` | readiness gates and consistency-validation evidence |
+
+Two public-ID prefixes (`MEM-`, `WINV-`) are **proposed/reserved** by B1. They are **not** registered canonical B0 prefixes: `BACKEND_PUBLIC_ID_REGISTRY.md` is unmodified and contains neither. Registration (`B1-D-002`, `B1-D-003`) is part of the same controlled pre-implementation amendment bundle, together with the membership partial-unique refinement to `BACKEND_DATA_MODEL.md` (`B1-D-021`). **No implementation may mint `MEM-*` or `WINV-*` until that bundle is applied.**
+
+B1 is design-only and grants no implementation authorization.
+
 ## Required next-phase gate
 
 Before implementation, resolve all items marked `PRODUCT DECISION REQUIRED`, `REQUIRES OFFICIAL ZATCA VALIDATION`, or `REQUIRES PROVIDER CONTRACT VALIDATION`; approve the API/DTO/ERD/OpenAPI/identity documents as frozen; then authorize Backend Architecture-to-Coding transition explicitly. This package contains no implementation. B0-FIX.3 repairs are documentation/contract-only and do not self-close B0.
