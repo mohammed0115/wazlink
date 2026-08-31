@@ -164,6 +164,34 @@ B3 mints **no new public-ID prefix** (`JOB-`, `RES-`, `BUS-` are already registe
 
 B3 is design-only and grants no implementation authorization.
 
+## B4 — AI Lead Intelligence target design — **DESIGN IN PROGRESS**
+
+> **B4 is NOT closed.** It is uncommitted and awaits an independent CTO audit. Nothing below is approved, and no implementation may act on it.
+
+`Docs/backend/B4/` holds the B4 AI Lead Intelligence target-design package — 30 documents. It is **additive**: it modifies no frozen B0, B1, B2, or B3 file. B0 remains closed at `261ec27f84f337be0d9318141de260c8b9058a6b`, B1 at `062975e3e6aa6ee314097a9a457f6383ebd56557`, B2 at `24643397254caac4117320df756d8bc164882635`, and B3 at `9a99019576943dffd5d52e6d747fefd7f7d538ec`.
+
+B4 sits between B3 (Discovery & Acquisition) and B2 (CRM/Lead 360): it converts a normalized Business into a five-component score, an independent confidence measure, evidence-backed signals, and a structured recommendation — never a copy of Business or Lead truth, never an executed action. It resolves the one open cross-domain question both B2 (`B2-D-B006`) and B3 (`B3-D-C011`) explicitly deferred to this phase: **intelligence attaches to Business, not Lead** — Lead 360 reads it live, keyed on `lead.business_id`, and never caches it, matching the frozen frontend's own explicit UI copy (`Lead360.tsx`).
+
+B4 declares a **5-operation, 5-decision amendment bundle** across **3 frozen packages**, all decided and all requiring CTO approval **before implementation**; B4 applies none. See `Docs/backend/B4/B4_CONTROLLED_AMENDMENTS.md`. Two items are non-additive, stated plainly rather than buried: frozen `lead_intelligence_analyses` is renamed and re-keyed to `intelligence_runs` (Business-keyed), and frozen event `LeadIntelligenceCompleted` is not emitted, superseded by additive `BusinessIntelligenceCompleted` — `AnalyzeLead` is retained as a thin, redefined Lead-context alias. B4's bundle was checked against B2's and B3's own amendment bundles for artifact overlap and found to collide with neither.
+
+| Frozen artifact | B4 target | Decision |
+|---|---|---|
+| `BACKEND_DATA_MODEL.md` | rename `lead_intelligence_analyses` → `intelligence_runs`, re-key `lead/input_fingerprint` → `business_id/input_hash` | `B4-D-A001` |
+| `BACKEND_DOMAIN_OWNERSHIP.md` | rename the Intelligence aggregate `LeadIntelligenceAnalysis` → `IntelligenceRun`, `BUS-*`-owned; port name `AI Gateway` kept unchanged | `B4-D-A002` |
+| `BACKEND_COMMAND_EVENT_CATALOG.md` | `AnalyzeLead` retained as a redefined Lead-context alias; `LeadIntelligenceCompleted` superseded by additive `BusinessIntelligenceCompleted`; additive `RequestBusinessIntelligence`, `ReanalyzeBusinessIntelligence`, `CancelIntelligenceRun`, `IntelligenceRunFailed`, `IntelligenceRunCancelled` | `B4-D-A027` |
+| `B1_AUTHORIZATION_RBAC.md` | add `intelligence.view`, `intelligence.run` — no existing B1 code covers this domain | `B4-D-A029` |
+| `BACKEND_PUBLIC_ID_REGISTRY.md` | reclassify `ANL-*` from §B (embedded-only) to §A (independently addressable) — not a new prefix | (data-model consequence of `B4-D-A001`) |
+
+Key B4 decisions: the **deterministic-first hard rule** — a fact the local data already proves reliably is never sent to a provider merely to restate it; the provider is called only for genuine judgement (e.g. website-quality) or presentation prose, and every response is validated against a strict, closed JSON schema before it can touch domain truth — no free-form provider output ever mutates a `Signal`, `Score`, or `Recommendation`. **Insufficient evidence is a first-class outcome**, not a forced low tier: `score=null`, no recommendation, an explicit reason code. **Confidence is independent of score** — a high score with low confidence, and the reverse, are both representable. **`IntelligenceRun` is immutable history**; the "current" pointer only ever advances to a strictly newer input snapshot, so a stale completion can never silently overwrite newer truth. B4 adopts frozen B0's own **"AI analysis — 60/hour/workspace"** verbatim (`B4-D-A017`) and closes, in this same pass rather than a later fix cycle, the exact class of gap an independent audit found in B3's retry model: a hard **20-item cap per batch-analyze request** (`B4-D-A019`) and a **3-attempt automatic transient-retry bound per run** (`B4-D-A018`), kept structurally distinct from the workspace admission counter. There is **no automatic/eager analysis trigger** in Phase 1 — every run is actor-initiated, closing the automatic-trigger-storm attack by construction.
+
+B4 needs **zero consumed events** — freshness and admissibility are computed from a direct, synchronous read of B3's own tables, not from event delivery, the strongest form of "no circular dependency" this corpus has stated. B4 never writes a B3 or B2 table. It never sends a message, creates a Deal, or triggers automation — it recommends, and every downstream domain (B5, B6, B7) decides independently whether to act; a future automation consumer may key only on versioned structured codes, never on prose. **No B4 field, event, or write path ever implies recognized or attributed revenue.**
+
+B4 mints **no new public-ID prefix** (`ANL-*` is reclassified, not invented), proposes **two new permission codes** (`intelligence.view`, `intelligence.run` — the first domain in this corpus with no reusable permission family), and **no new error code** (`NEW_ERROR_CODES = 0`). Eleven external-validation items (`B4-X-001`…`B4-X-011`) record provider and legal facts B4 must not invent — the chosen provider's structured-output mechanism, supported models, token limits, retention/data-usage terms, and Saudi data-residency implications inherited from B3's own unresolved `B3-X-008`. **No document in this package makes a legal compliance claim.**
+
+The frozen frontend's separate "S8 Sales Copilot / governed Agent" subsystem (`sales-ai.js`) was traced and found real, but is explicitly **out of B4's scope** — it needs Lead, Conversation, Deal, and Task simultaneously, none of which except Lead exist as designed backend domains yet, and is recorded as a forward dependency (`B4-D-C002`) rather than designed here.
+
+B4 is design-only and grants no implementation authorization.
+
 ## Required next-phase gate
 
 Before implementation, resolve all items marked `PRODUCT DECISION REQUIRED`, `REQUIRES OFFICIAL ZATCA VALIDATION`, or `REQUIRES PROVIDER CONTRACT VALIDATION`; approve the API/DTO/ERD/OpenAPI/identity documents as frozen; then authorize Backend Architecture-to-Coding transition explicitly. This package contains no implementation. B0-FIX.3 repairs are documentation/contract-only and do not self-close B0.
