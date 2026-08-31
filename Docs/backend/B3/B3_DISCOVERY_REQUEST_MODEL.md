@@ -10,9 +10,10 @@ A Discovery request is the complete, immutable statement of search intent. It is
 |---|---|---|---|---|
 | `workspace_id` | UUID | yes | authorization context (B1) | never client-supplied; `B3-INV-1` |
 | `actor_membership_ref` | `MEM-*` | yes | authorization context (B1) | the member who submitted; B1 owns the identity |
-| `keywords` | array of text | yes, 1..10 | request body | normalized per §2 |
-| `locations` | array of text | yes, 1..10 | request body | normalized per §2 |
-| `provider_source` | text | yes | request body | a plain contract string, not an `EntityRef` (frozen registry §B) |
+| `keywords` | array of text | yes, 1..10, unless `query` supplied alone | request body | normalized per §2; canonical/legacy resolution in `B3_API_DTO_CONTRACTS.md` §3.1.2 |
+| `locations` | array of text | yes, 1..10, unless `query` supplied alone | request body | normalized per §2; canonical/legacy resolution in `B3_API_DTO_CONTRACTS.md` §3.1.2 |
+| `query` | text | no — deprecated compatibility alias | request body | frozen field, retained; single-combination legacy input only; never a second source of truth alongside `keywords`/`locations` (`B3_API_DTO_CONTRACTS.md` §3.1.2) |
+| `provider_source` | text | **no** | request body | a plain contract string, not an `EntityRef` (frozen registry §B); frozen requiredness unchanged — `provider_source` was never in frozen `required: [query]`; resolved when omitted per `B3_API_DTO_CONTRACTS.md` §3.1.3 |
 | `filters` | object | no (defaults apply) | request body | the closed set in §3 |
 | `result_limit` | integer | no, default 2000 | request body | one of `{500, 1000, 2000}` — the frozen frontend allow-list (`Discovery.tsx:130-138`) |
 | `requested_at` | timestamptz | yes | **server clock at admission** | never client-supplied |
@@ -152,7 +153,7 @@ These bounds exist to make combinatorial explosion **structurally impossible**, 
 | results per job | ≤ `result_limit` | ingestion stops; job ends `completed` with `completion_kind = truncated` |
 | discovery submissions | 10/hour/workspace | `429` with `Retry-After` (frozen `BACKEND_RATE_LIMIT_POLICY.md`) |
 
-The composite ceiling is the one that matters: **50 combinations × 5 pages = 250 provider calls per job attempt, absolutely**, before any per-provider page-size effect. Multiplied by the frozen 10-submissions-per-hour rate limit, a single workspace's worst-case hourly provider fan-out is bounded and computable in advance — which is the property `B3-INV-11` asserts.
+The composite ceiling is the one that matters: **50 combinations × 5 pages = 250 provider calls per job attempt, absolutely**, before any per-provider page-size effect. A Job attempt is itself bounded — `MAX_JOB_ATTEMPTS = 3` (`B3-D-A031`, `B3_JOB_STATE_MACHINE.md` §3.2) — so this per-attempt figure, the per-Job figure across every actor retry, and the resulting hourly-per-workspace worst case (including frozen B0's automatic transient-retry amplification) are derived together in `B3_QUOTA_COST_CONTROL.md` §5.1. The property asserted throughout is `B3-INV-11`: every provider-facing path terminates within a finite, computable-in-advance bound.
 
 Note that `10 × 10 = 100` exceeds the combination cap of 50. This is intentional and not an oversight: the per-axis limits bound *input size* for validation and display, while the product bound governs *cost*. A request of 10 keywords × 10 locations is rejected with the combination-limit error, and the error names the count and the maximum so the user can reduce either axis.
 
@@ -163,9 +164,9 @@ Ordered, and the order is part of the contract — each step is cheaper than the
 1. **Authentication** — session (ADR-009). Failure: `401 AUTH_REQUIRED`.
 2. **Authorization** — `discovery.run` (B1). Failure: `403 PERMISSION_DENIED`.
 3. **Rate limit** — 10/hour/workspace. Failure: `429` + `Retry-After`.
-4. **Transport validation** — shape, types, closed sets, §7 bounds. Failure: `400 VALIDATION_ERROR`.
-5. **Normalization and duplicate collapse** — §2. Re-checks §7 bounds against the *collapsed* arrays, so `["a","A"] × 10 locations` is measured as 10 combinations, not 20.
-6. **Source resolution** — `provider_source` must be a known, dispatchable source. A `mock`-status source is rejected `422 VALIDATION_ERROR`, `details.reason = "source_not_dispatchable"`.
+4. **Transport validation** — shape, types, closed sets, §7 bounds; resolves the `query`/`keywords`/`locations` compatibility rule (`B3_API_DTO_CONTRACTS.md` §3.1.2) into a canonical `keywords[]`/`locations[]` pair before any later step runs. Failure: `400 VALIDATION_ERROR`, including `query_and_arrays_conflict`.
+5. **Normalization and duplicate collapse** — §2, over the canonical arrays resolved in step 4. Re-checks §7 bounds against the *collapsed* arrays, so `["a","A"] × 10 locations` is measured as 10 combinations, not 20.
+6. **Source resolution** — if `provider_source` is supplied, it must be a known, dispatchable source; a `mock`-status or unknown source is rejected `422 VALIDATION_ERROR`, `details.reason = "source_not_dispatchable"`. If `provider_source` is omitted, it is resolved per `B3_API_DTO_CONTRACTS.md` §3.1.3 — accepted only when exactly one dispatchable source exists, otherwise `400`/`422` as that section specifies. `provider_source` is optional at the schema level (frozen requiredness unchanged; `B3_API_DTO_CONTRACTS.md` §3.1).
 7. **Duplicate-request suppression** — §4. Failure: `409 CONFLICT`.
 8. **Entitlement** — capability `discovery.basic`. Failure: `403 ENTITLEMENT_LOCKED`.
 9. **Quota reservation** — one `discoveryRuns` unit, on a locked `usage_counters` row. Failure: `403 QUOTA_EXHAUSTED`.

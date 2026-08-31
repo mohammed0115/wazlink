@@ -27,6 +27,16 @@
 | AT-REQ-19 | same | submit an unknown filter key | `400` — no opaque passthrough | B3-INV-3 |
 | AT-REQ-20 **NC** | same | an implementation that dispatches the **normalized** key to the provider | AT-REQ-14 fails — over-normalization changed search semantics | B3-D-A004 |
 | AT-REQ-21 **NC** | same | an implementation that counts combinations **before** duplicate collapse | AT-REQ-4 fails — duplicates inflate cost | B3-INV-11 |
+| AT-REQ-22 (NEW-1) | authorized member | submit `keywords: ["a","b"], locations: ["x"]`, no `query` | `202`; canonical K×L path; `combination_count = 2` | API §3.1 |
+| AT-REQ-23 (NEW-2) | same | submit 3 keywords × 4 locations, no `query` | 12 `discovery_queries` rows, deterministic `(keyword_index, location_index)` order | §5 |
+| AT-REQ-24 (LEGACY-1) | same | submit `query: "restaurant"`, `locations: ["الرياض"]`, no `keywords` | accepted; `keywords = ["restaurant"]`; exactly the compatibility rule of `B3_API_DTO_CONTRACTS.md` §3.1.2 | API §3.1.2 |
+| AT-REQ-25 (LEGACY-1b) | same | submit `query: "restaurant"` only, no `locations` | `400 VALIDATION_ERROR`, `details.field="locations"` — `query` supplies only the keyword axis | API §3.1.2 |
+| AT-REQ-26 (MIXED-1) | same | submit `query`, `keywords[]`, **and** `locations[]` together | `400 VALIDATION_ERROR`, `details.reason="query_and_arrays_conflict"` — rejected, never silently prioritized | API §3.1.2 |
+| AT-REQ-27 (MIXED-1b) | same | submit `query` + `keywords[]` only (no `locations[]`) | `400 VALIDATION_ERROR`, `details.reason="query_and_arrays_conflict"` | API §3.1.2 |
+| AT-REQ-28 (INVALID-1) | same | submit neither `query` nor `keywords`/`locations` | `400 VALIDATION_ERROR`, `details.field="keywords"` — no canonical or legacy input present | API §3.1.2 |
+| AT-REQ-29 (INVALID-2) | same | submit `keywords: []`, `locations: []`, no `query` | `400 VALIDATION_ERROR` — the existing empty-array bound, exercised with `query` absent | AT-REQ-1/2 |
+| AT-REQ-30 **NC** (KXL negative control) | — | an implementation that derives multiple keywords or locations by splitting a scalar `query` (e.g. on whitespace) to approximate K×L | AT-REQ-24 fails — the frozen frontend's arrays, not a guessed split, are the only canonical K×L source; a query-only request is exactly one combination, never more | API §3.1.2 |
+| AT-REQ-31 **NC** | — | an implementation that rejects a valid request because `provider_source` is omitted while exactly one dispatchable source exists | AT-ADM (below) and API §3.1.3 fail — `provider_source` is optional, not required, and the frozen schema never required it | API §3.1.3 |
 
 ## 2. Query expansion — AT-EXP
 
@@ -67,6 +77,9 @@
 | AT-ADM-8 | crash between reservation and job insert | recover | neither exists — one transaction | §8 |
 | AT-ADM-9 | rate limit exceeded | submit | `429` before any entitlement or quota call | §8 ordering |
 | AT-ADM-10 **NC** | — | an implementation reserving quota before validation | AT-ADM-6 fails | B3-INV-10 |
+| AT-ADM-11 | `provider_source` omitted; exactly one dispatchable source in the catalog | submit | `202` — accepted; the sole dispatchable source is used | API §3.1.3 |
+| AT-ADM-12 | `provider_source` omitted; two or more dispatchable sources in the catalog | submit | `400 VALIDATION_ERROR`, `details.field="provider_source"` — B3 does not guess | API §3.1.3 |
+| AT-ADM-13 **NC** | — | an implementation rejecting every request that omits `provider_source`, treating it as required | AT-ADM-11 fails — `provider_source` is optional; the frozen schema never required it and B3 adds no such requirement | API §3.1 |
 
 ## 5. Job state machine — AT-STATE
 
@@ -82,7 +95,7 @@
 | AT-STATE-8 | `cancelled` | retry | → `pending` | §3 |
 | AT-STATE-9 | any job | inspect state within one attempt | monotonic; never moves backwards | §3.1 |
 | AT-STATE-10 | job cancelled | inspect `completed_at` | `null` | §8 |
-| AT-STATE-11 | job completed | inspect `created_at` after a retry | **unchanged** — retry never resets creation | §3.2 |
+| AT-STATE-11 | job completed | inspect `created_at` after a retry | **unchanged** — retry never resets creation | §3.3 |
 | AT-STATE-12 **NC** | — | an implementation adding a 6th state `partially_completed` | AT-STATE-1 fails; and results become invisible for it | B3-INV-9 |
 
 ## 6. Progress and counters — AT-PROG
@@ -96,7 +109,7 @@
 | AT-PROG-5 | any job, any state | check counters | `found − duplicate = deduplicated` | data model §2 |
 | AT-PROG-6 | duplicate absorbed | check counters | `found` and `duplicate` both advance; `deduplicated` unchanged | §4.1 |
 | AT-PROG-7 | record rejected for missing identity | check counters | none of the three advances — it never became a result | quality §4 |
-| AT-PROG-8 | retry | check counters | reset to 0 at the new attempt | §3.2 |
+| AT-PROG-8 | retry | check counters | reset to 0 at the new attempt | §3.3 |
 | AT-PROG-9 | duplicate page absorbed | check counters | **no** counter advances | idem layer 6 |
 | AT-PROG-10 | any job | read `query_executions` | one entry per combination of the current attempt, each with an outcome | API §4.2 |
 
@@ -152,16 +165,35 @@
 |---|---|---|---|---|
 | AT-RETRY-1 | `failed` | retry | `202`; `pending`; **same `JOB-*`** | frontend #37 |
 | AT-RETRY-2 | same | inspect quota | **no second `discoveryRuns` unit** | **B3-INV-10** |
-| AT-RETRY-3 | same | inspect the request | keywords, locations, filters, source, limit **unchanged** | §3.2 |
-| AT-RETRY-4 | same | inspect counters and progress | reset to 0 | §3.2 |
-| AT-RETRY-5 | same | inspect prior `discovery_results` | **retained** | §3.2 |
-| AT-RETRY-6 | same | inspect prior execution rows | retained with their original `attempt_no` | §3.2 |
+| AT-RETRY-3 | same | inspect the request | keywords, locations, filters, source, limit **unchanged** | §3.3 |
+| AT-RETRY-4 | same | inspect counters and progress | reset to 0 | §3.3 |
+| AT-RETRY-5 | same | inspect prior `discovery_results` | **retained** | §3.3 |
+| AT-RETRY-6 | same | inspect prior execution rows | retained with their original `attempt_no` | §3.3 |
 | AT-RETRY-7 | retry re-observes the same Business | inspect | **no** duplicate Business; a **new** `discovery_results` row against the new execution | B3-INV-4 |
 | AT-RETRY-8 | `completed` | retry | `409 job_not_retryable` | §3 |
 | AT-RETRY-9 | stale `version` | retry | `409 STALE_VERSION`; no double execution | R-11 |
 | AT-RETRY-10 | member with exhausted quota, `failed` job | retry | **allowed** — retry consumes no quota | authz §3 |
 | AT-RETRY-11 **NC** | — | an implementation charging a quota unit per retry | AT-RETRY-2 and AT-RETRY-10 fail | B3-INV-10 |
 | AT-RETRY-12 **NC** | — | an implementation minting a new `JOB-*` on retry | AT-RETRY-1 fails — the frozen frontend navigates to the same id | frontend #37 |
+| AT-RETRY-13 (A) | `attempt_no = 1`, `failed` | retry | accepted; `attempt_no = 2` | **B3-D-A031** |
+| AT-RETRY-14 (B) | `attempt_no = 2`, `failed` | retry | accepted; `attempt_no = 3` | **B3-D-A031** |
+| AT-RETRY-15 (C) | `attempt_no = 3`, `failed` or `cancelled` | retry | **rejected** — `409 CONFLICT`, `details.reason="attempt_limit_reached"`, `details.attempt_no=3`, `details.max_job_attempts=3` — **before** any execution is claimed, any provider is called, or any quota/provider-cost side effect occurs | **B3-D-A031** |
+| AT-RETRY-16 (D) | `pending` | cancel (→`attempt_no=1` `cancelled`), retry (→`attempt_no=2` `pending`), cancel (→`attempt_no=2` `cancelled`), retry (→`attempt_no=3` `pending`), cancel (→`attempt_no=3` `cancelled`), retry | first two retries accepted; the **third** retry (targeting a job already at `attempt_no=3`) is rejected exactly as AT-RETRY-15 — a fourth attempt is structurally impossible regardless of how many cancellations intervene | **B3-D-A031**, `B3_JOB_STATE_MACHINE.md` §3.2 |
+| AT-RETRY-17 (E) | `attempt_no = 1`, `failed`, two concurrent `RetryDiscoveryJob` requests | both submitted simultaneously | exactly **one** wins and opens `attempt_no = 2`; the other observes a stale `version` and receives `409 STALE_VERSION` — **never** two executions opened, never `attempt_no = 3` after one retry | R-11, **B3-D-A031** |
+| AT-RETRY-18 (F) | execution retrying transiently (e.g. a provider timeout, attempt 3 of 5 under frozen B0) | observe | `discovery_query_executions.retry_count` advances; `discovery_jobs.attempt_no` **does not change** — automatic transient retry never opens a new Job attempt | `B3_RETRY_FAILURE_MODEL.md` §1 |
+| AT-RETRY-19 (G) | `attempt_no < 3`, member with exhausted `discoveryRuns` quota | retry | **allowed** — no second commercial quota unit is consumed (§4), while the retried attempt's provider work remains bounded by §5's 250-call-per-attempt ceiling regardless of quota state | B3-INV-10, `B3_QUOTA_COST_CONTROL.md` §5 |
+| AT-RETRY-20 **NC** (H) | — | an implementation with no `MAX_JOB_ATTEMPTS` bound at all — `RetryDiscoveryJob` accepted unconditionally from `failed`/`cancelled` regardless of `attempt_no` | AT-RETRY-15, AT-RETRY-16, and AT-RETRY-17 all fail — `create → execute → cancel → retry` becomes an unbounded provider-cost loop, the exact defect `B3-D-A031` exists to close | **B3-D-A031**, B3-INV-11 |
+| AT-RETRY-21 (RR-1) | workspace has 0 admitted actor retries in the current rolling hour; 9 distinct, otherwise-valid retry requests submitted sequentially | retry ×9 | all 9 accepted — `202` each, `attempt_no` increments each time, the workspace counter reaches 9/10 | **B3-D-A032** |
+| AT-RETRY-22 (RR-2) | workspace at 9 admitted actor retries in the rolling hour | 10th distinct, otherwise-valid retry request | accepted — `202`, `attempt_no` increments, counter reaches 10/10 | **B3-D-A032** |
+| AT-RETRY-23 (RR-3) | workspace at 10 admitted actor retries in the rolling hour | 11th distinct retry request | **rejected** — `429`, `details.reason="actor_retry_rate_limited"` — before `attempt_no` increments and before any provider-facing side effect | **B3-D-A032** |
+| AT-RETRY-24 (RR-4) | same as AT-RETRY-23 | inspect the targeted job after rejection | `attempt_no` **unchanged** from its pre-request value; job status unchanged | **B3-D-A032** |
+| AT-RETRY-25 (RR-5) | a retry request already admitted under `Idempotency-Key K` | the same request replayed under key `K` | the stored `202` is replayed from idempotency layer 1; **no second slot consumed**; workspace counter unchanged | **B3-D-A032**, `B3_IDEMPOTENCY_CONCURRENCY.md` layer 1 |
+| AT-RETRY-26 (RR-6) | two distinct, otherwise-valid retry requests (different jobs or different idempotency keys) | submit both | both accepted; the workspace counter advances by exactly **2** | **B3-D-A032** |
+| AT-RETRY-27 (RR-7) | workspace at 9 admitted actor retries in the rolling hour; 5 concurrent distinct retry requests submitted simultaneously | submit all 5 at once | exactly **1** of the 5 is admitted (reaching 10/10); the other 4 are rejected `429` — never 11 or more admitted, even under concurrency | **B3-D-A032**, R-11 |
+| AT-RETRY-28 (RR-8) | workspace has accumulated **1,000** retry-eligible `failed`/`cancelled` Jobs over many prior days, each created under the unrelated 10/hour `CreateDiscoveryJob` cap on its own admission day | at hour H, actor issues `RetryDiscoveryJob` against all 1,000 | **at most 10** are admitted within hour H's rolling window; the remaining ~990 are rejected `429` before `attempt_no` increments and before any provider-facing side effect — the historical-burst attack closed | **B3-D-A032** |
+| AT-RETRY-29 (RR-9) | workspace has consumed its full 10/hour `CreateDiscoveryJob` submission budget | actor retries an eligible `failed`/`cancelled` job | retry is evaluated against the independent retry counter only — a full Create budget does not block a Retry, and (symmetrically) a full Retry budget does not block a new `CreateDiscoveryJob` submission | **B3-D-A032**, `B3-D-A018` |
+| AT-RETRY-30 (RR-10) | execution retrying transiently under frozen B0 (e.g. a provider timeout) | observe | the automatic transient retry consumes **no** actor-retry rate-limit slot — `discovery_retry_admission_total` does not advance | **B3-D-A032**, `B3_RETRY_FAILURE_MODEL.md` §1 |
+| AT-RETRY-31 **NC** (RR-NC) | — | an implementation enforcing `MAX_JOB_ATTEMPTS = 3` per Job but with **no** workspace/hour actor-retry limiter at all | AT-RETRY-28 fails — all 1,000 accumulated jobs retry successfully, reproducing the unbounded hourly-burst defect `B3-D-A032` exists to close | **B3-D-A032**, B3-INV-11 |
 
 ## 11. Business identity — AT-ID
 
@@ -407,6 +439,8 @@
 | AT-B2-11 | any B3 output | search for a CRM timeline entry or a `source_domain` claim | absent; Discovery is not in `{messaging, pipeline}` | **B3-INV-14** |
 | AT-B2-12 | the frozen B2 corpus | diff against the B2 checkpoint | **unchanged**; `B2_DRIFT = 0` | boundary §7 |
 | AT-B2-13 **NC** | — | an implementation reading CRM to filter rediscovery events | AT-B2-6 fails — the dependency direction inverts | domain §5 |
+| AT-B2-14 | B2's `BACKEND_API_CATALOG.md` amendment applied, then B3's | inspect the resulting allow-list sentence | `GET /api/v1/leads` and `GET /api/v1/tasks` (B2) **and** `GET /api/v1/discovery/jobs` (B3) all present together | `B3_CONTROLLED_AMENDMENTS.md` §6.1 |
+| AT-B2-15 **NC** | — | an implementation applying B3's `BACKEND_API_CATALOG.md` amendment against the pre-B2 frozen sentence, producing an allow-list of only `deals`, `billing/invoices`, and `discovery/jobs` | AT-B2-14 fails — `GET /leads` and `GET /tasks` silently disappear from the effective catalog; `B2_AMENDMENT_REVERSION_PATHS` becomes nonzero | `B3_CONTROLLED_AMENDMENTS.md` §6 |
 
 ## 25. B4 handoff — AT-B4
 
@@ -497,11 +531,13 @@
 
 | Metric | Value |
 |---|---|
-| `ACCEPTANCE_TEST_COUNT` | **344** |
+| `ACCEPTANCE_TEST_COUNT` | **378** |
 | `ACCEPTANCE_CATEGORY_COUNT` | **29** |
 | `DUPLICATE_ACCEPTANCE_TESTS` | **0** |
-| Negative controls | **22** |
+| Negative controls | **28** |
 
-Every Class A frontend behavior in `B3_FRONTEND_TRACEABILITY.md` §2, every invariant in `B3_DISCOVERY_BLUEPRINT.md` §4, every Class A decision in `B3_DECISION_REGISTER.md` §1, and every scenario in `B3_FAILURE_SCENARIOS.md` maps to at least one row above.
+Recomputed mechanically after B3-FIX.2 (`grep -c` over `^\| AT-` rows, `**NC**` markers, and `##` category headings — §26/§21 of the audits). B3-FIX.1 added 23 rows across four existing categories (AT-REQ, AT-ADM, AT-RETRY, AT-B2) and 0 new categories: `344 → 367`; negative controls `22 → 27`. B3-FIX.2 added 11 rows (RR-1…RR-10 plus one negative control, AT-RETRY-21…31) to the existing AT-RETRY category for the workspace/hour actor-retry rate limiter `B3-D-A032`, and 0 new categories: `367 → 378`; negative controls `27 → 28`.
 
-**Negative controls exist for each defect most likely to be implemented by accident:** over-normalized dispatch (AT-REQ-20), pre-collapse combination counting (AT-REQ-21), unbounded pages (AT-BOUND-9), quota before validation (AT-ADM-10), a sixth job state (AT-STATE-12), streaming partial results (AT-VIS-11), failing a job on one failed execution (AT-PART-9), releasing quota after provider spend (AT-CAN-11), charging quota per retry (AT-RETRY-11), a new job ID on retry (AT-RETRY-12), a provider-only identity key (AT-ID-11), a scalar `discovery_job_id` (AT-ID-12), name-similarity auto-merge (AT-DEDUP-13), single-signal auto-link (AT-DEDUP-14), deleting a merged Business (AT-MERGE-14), a provider-supplied `discovered_at` (AT-PROV-13), pre-check-without-constraint (AT-IDEM-12), a leaked provider cursor (AT-PAGE-13), retrying a validation failure (AT-FAIL-14), zero-defaulted unknown cost (AT-QUOTA-13), CRM reads on the ingestion path (AT-B2-13), and null-overwriting refresh (AT-NORM-15).
+Every Class A frontend behavior in `B3_FRONTEND_TRACEABILITY.md` §2, every invariant in `B3_DISCOVERY_BLUEPRINT.md` §4, every Class A decision in `B3_DECISION_REGISTER.md` §1 (including `B3-D-A031` and `B3-D-A032`), and every scenario in `B3_FAILURE_SCENARIOS.md` maps to at least one row above.
+
+**Negative controls exist for each defect most likely to be implemented by accident:** over-normalized dispatch (AT-REQ-20), pre-collapse combination counting (AT-REQ-21), a guessed K×L split from scalar `query` (AT-REQ-30), treating `provider_source` as required (AT-REQ-31, AT-ADM-13), unbounded pages (AT-BOUND-9), quota before validation (AT-ADM-10), a sixth job state (AT-STATE-12), streaming partial results (AT-VIS-11), failing a job on one failed execution (AT-PART-9), releasing quota after provider spend (AT-CAN-11), charging quota per retry (AT-RETRY-11), a new job ID on retry (AT-RETRY-12), no `MAX_JOB_ATTEMPTS` bound at all (AT-RETRY-20), no workspace/hour actor-retry limiter at all (AT-RETRY-31), a provider-only identity key (AT-ID-11), a scalar `discovery_job_id` (AT-ID-12), name-similarity auto-merge (AT-DEDUP-13), single-signal auto-link (AT-DEDUP-14), deleting a merged Business (AT-MERGE-14), a provider-supplied `discovered_at` (AT-PROV-13), pre-check-without-constraint (AT-IDEM-12), a leaked provider cursor (AT-PAGE-13), retrying a validation failure (AT-FAIL-14), zero-defaulted unknown cost (AT-QUOTA-13), CRM reads on the ingestion path (AT-B2-13), a pre-B2 amendment application that reverts `GET /leads`/`GET /tasks` (AT-B2-15), and null-overwriting refresh (AT-NORM-15).

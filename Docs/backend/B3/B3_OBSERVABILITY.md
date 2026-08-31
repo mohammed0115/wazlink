@@ -27,6 +27,8 @@ The last row exists because every failure mode in this design is *designed to be
 | `discovery_jobs_failed_total` | counter | workspace, `failure_code` |
 | `discovery_jobs_cancelled_total` | counter | workspace, `cancelled_from` |
 | `discovery_jobs_retried_total` | counter | workspace |
+| `discovery_retry_admission_total` | counter | workspace — **successfully admitted `RetryDiscoveryJob` operations, consuming one `B3-D-A032` slot** |
+| `discovery_retry_rate_limited_total` | counter | workspace — **rejections at the workspace/hour actor-retry limiter (`B3-D-A032`)**, before `attempt_no` increment |
 | `discovery_job_duration_seconds` | histogram | `completion_kind` |
 | `discovery_jobs_running` | gauge | workspace |
 

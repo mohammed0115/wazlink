@@ -69,9 +69,13 @@ Permission `discovery.view`. Cursor-paginated. Accepts the allow-listed `filters
 | Concurrency | **`If-Match` on the job `version`** (ADR-010) |
 | Request | `DiscoveryJobRetryRequest` |
 | Success | **`202`** → `DiscoveryJob` (the job is back in `pending`) |
-| Errors | `401` · `403 PERMISSION_DENIED` · `404` · `409 CONFLICT` (`details.reason = "job_not_retryable"`, `details.job_status`) · `409 STALE_VERSION` · `429` · `500` |
+| Errors | `401` · `403 PERMISSION_DENIED` · `404` · `409 CONFLICT` (`details.reason = "job_not_retryable"`, `details.job_status`) · `409 CONFLICT` (`details.reason = "attempt_limit_reached"`, `details.attempt_no`, `details.max_job_attempts`) · `409 STALE_VERSION` · `429` (`details.reason = "actor_retry_rate_limited"`, `Retry-After`) · `500` |
 
 Retryable only from `failed` or `cancelled`. A retry of a `completed` job is `409 job_not_retryable` — matching the frozen frontend, which offers retry for exactly `["failed","cancelled"]`. **No quota is consumed** (`B3-INV-10`).
+
+**Bounded to `MAX_JOB_ATTEMPTS = 3`** (`B3-D-A031`). A retry of a job already at `attempt_no = 3` is `409 attempt_limit_reached`, rejected before any execution is claimed, any provider is called, or any quota/provider-cost side effect occurs — the same architectural bound that closes `create → execute → cancel → retry` as an unbounded-cost loop (`B3_JOB_STATE_MACHINE.md` §3.2, `B3_QUOTA_COST_CONTROL.md` §5.1).
+
+**Bounded to `MAX_ACTOR_RETRY_REQUESTS_PER_WORKSPACE_PER_HOUR = 10`** (`B3-D-A032`, B3-FIX.2). Independent of the `attempt_limit_reached` check above and evaluated immediately after it: once a workspace has 10 successfully admitted `RetryDiscoveryJob` operations within the current rolling hour, the 11th is `429` with `details.reason = "actor_retry_rate_limited"`, reusing frozen B0's generic `RateLimited` response — no new error code — rejected before `attempt_no` increments and before any provider-facing side effect (`B3_JOB_STATE_MACHINE.md` §3.2.1). A request replayed under the same `Idempotency-Key` as an already-admitted retry consumes no second slot.
 
 ### 2.6 `POST /discovery/jobs/{id}/cancel` — `cancelDiscoveryJob`
 
@@ -100,17 +104,47 @@ Permission `discovery.view`. `200` → `Business` (the frozen schema, unchanged)
 
 | Field | Type | Req | Constraint |
 |---|---|:--:|---|
-| `keywords` | `[string]` | **yes** | 1..10, each 1..120 chars after normalization |
-| `locations` | `[string]` | **yes** | 1..10, each 1..120 chars after normalization |
-| `provider_source` | `string` | **yes** | a known dispatchable source (frozen field) |
-| `filters` | `DiscoveryFilters` | no | the closed set of §3.1.1 |
+| `keywords` | `[string]` | **yes**, unless `query` is supplied alone (§3.1.2) | 1..10, each 1..120 chars after normalization |
+| `locations` | `[string]` | **yes**, unless `query` is supplied alone (§3.1.2) | 1..10, each 1..120 chars after normalization |
+| `query` | `string` | no — **deprecated compatibility alias** | frozen field, retained; single-combination only; see §3.1.2 for exact resolution rules |
+| `provider_source` | `string` | **no** | a known dispatchable source (frozen field, frozen requiredness — **not** in frozen `required: [query]`, and B3 does not add it); if omitted, resolved per §3.1.3 |
+| `filters` | `DiscoveryFilters` | no | the closed set of §3.1.4 |
 | `result_limit` | `integer` | no | ∈ {500, 1000, 2000}, default 2000 |
 
-Cross-field: `|keywords| × |locations| ≤ 50` after duplicate collapse.
+Cross-field: `|keywords| × |locations| ≤ 50` after duplicate collapse, over the *canonical* K/L set resolved per §3.1.2.
 
-The frozen schema has `query: string` (required) plus `provider_source`. **`query` cannot express K keywords × L locations**, which is the frontend's central capability (`Discovery.tsx:264-294`, helper text at `:269`), so replacing it is unavoidable — registered as `B3-D-B001` with `query` retained as a deprecated single-combination alias so the change is additive in effect: a request carrying only `query` is interpreted as `keywords=[query]`, `locations` required.
+**This is a non-additive, compatibility-breaking-at-schema-requiredness change, stated plainly rather than labeled additive.** Frozen `BACKEND_OPENAPI_V1.yaml` declares `DiscoveryJobCreate` as `{ query: string, provider_source: string }` with `required: [query]`. B3's target `required` set is `[keywords, locations]` — `query` moves from required to an optional deprecated alias. This changes what a conformant request must contain; it is made **additive in effect**, not additive in schema, by the deterministic compatibility rule of §3.1.2: `query` is retained (not removed), a `query`-only request continues to be accepted, and `DiscoveryJob.query` in the response continues to be populated (§4.1) so the frozen response `required: [public_id, status, query]` remains satisfiable. **`query` cannot express K keywords × L locations** — the frontend's central capability (`Discovery.tsx:264-294`, helper text at `:269`) — so replacing it as the primary input is unavoidable; this is registered as `B3-D-B001` and stated here, not buried in a schema diff.
 
-#### 3.1.1 `DiscoveryFilters`
+#### 3.1.2 The `query` compatibility rule — deterministic for every combination
+
+A scalar `query` cannot reconstruct an arbitrary K×L plan, so B3 does not attempt to derive multiple keywords or locations from it. The rule is total over every input shape a client can send:
+
+| Input | Resolution | Result |
+|---|---|---|
+| `keywords[]` + `locations[]`, no `query` | **canonical.** `query` is ignored because it is absent | the K×L plan the arrays describe |
+| `query` only, no `keywords`/`locations` | **legacy single-combination.** `keywords = [query]`, `locations` is **required** — omitting it is `400 VALIDATION_ERROR`, `details.field = "locations"` | exactly one combination: `(query, locations[0])` if `locations` has one entry, or the K×L product if the caller also sends multiple `locations` alongside a scalar `query` acting as the sole keyword |
+| `query` + `keywords[]` + `locations[]` (all three) | **conflicting sources of truth — rejected**, not silently resolved by precedence | `400 VALIDATION_ERROR`, `details.reason = "query_and_arrays_conflict"`, `details.field = "query"` — the client must send either the legacy scalar or the canonical arrays, never both |
+| `query` + `keywords[]` only (no `locations`) | **rejected**, same conflict rule — `query` cannot silently supply the missing `locations` axis, and mixing a legacy scalar with one canonical array invents a cross-format meaning this design refuses to guess | `400 VALIDATION_ERROR`, `details.reason = "query_and_arrays_conflict"` |
+| `query` + `locations[]` only (no `keywords`) | same conflict rule | `400 VALIDATION_ERROR`, `details.reason = "query_and_arrays_conflict"` |
+| `query` empty/blank, no arrays | fails normalization step 5 like any blank keyword | `400 VALIDATION_ERROR`, `details.field = "keywords[0]"` |
+| `keywords: []` or `locations: []`, no `query` | fails the existing 1..10 bound | `400 VALIDATION_ERROR`, `details.field = "keywords"` or `"locations"` |
+
+**Why "both present" is rejected rather than prioritized.** A precedence rule (e.g. "arrays win") would let a client send a stale `query` that silently disagrees with `keywords`/`locations` and never find out — exactly the two-competing-sources-of-truth failure mode §13 of this repair exists to close. Rejecting the ambiguous case keeps `DiscoveryJobCreate` with exactly one deterministic source of K×L truth per request, and it does not weaken the K×L contract the frozen frontend already relies on: the frontend never sends `query` at all (`Discovery.tsx` builds `keywords[]`/`locations[]` directly), so this rule is reached only by a legacy or hand-built caller.
+
+#### 3.1.3 `provider_source` omission — resolved without inventing a second default
+
+`provider_source` is optional (§3.1), matching frozen `BACKEND_OPENAPI_V1.yaml`'s `required: [query]`, which never listed it. B3 defines no automatic multi-source selection policy — no B3 document names one, and inventing a "pick the cheapest/best provider" algorithm here would be exactly the kind of guessed behavior this package refuses to add. The admission-time rule is therefore the one already implied by "a known dispatchable source" (§8 step 6) plus the closed `discovery_sources` catalogue:
+
+| Condition | Resolution |
+|---|---|
+| `provider_source` supplied | resolved and validated as today — `422 source_not_dispatchable` if unknown or `status="mock"` |
+| `provider_source` omitted, exactly **one** dispatchable (`status="active"`) source exists in the catalogue | that source is used — the omission is unambiguous, not a guess |
+| `provider_source` omitted, **more than one** dispatchable source exists | `400 VALIDATION_ERROR`, `details.field = "provider_source"` — B3 does not choose on the caller's behalf |
+| `provider_source` omitted, **zero** dispatchable sources exist | `422 VALIDATION_ERROR`, `details.reason = "source_not_dispatchable"`, matching the existing unknown-source outcome |
+
+This keeps the field schema-optional exactly as frozen, requires no new default-selection business logic, and fails closed (a validation error, never a silent guess) the one time omission would actually be ambiguous.
+
+#### 3.1.4 `DiscoveryFilters`
 
 `min_rating` ∈ {`any`,`4`,`4.5`} · `min_reviews` ∈ {`any`,`50`,`100`,`500`} · `website` ∈ {`any`,`yes`,`no`} · `activity` ∈ {`any`,`active`,`open`} · `has_phone`, `has_email`, `has_whatsapp`, `has_instagram` : boolean. All optional; every value allow-listed; unknown key or value → `400`.
 
@@ -137,7 +171,7 @@ The frozen schema has `query: string` (required) plus `provider_source`. **`quer
 |---|---|:--:|---|
 | `public_id` | `JOB-*` | ✔ req | |
 | `status` | enum(5) | ✔ req | `B3_JOB_STATE_MACHINE.md` §2 |
-| `query` | string | ✔ req | retained; the derived display name (`data.js:465`) |
+| `query` | string | ✔ req | retained **for frozen-contract compatibility only** — see the note below; **not** an execution input |
 | `provider_source` | string | ✔ | |
 | `counts` | object | ✔ | `{found, duplicate, deduplicated}` — the frozen field, given a shape |
 | `started_at` | date-time? | ✔ | |
@@ -157,6 +191,16 @@ The frozen schema has `query: string` (required) plus `provider_source`. **`quer
 | `name` | string | **add** | derived display name |
 
 Every addition is **additive**: no frozen property is removed or retyped, and the frozen `required` set (`public_id`, `status`, `query`) is unchanged.
+
+**Three fields that could be confused, disambiguated.** `DiscoveryJob.query`'s B3 semantics are **not** the frozen contract's semantics: frozen B0 predates `keywords`/`locations` and treated `query` as the search input; B3 makes `keywords`/`locations` the sole authoritative execution input (§3.1), so a property named `query` remaining on the response schema needs an explicit role or it silently becomes a second, competing source of truth.
+
+| Field | Role | Authoritative execution input? |
+|---|---|:--:|
+| `keywords`, `locations` | the normalized display-form arrays actually dispatched to the provider and expanded into the query plan (`B3_DISCOVERY_REQUEST_MODEL.md` §2, §5) | **yes** — the only one |
+| `name` | the current, forward-looking derived display string (`data.js:465`'s formula, generalized to K×L: `"<keyword[0]> — <location[0]>[ + N combinations]"`) | no — display only |
+| `query` | a **frozen-contract compatibility projection**, populated with the same derived string as `name` so the frozen `required: [public_id, status, query]` stays satisfiable for a client that has not adopted `keywords`/`locations`/`name` | no — legacy display only, never read by B3 to decide what to search |
+
+No implementation may branch on `DiscoveryJob.query` to decide what a job searches for; `keywords` and `locations` are the only inputs the query-expansion and execution-plan logic of `B3_DISCOVERY_REQUEST_MODEL.md` §5–§6 ever reads.
 
 ### 4.2 `DiscoveryQueryStatus`
 

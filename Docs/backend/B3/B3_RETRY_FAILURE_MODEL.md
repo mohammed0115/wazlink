@@ -12,6 +12,8 @@
 
 B3 **adds no row to B0's class table, changes none of its numbers, and registers no amendment.** A classification is not a modification. Every B3 condition maps onto a frozen class that already exists.
 
+**Two B3-owned bounds are deliberately not a classification into a B0 class.** The automatic transient retries this document classifies happen *inside* one Job attempt and never open a new one. `RetryDiscoveryJob` — the actor-triggered command that *does* open a new Job attempt — is bounded two ways, neither of which is a B0 retry class: per-Job, by `MAX_JOB_ATTEMPTS = 3` (`B3-D-A031`, `B3_JOB_STATE_MACHINE.md` §3.2); and per-workspace-per-hour, by `MAX_ACTOR_RETRY_REQUESTS_PER_WORKSPACE_PER_HOUR = 10` (`B3-D-A032`, `B3_JOB_STATE_MACHINE.md` §3.2.1, B3-FIX.2). All three counters are independent: an execution may exhaust its 5-or-6 automatic attempts without ever touching `attempt_no` or the workspace retry-rate counter; `attempt_no` advances only on an actor's explicit retry, never automatically; and the workspace retry-rate counter advances only on a successfully *admitted* actor retry, never on an automatic one. Folding either actor-retry bound into this document's classification table would misrepresent it as a B0 mechanic; both are B3 architectural safety bounds layered on top of B0's mechanics, not B0 classes.
+
 ## 2. The frozen classes B3 uses
 
 | Frozen class | Retry | Max | Terminal action |

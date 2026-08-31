@@ -22,7 +22,7 @@ Frozen `BACKEND_COMMAND_EVENT_CATALOG.md` states it, and B3 restates it verbatim
 | `UpsertBusiness` **(frozen)** | Business | **system** | — | `(workspace_id, provider, provider_external_id)` | unique index + row lock on refresh | none directly — `IngestProviderPage` emits |
 | `MergeBusiness` **(frozen)** | Business | operator/system | operator | merge idempotent on `(losing, surviving)` | two row locks, ordered | `BusinessMerged` |
 
-`COMMAND_COUNT = 7`. Four are frozen B0 commands; `CancelDiscoveryJob` is the one additive command (`B3-D-B004`); `ExecuteDiscoveryQuery` and `IngestProviderPage` are **internal** application commands, not API surface.
+`COMMAND_COUNT = 7`. Four are frozen B0 commands; `CancelDiscoveryJob` is the one additive command (`B3-D-B005` — corrected in B3-FIX.1; a prior revision cited `B3-D-B004`, which collides with `B3_DECISION_REGISTER.md`'s unrelated Class B item of that ID, the `>5 Businesses` disqualification threshold); `ExecuteDiscoveryQuery` and `IngestProviderPage` are **internal** application commands, not API surface.
 
 > **Frozen naming note.** `BACKEND_COMMAND_EVENT_CATALOG.md` says `RetryDiscoveryJob`; `BACKEND_DOMAIN_OWNERSHIP.md` says `RetryDiscovery` for the same command. B3 uses **`RetryDiscoveryJob`**, the form in the explicit command list. This is a pre-existing internal B0 inconsistency; B3 records it as an observation and **does not amend B0** for a naming variant.
 

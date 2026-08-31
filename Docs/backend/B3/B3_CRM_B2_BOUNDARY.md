@@ -22,6 +22,8 @@ Exactly three things:
 
 Plus one event B2 already consumes: `BusinessMerged` (§5).
 
+**One acknowledged, non-blocking gap.** Frozen `B2_CRM_LIST_QUERY_MODEL.md` additionally names a `BusinessUpserted` event as the refresh mechanism for `crm_lead_list_projection`'s `business_name`/`business_category`/`business_city` columns on a normalized-field change. B3's current event set (`BusinessDiscovered`, `BusinessRediscovered`, `BusinessMerged`) does not fire for every case that name implies — specifically a same-job re-observation or an in-place refresh with no new discovering job. This is recorded honestly as `B3-D-C019` (`B3_DECISION_REGISTER.md` §4, `B3_B4_HANDOFF_CONTRACT.md` §3.3) rather than asserted as already satisfied, and it is non-blocking because the projection is explicitly non-authoritative, rebuildable, and nightly-reconciled, and `GET /leads/{id}` / `/360` always read Business fields live (`B2_CRM_LIST_QUERY_MODEL.md` §6).
+
 ## 3. The conversion hop
 
 `POST /businesses/{id}/convert-to-lead` is **frozen and B2-owned**. B3 neither implements nor amends it. B3's obligations are only that the identifiers it resolves are correct:

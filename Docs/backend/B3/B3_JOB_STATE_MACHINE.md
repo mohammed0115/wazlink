@@ -4,7 +4,7 @@
 
 ## 1. Why the state set is not open for redesign
 
-The frozen frontend enumerates the status vocabulary in three independent places — the label map (`data.js:91`), the integrity assertion (`data.js:488`), and the status filter dropdown (`DiscoveryJobs.tsx:80`) — as exactly:
+The frozen frontend enumerates the status vocabulary in three independent places — the label map (`data.js:91`), the integrity assertion (`data.js:490`), and the status filter dropdown (`DiscoveryJobs.tsx:80`) — as exactly:
 
 ```
 pending · processing · completed · failed · cancelled
@@ -39,7 +39,7 @@ A sixth state such as `partially_completed` would render as a raw untranslated t
 | 5 | `processing` | `completed` | last execution terminal **and** `succeeded_executions ≥ 1` | job worker | all executions terminal |
 | 6 | `processing` | `failed` | last execution terminal **and** `succeeded_executions = 0` | job worker | all executions terminal |
 | 7 | `processing` | `cancelled` | `CancelDiscoveryJob` accepted, then executions drain | actor + worker | row lock; job still `processing`; **quota not released** |
-| 8 | `failed` | `pending` | `RetryDiscoveryJob` | actor | row lock; `version` match; new attempt opened |
+| 8 | `failed` | `pending` | `RetryDiscoveryJob` | actor | row lock; `version` match; **`attempt_no < MAX_JOB_ATTEMPTS` (3)**; new attempt opened |
 | 9 | `cancelled` | `pending` | `RetryDiscoveryJob` | actor | same |
 
 **No other transition exists.** In particular there is no `completed → *` edge: a completed job is permanently completed, which matches the frozen frontend exactly (the retry control renders only for `["failed","cancelled"]` — `DiscoveryJobs.tsx:163`, `DiscoveryJob.tsx:184-188`).
@@ -52,7 +52,56 @@ This is safe because a retry is not a state *reversal*, it is a **new attempt**.
 
 Retry is guarded by the ADR-010 integer `version` on `discovery_jobs`. A retry that races a late completion (transition 5 committing between the client's read and its retry) fails the version check and returns `409 STALE_VERSION` — which is exactly right, since the job it wanted to retry no longer exists in the state it observed.
 
-### 3.2 What a retry resets and what it preserves
+### 3.2 The actor-retry attempt bound
+
+> **`B3-D-A031`: `MAX_JOB_ATTEMPTS = 3`. A Job has at most one initial execution plus two actor-triggered retries (`MAX_ACTOR_RETRIES_PER_JOB = 2`).** This is an architectural safety bound (`B3-INV-11`), not a tunable — `B3_QUOTA_COST_CONTROL.md` §5.1 derives the provider-cost figure this closes.
+
+`attempt_no` is written once at admission (`= 1`) and incremented **exactly once, transactionally**, when a retry is accepted — the same row lock and `version` check that guards transitions 8 and 9 also serializes the increment, so two concurrent retry requests can never both open attempt 2.
+
+`RetryDiscoveryJob` evaluates the bound **before** transitions 8/9 execute and before any provider-facing side effect:
+
+| Precondition | Result |
+|---|---|
+| `attempt_no < 3` | accepted; `attempt_no` increments by exactly 1; the job re-enters `pending` |
+| `attempt_no ≥ 3` | **rejected** — `409 CONFLICT`, `details.reason = "attempt_limit_reached"`, `details.attempt_no`, `details.max_job_attempts = 3`. No execution is claimed, no provider is called, no scraper submission occurs, no continuation is created, and no quota or provider-cost side effect happens. `ERROR_NEW_COUNT` stays `0` — this reuses the frozen `CONFLICT`/`409` code with a new `details.reason`, exactly as `job_not_retryable` and `job_already_terminal` already do |
+
+**Cancellation never resets the budget.** `CancelDiscoveryJob` mutates only `status` and `cancellation_requested_at` (transitions 3 and 7); it has no code path that touches `attempt_no`. Consequently the sequence `create → execute → cancel → retry → execute → cancel → retry → execute → cancel → retry` is structurally impossible past the third attempt: the third `retry` in that sequence targets a job already at `attempt_no = 3` and is rejected before any provider work, exactly like any other exhausted-budget retry. Cancellation cannot decrement `attempt_no`, restore a spent actor retry, mint a fresh `JOB-*` identity, or reset the provider-cost budget or retry history — the only way to search again is a genuinely new `CreateDiscoveryJob` admission, which is subject to its own admission sequence, rate limit, and quota reservation (`B3_DISCOVERY_REQUEST_MODEL.md` §8).
+
+**Distinct from automatic transient retry.** `attempt_no` counts the initial Job attempt plus actor-triggered `RetryDiscoveryJob` calls only. It does **not** increment for frozen B0's automatic transient retry of an individual provider call inside an execution (network timeout, rate limit, storage failure — `B3_RETRY_FAILURE_MODEL.md` §2). No automatic retry ever creates a new Job attempt; automatic retries remain bounded by B0's own per-class attempt cap (5, or 6 for rate-limited) and are folded into the per-attempt provider-cost upper bound instead (`B3_QUOTA_COST_CONTROL.md` §5.1).
+
+### 3.2.1 The workspace-wide retry-rate limiter and the full admission order
+
+`B3-D-A031` bounds cost **per Job**. It places no ceiling on how many *distinct* Jobs one workspace may retry inside a single hour — and because `CreateDiscoveryJob`'s 10/hour cap only limits the rate of *new* admissions, not how many past `failed`/`cancelled` Jobs accumulate over time, a workspace could otherwise accumulate retry-eligible Jobs across many admission-hours and burst-retry all of them at once.
+
+> **`B3-D-A032`: `MAX_ACTOR_RETRY_REQUESTS_PER_WORKSPACE_PER_HOUR = 10`.** At most 10 successfully admitted `RetryDiscoveryJob` operations — each opening a new Job attempt — per workspace, in a rolling one-hour window. This is a third counter, independent of both `CreateDiscoveryJob`'s frozen 10/hour submission limit (`B3-D-A018`) and `MAX_JOB_ATTEMPTS` (`B3-D-A031`); none of the three borrows capacity from another.
+
+`RetryDiscoveryJob` evaluates preconditions in one fixed order, each cheaper than the next, mirroring `CreateDiscoveryJob`'s admission-order discipline (`B3_DISCOVERY_REQUEST_MODEL.md` §8):
+
+| Step | Check | Failure |
+|---:|---|---|
+| 1 | Authenticate — session (ADR-009) | `401 AUTH_REQUIRED` |
+| 2 | Resolve workspace — authorization context | — |
+| 3 | Authorize actor — `discovery.run`, object scope (`B3_AUTHORIZATION_TENANCY.md` §3.1) | `403 PERMISSION_DENIED` |
+| 4 | Resolve and row-lock the addressed `discovery_jobs` row within workspace scope | `404 ENTITY_NOT_FOUND` |
+| 5 | Validate retryable state — `failed`/`cancelled`; `version` match (`If-Match`) | `409 job_not_retryable` / `409 STALE_VERSION` |
+| 6 | Validate `attempt_no < MAX_JOB_ATTEMPTS` (3) | `409 attempt_limit_reached` (`B3-D-A031`) |
+| 7 | Check the actor-retry workspace/hour limiter | `429`, `details.reason = "actor_retry_rate_limited"` (`B3-D-A032`) |
+| 8 | Atomically admit — reserve one retry-rate slot for this workspace/hour window, in the same transaction as steps 9–10 | — |
+| 9 | Increment `attempt_no` exactly once | — |
+| 10 | Commit the `failed`/`cancelled → pending` transition (transitions 8/9 of §2) | — |
+| 11 | Dispatcher releases the job to a worker **only after commit** | — |
+
+Steps 1–6 acquire nothing and can be re-run freely. Step 7 is a pure read-then-reject against the counter: rejection here mutates no `attempt_no`, claims no execution, calls no provider, submits nothing to a scraper, and creates no continuation — exactly the same "before any side effect" discipline step 6 already has. Steps 8–10 are one transaction, so a crash between them cannot leave a consumed rate-limit slot with no incremented `attempt_no`, or the reverse.
+
+**Idempotent replay consumes no second slot.** The retry-rate slot is consumed by *admission*, keyed the same way `CreateDiscoveryJob`'s admission is — a `RetryDiscoveryJob` request replayed under the same `Idempotency-Key` returns the stored `202` from idempotency layer 1 (`B3_IDEMPOTENCY_CONCURRENCY.md`) and never re-evaluates step 7. Two *distinct* accepted retry requests — different Jobs, or the same Job retried again after a later failure — each consume their own slot. Concurrent requests are serialized by the same admission-time lock that already prevents step 6 from double-incrementing `attempt_no`, so concurrent retries workspace-wide can never admit more than 10 in one rolling hour (AT-RETRY-27).
+
+**The historical-burst attack, closed.** A workspace accumulates 1,000 `failed`/`cancelled` Jobs over many days — each individually legitimate, created under the unrelated 10/hour *create* cap on its own admission day. At hour H the actor issues `RetryDiscoveryJob` against all 1,000. Step 7 admits at most 10 within hour H's rolling window; the remaining ~990 are rejected `429` before step 8, before `attempt_no` increments, and before any provider-facing side effect. This is the exact scenario `B3-D-A032` exists to close (AT-RETRY-28).
+
+**Cancel/retry-loop interaction.** The per-Job bound (`B3-D-A031`, §3.2) and the per-workspace-hour bound (`B3-D-A032`, here) are cumulative, not substitutive: cancellation still never resets `attempt_no`, so no single Job can exceed 3 attempts regardless of the workspace counter — and the workspace counter still caps total retry admissions across every Job in the workspace regardless of how any one Job's attempts are distributed. Neither bound alone was sufficient; both together are.
+
+**Automatic transient retry consumes no slot.** Frozen B0's per-call backoff/attempt mechanics (`B3_RETRY_FAILURE_MODEL.md` §2) never call `RetryDiscoveryJob`, never reach step 7, and are counted nowhere in this limiter — consistent with `attempt_no` itself, which they also never increment (AT-RETRY-30).
+
+### 3.3 What a retry resets and what it preserves
 
 Traced from the frozen mock (`data.js:481`), which resets `progress`, `foundCount`, `duplicateCount`, `deduplicatedCount`, `discoveredCount`, `current` and calls `startDiscoveryJob`:
 

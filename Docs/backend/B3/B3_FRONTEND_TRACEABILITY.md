@@ -49,7 +49,7 @@ Every Discovery behavior reachable in the frozen frontend was traced from its co
 
 | # | Behavior | Source | Class | B3 consequence |
 |---|---|---|---|---|
-| 26 | Job status vocabulary is exactly `pending, processing, completed, failed, cancelled` | `data.js:91`, `data.js:488`, `DiscoveryJobs.tsx:80` | **A** | **five states, closed set.** A sixth state would not render and would be unreachable by the status filter |
+| 26 | Job status vocabulary is exactly `pending, processing, completed, failed, cancelled` | `data.js:91`, `data.js:490`, `DiscoveryJobs.tsx:80` | **A** | **five states, closed set.** A sixth state would not render and would be unreachable by the status filter |
 | 27 | Numeric progress 0–100 with a progress bar | `DiscoveryJob.tsx:143-155`, `data.js:478` | **A** | `progress` is a server-reported integer percentage |
 | 28 | Count strip: found / duplicate / final | `DiscoveryJob.tsx:157-161` | **A** | three counters must be server-reported |
 | 29 | Count identity `found − duplicate = final` is asserted | `data.js:489` | **A** | a server invariant, not a display coincidence |

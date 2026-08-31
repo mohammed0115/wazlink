@@ -45,7 +45,7 @@ Frozen `B1_AUTHORIZATION_RBAC.md` already registers the Discovery permissions:
 | `GET /discovery/jobs` | `discovery.view` | workspace scope |
 | `GET /discovery/jobs/{id}` | `discovery.view` | workspace scope |
 | `GET /discovery/jobs/{id}/results` | `discovery.view` | workspace scope + job `completed` |
-| `POST /discovery/jobs/{id}/retry` | `discovery.run` | workspace scope; job `failed`/`cancelled`; **no** new quota unit |
+| `POST /discovery/jobs/{id}/retry` | `discovery.run` | workspace scope; job `failed`/`cancelled`; `attempt_no < MAX_JOB_ATTEMPTS` (3, `B3-D-A031`); workspace has < 10 actor-retry admissions in the current rolling hour (`MAX_ACTOR_RETRY_REQUESTS_PER_WORKSPACE_PER_HOUR`, `B3-D-A032`); **no** new quota unit |
 | `POST /discovery/jobs/{id}/cancel` | `discovery.run` | workspace scope; job non-terminal; §3.1 |
 | `GET /discovery/sources` | `discovery.view` | none — a global catalogue |
 | `GET /businesses/{id}` | `discovery.view` | workspace scope |
