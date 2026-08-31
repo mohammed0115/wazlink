@@ -139,6 +139,31 @@ One public-ID prefix (`NOTE-`) is **proposed/reserved** by B2. It is **not** a r
 
 B2 is design-only and grants no implementation authorization.
 
+## B3 — Discovery & Acquisition target design — **DESIGN IN PROGRESS**
+
+> **B3 is NOT closed.** It is uncommitted and awaits an independent CTO audit. Nothing below is approved, and no implementation may act on it.
+
+`Docs/backend/B3/` holds the B3 Discovery & Acquisition target-design package — 26 documents. It is **additive**: it modifies no frozen B0, B1, or B2 file. B0 remains closed at `261ec27f84f337be0d9318141de260c8b9058a6b`, B1 at `062975e3e6aa6ee314097a9a457f6383ebd56557`, and B2 at `24643397254caac4117320df756d8bc164882635`.
+
+B3 covers the first two hops of the product journey — Discovery request → Discovery Job → Business Result — and stops there. `BUS-* → LEAD-*` remains **B2's frozen hop**, and B0's "no Lead auto-create" prohibition is enforced structurally: B3 has no write path into any CRM table.
+
+B3 declares **6 controlled amendments** across **3 frozen artifacts**, all decided and all requiring CTO approval **before implementation**; B3 applies none. See `Docs/backend/B3/B3_CONTROLLED_AMENDMENTS.md`. B3's bundle is independent of B1's and B2's and may be approved in any order relative to them.
+
+| Frozen artifact | B3 target | Decision |
+|---|---|---|
+| `BACKEND_OPENAPI_V1.yaml` | `DiscoveryJobCreate` gains `keywords[]`/`locations[]`/`filters`/`result_limit` with `query` retained as a deprecated single-combination alias; `DiscoveryJob` and `DiscoveryResult` gain additive fields; 5 additive operations | `B3-D-B001` |
+| `BACKEND_API_CATALOG.md` | extend the `filters`/`sort` allow-list with `GET /api/v1/discovery/jobs` | `B3-D-B003` |
+| `BACKEND_DATA_MODEL.md` | add `discovery_query_executions, provider_page_ingestions, business_match_candidates, business_merges, discovery_sources`; make the identity uniqueness precise as `(workspace_id, provider, provider_external_id)` | `B3-D-B002` |
+| `BACKEND_COMMAND_EVENT_CATALOG.md` | add the command `CancelDiscoveryJob` and the events `DiscoveryJobCancelled` and `BusinessRediscovered`; **the event envelope is unchanged** | `B3-D-B004`, `B3-D-B005` |
+
+Key B3 decisions: **one Business per real-world business per workspace**, identified by `(workspace_id, provider, provider_external_id)` with many identities allowed per Business, and an append-only `discovery_results` provenance row per observation — replacing the prototype's single `discoveryJobId` scalar, which cannot express rediscovery and would make B2's frozen `lead_provenance_additional_jobs` contract unimplementable. **Five job states**, not six: partial success is a `completion_kind` on a `completed` job, because a sixth state would be unreachable behind the frozen frontend's `status === "completed"` results gate. **Results are visible only while a job is `completed`** — persistence during execution is not visibility. **Cross-provider auto-linking requires two independent strong signals**; name similarity never merges anything, at any threshold. **`discovered_at` is WazLink's trusted server clock**, never a provider timestamp, which makes B2's future-skew rejection branch structurally unreachable at the source while B2's own defence still runs. **One `discoveryRuns` unit per admitted job**, never re-charged by retry. Every provider path is bounded, giving a computed worst case of **≤ 250 provider calls per job attempt**.
+
+B3 satisfies B2's frozen consumed contract 9 with a dedicated **`BusinessRediscovered`** event carrying exactly B2's four fields and nothing more, emitted without reading CRM state so the dependency direction is never inverted; B2's own guards discard what does not apply.
+
+B3 mints **no new public-ID prefix** (`JOB-`, `RES-`, `BUS-` are already registered in section A), **no new permission code** (`discovery.run/view/export` already exist in B1), and **no new error code** (`ERROR_NEW_COUNT = 0`). Nine external-validation items (`B3-X-001`…`B3-X-009`) record provider and legal facts B3 must not invent — Google Places identifiers, field masks, pricing, rate-limit signalling and terms; the scraping provider contract; raw-payload retention; Saudi personal-data obligations; and the lawful basis for outbound use of acquired contacts. **No document in this package makes a legal compliance claim.**
+
+B3 is design-only and grants no implementation authorization.
+
 ## Required next-phase gate
 
 Before implementation, resolve all items marked `PRODUCT DECISION REQUIRED`, `REQUIRES OFFICIAL ZATCA VALIDATION`, or `REQUIRES PROVIDER CONTRACT VALIDATION`; approve the API/DTO/ERD/OpenAPI/identity documents as frozen; then authorize Backend Architecture-to-Coding transition explicitly. This package contains no implementation. B0-FIX.3 repairs are documentation/contract-only and do not self-close B0.
