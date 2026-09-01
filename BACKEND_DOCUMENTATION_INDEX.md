@@ -222,6 +222,33 @@ The frozen frontend's S8 Sales Copilot messaging touchpoints (`CopilotPanel.tsx`
 
 B5 is design-only and grants no implementation authorization.
 
+## B6 — Pipeline & Deals target design — **DESIGN IN PROGRESS**
+
+> **B6 is NOT closed.** It is uncommitted and awaits an independent CTO audit. Nothing below is approved, and no implementation may act on it.
+
+`Docs/backend/B6/` holds the B6 Pipeline & Deals target-design package — 35 documents. It is **additive**: it modifies no frozen B0, B1, B2, B3, B4, or B5 file. B0 remains closed at `261ec27f84f337be0d9318141de260c8b9058a6b`, B1 at `062975e3e6aa6ee314097a9a457f6383ebd56557`, B2 at `24643397254caac4117320df756d8bc164882635`, B3 at `9a99019576943dffd5d52e6d747fefd7f7d538ec`, B4 at `0bd6f2095ac14f1c62ff9dc98f497bba4acf3a5a`, and B5 at `c18cf7947ee320ea4b7b766e3cf7bdda4d6c44c0`.
+
+B6 sits between B2 (CRM/Lead 360) and the future B7 (Automation) and B9 (Finance/Revenue): it converts a governed sales decision into a durable, auditable commercial-opportunity record — `Lead → Deal → Pipeline → Stage progression → Won/Lost` — and exposes it to CRM as a live, non-authoritative read. Unlike B3/B4/B5, frozen B0 already named the Pipeline domain, its table group, four commands, four events, a coarse state machine, a Deal DTO sketch, three public-ID prefixes (`DEAL-`, `PIPE-`, `STG-`), Deal RBAC permissions with their full role matrix, and the revenue-separation ADR before B6 existed — B6's task was predominantly specifying and hardening an already-frozen skeleton, not inventing one.
+
+B6 declares a **2-operation, 2-decision amendment bundle** across **2 frozen packages** — the smallest of any phase in this corpus so far — all decided and all requiring CTO approval **before implementation**; B6 applies none. See `Docs/backend/B6/B6_CONTROLLED_AMENDMENTS.md`.
+
+| Frozen artifact | B6 target | Decision |
+|---|---|---|
+| `BACKEND_STATE_MACHINES.md` | add two edges, `DealWon → DealOpen` and `DealLost → DealOpen`, via a new `ReopenDeal` command — the existing `DealOpen → DealWon`/`DealOpen → DealLost` edges and their "probability 100/0" prose are untouched | `B6-D-A014` |
+| `B2_LEAD_AGGREGATE.md` | add `DealReopened` to the frozen `last_activity_at` qualifying-event list for the Pipeline source row (`DealAssigned`/`DealUpdated` deliberately excluded) | (consequence of `B6-D-A014`) |
+
+Key B6 decisions: **`DEAL-`/`PIPE-`/`STG-` are already-registered frozen prefixes**, reused verbatim — B6 mints no new public-ID prefix. **The frozen Deal DTO field is `value`, not `amount`** — B6 does not invent a second name for the identical concept. **`deal.view`/`deal.create`/`deal.update`/`deal.close` are reused verbatim** from frozen `B1_AUTHORIZATION_RBAC.md`, checked against the frozen text first; three permissions are genuinely new (`deal.assign`, `deal.reopen`, `pipeline.manage`). **Won/Lost are Deal-level terminal outcomes (`Deal.status`), never configurable `PipelineStage` rows** — resolving an ambiguity the frozen sketch and the frontend mock both left open. **`Deal.business_id` is a derived snapshot of `Lead.business_id`**, never an independent relationship, reconciling the frozen Deal DTO against frozen Doctrine R-2's `Deal → Lead, Pipeline, Stage` relationship list without contradicting either.
+
+> **WON DEAL ≠ RECOGNIZED REVENUE.** B6 has zero write path to `revenue_events`/`revenue_reversals`/`attribution_touchpoints`; `CloseDealWon` cannot and does not emit `RevenueRecognized` — restated verbatim from frozen `BACKEND_ARCHITECTURE_DECISIONS.md` ADR-007 and `BACKEND_COMMAND_EVENT_CATALOG.md`, both of which predate B6. See `Docs/backend/B6/B6_REVENUE_FIREWALL.md` for the structural proof and five required negative-control tests.
+
+B6 needs **zero consumed events** — every cross-domain dependency (Lead resolution) is a synchronous, on-demand read of B2's own contract, mirroring B4's and B5's identical "no circular dependency" precedent, now three phases running. B6 never writes a B1, B2, B4, or B5 table, and never writes `crm_activities` directly — it exposes a stable `source_event_id` satisfying `B2_TIMELINE_IDENTITY_MODEL.md`'s frozen cross-domain contract, which already names `pipeline` as an eligible source domain gated by `deal.view` before B6 existed to fulfill it. It never creates a Message or mutates Conversation state — sending from Deal context reuses B5's unmodified `SendMessage`. A future B7 automation Deal mutation must reuse the identical governed commands every human actor uses, with no second transport path.
+
+B6 mints **zero new public-ID prefixes** (`DEAL-`, `PIPE-`, `STG-` already registered), **reuses four frozen permissions verbatim** (`deal.view`, `deal.create`, `deal.update`, `deal.close`) and proposes **three new permission codes** (`deal.assign`, `deal.reopen`, `pipeline.manage`), and **no new error code taxonomy** — only new `code` values within the existing envelope. B6 requires **no external validation register** — Pipeline/Deals is internal domain architecture with no provider dependency, the first phase since B1 not to need one. **No document in this package creates or authorizes recognized-revenue, payment, invoice, or billing truth.**
+
+The frozen frontend's Deal/Pipeline surface (`features/sales/*.tsx`, 44 traced behaviors) was found to already state the revenue boundary explicitly, in four independent places including a dedicated "Revenue Boundary" sidebar card, and to already block deal-value/probability/close mutation from every AI (S8) and Automation (S9) code path in every mode. A stale, unreferenced legacy code path was found to use recognition-adjacent labeling and is explicitly flagged as non-evidence rather than cited. No reopen affordance exists in the frontend; B6 adds `ReopenDeal` anyway on this brief's own requirement, recorded honestly as a B6-authored addition rather than a misreading of frontend evidence.
+
+B6 is design-only and grants no implementation authorization.
+
 ## Required next-phase gate
 
 Before implementation, resolve all items marked `PRODUCT DECISION REQUIRED`, `REQUIRES OFFICIAL ZATCA VALIDATION`, or `REQUIRES PROVIDER CONTRACT VALIDATION`; approve the API/DTO/ERD/OpenAPI/identity documents as frozen; then authorize Backend Architecture-to-Coding transition explicitly. This package contains no implementation. B0-FIX.3 repairs are documentation/contract-only and do not self-close B0.
