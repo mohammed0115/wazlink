@@ -4,7 +4,7 @@
 
 ## 1. Structural proof, not policy
 
-B7's application-service layer holds **zero** repository/ORM write access to any table it does not itself own (`B7_DOMAIN_OWNERSHIP.md` §2's seven entities only). This is a build-time/module-boundary property, mirroring how `B6_DOMAIN_OWNERSHIP.md` §6 and `B5_DOMAIN_OWNERSHIP.md` proved the identical claim for their own domains: the Automation module imports only the *command-invocation* interface of B2/B5/B6's application services (`CreateTask(...)`, `SendMessage(...)`, `MoveDealStage(...)`, etc.), never their repository/model classes.
+B7's application-service layer holds **zero** repository/ORM write access to any table it does not itself own (`B7_DOMAIN_OWNERSHIP.md` §2's nine Phase-1 entities only). This is a build-time/module-boundary property, mirroring how `B6_DOMAIN_OWNERSHIP.md` §6 and `B5_DOMAIN_OWNERSHIP.md` proved the identical claim for their own domains: the Automation module imports only the *command-invocation* interface of B2/B5/B6's application services (`CreateTask(...)`, `SendMessage(...)`, `MoveDealStage(...)`, etc.), never their repository/model classes.
 
 ## 2. Per-domain proof table
 
@@ -26,7 +26,7 @@ B7's application-service layer holds **zero** repository/ORM write access to any
 | `AT-DWF-2` **NC** | an implementation issuing `INSERT INTO messages ...` from any B7 code path, bypassing `SendMessage` | rejected — no `Message` repository handle exists in the B7 module; every send goes through `SendMessage`/`SendTemplateMessage` and B5's full admission sequence, consent/service-window/template checks included |
 | `AT-DWF-3` **NC** | an implementation issuing `UPDATE deals SET stage_id = ...` directly, bypassing `MoveDealStage` | rejected — skips `B6_DEAL_STATE_MACHINE.md`'s guards and the `deal_stage_transitions` audit row; no `Deal` repository handle exists in the B7 module |
 | `AT-DWF-4` **NC** | an implementation creating a `RevenueEvent` from any B7 action, trigger, or internal control action | rejected — `B7_REVENUE_FIREWALL.md` §2 |
-| `AT-DWF-5` **NC** | an implementation marking a `Payment` row `succeeded` from a B7 action | rejected — no B8 write dependency exists in the B7 module (§2) |
+| `AT-DWF-5` **NC** | an implementation marking a `Payment` row `completed` from a B7 action | rejected — no B8 write dependency exists in the B7 module (§2) |
 | `AT-DWF-6` **NC** | an implementation directly setting a workspace's `entitlement` row to grant itself `automation.rules` | rejected — B7 only ever *reads* an entitlement decision (`B7_ENTITLEMENT_RBAC_TENANCY.md` §4); it holds no write path to any entitlement/plan table |
 
 `DIRECT_CRM_WRITE_LEAKS = 0`, `DIRECT_DISCOVERY_WRITE_LEAKS = 0`, `DIRECT_INTELLIGENCE_WRITE_LEAKS = 0`, `DIRECT_MESSAGING_WRITE_LEAKS = 0`, `DIRECT_PIPELINE_WRITE_LEAKS = 0`.

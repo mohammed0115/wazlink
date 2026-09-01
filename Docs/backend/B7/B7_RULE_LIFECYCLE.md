@@ -4,7 +4,7 @@
 
 ## 1. States — resolved (Class A, `B7-D-A004`)
 
-**`draft`, `active`, `disabled`, `archived`.** Frontend evidence (FB-D08) shows only `draft`/`enabled`/`disabled`; this document renames `enabled`→`active` for symmetry with every other B-phase's aggregate-status vocabulary (Deal/Lead use `status`, never `enabled`) and **adds `archived`** as a fourth, terminal state.
+**`draft`, `active`, `disabled`, `archived`.** Frontend evidence (FB-A02) shows only `draft`/`enabled`/`disabled`; this document renames `enabled`→`active` for symmetry with every other B-phase's aggregate-status vocabulary (Deal/Lead use `status`, never `enabled`) and **adds `archived`** as a fourth, terminal state.
 
 `archived` is added because retention/audit requires a way to permanently retire a rule (remove it from active-rule lists and quota counts) while keeping its full revision and run history intact for `B7_RETENTION_DELETION.md` — `disabled` alone cannot mean both "temporarily off, one click from reactivation" and "permanently retired, never coming back," and conflating them would violate the task brief's own §34 instruction not to use synonyms accidentally.
 
@@ -26,13 +26,15 @@
 
 Idempotency: every lifecycle command requires `Idempotency-Key`, matching the frozen general standard's treatment of every other domain's mutating aggregate command.
 
+**This table is exhaustive, and every edge in it has a human actor.** Phase 1 declares **no** system-initiated lifecycle transition of any kind — in particular, no automatic `active → disabled` on repeated authorization failure, on entitlement downgrade, or on run failure. An authorization failure fails the action and its run and changes no rule state (`B7_SYSTEM_ACTOR_AUTHORIZATION.md` §3.3a, `B7-D-A038`); an entitlement downgrade blocks new admission and leaves `status` untouched (`B7_ENTITLEMENT_RBAC_TENANCY.md` §4). `AT-SEC-10` **(NC)** and `AT-LIFE-6` **(NC)** hold this line.
+
 ## 3. Resolved questions (task brief §8)
 
-- **Can `draft` execute?** No. `draft` admits no triggers, evaluates nothing, and cannot be targeted by `RunAutomationNow`. Only `RunAutomationTest` (dry-run, §`B7_DEAD_LETTER_REPLAY` sibling doc `B7_PAUSE_DISABLE_CANCEL.md` n/a — see `B7_EXECUTION_MODEL.md` §5) may evaluate a `draft` rule's conditions, and it never invokes an action.
+- **Can `draft` execute?** No. `draft` admits no triggers, evaluates nothing, and cannot be targeted by `RunAutomationNow`. Only `RunAutomationTest` (dry-run, `B7_EXECUTION_MODEL.md` §5) may evaluate a `draft` rule's conditions, and it never invokes an action.
 - **Can `paused` receive triggers?** N/A — no `paused` state (§1). `disabled` receives triggers at the inbox layer (the event is still consumed and deduped, §`B7_TRIGGER_ADMISSION.md`) but admits no new run for that rule — the trigger is acknowledged, not queued.
 - **Can `archived` reactivate?** No. Terminal by design (§2). A workspace that wants the same behavior again authors a new rule (cheap — Phase-1 has no `CloneAutomationRule` command, deferred Class B, §`B7_COMMAND_EVENT_CATALOG.md`).
 - **Can active rules be edited directly?** No in-place edit exists. Every edit goes through `UpdateAutomationRule`, which always creates a new revision (§2, `B7_RULE_REVISION_MODEL.md` §1).
 - **Does editing create a revision?** Always, unconditionally — even a no-op edit (same content resubmitted) creates a new revision number, matching the frozen "never rewrite frozen truth" discipline applied at rule-instance scope: immutability is structural, not best-effort.
-- **What happens to already-running executions when a rule is paused/disabled?** `DisableAutomationRule` (§2): `queued` and `awaiting_approval` runs for that rule are transitioned to `cancelled` (nothing has committed yet — safe); `running`/`waiting` runs are **not** interrupted — they continue against the rule revision they already captured, because an action may have partially committed and an abrupt stop would leave `B7_PARTIAL_SUCCESS.md`-shaped ambiguity with no compensating mechanism (§36 of the task brief: no distributed rollback). This mirrors `B6_DEAL_STATE_MACHINE.md`'s own precedent of never retroactively invalidating an in-flight, already-committed transaction.
+- **What happens to already-running executions when a rule is paused/disabled?** `DisableAutomationRule` (§2): `queued` and `awaiting_approval` runs for that rule are transitioned to `cancelled` (nothing has committed yet — safe); **`running` runs are not interrupted** — they continue against the rule revision they already captured, because an action may have partially committed and an abrupt stop would leave `B7_PARTIAL_SUCCESS.md`-shaped ambiguity with no compensating mechanism (§36 of the task brief: no distributed rollback). Those two are the only cases the table needs: `created` and `evaluating` are transient states advanced inside the admission transaction itself (`B7_TRIGGER_ADMISSION.md` steps 10-11), so no run is ever durably observable in either, and Phase 1 has no `waiting` state for a run to sit in (`B7_EXECUTION_MODEL.md` §7, `B7_PAUSE_DISABLE_CANCEL.md` §2). This mirrors `B6_DEAL_STATE_MACHINE.md`'s own precedent of never retroactively invalidating an in-flight, already-committed transaction.
 
 `CLASS_A_UNRESOLVED` contribution from this document: 0 — every question the task brief poses in §8 is resolved above.

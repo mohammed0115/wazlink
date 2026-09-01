@@ -4,7 +4,7 @@
 
 ## 1. What B7 consumes from B3
 
-**Nothing in Phase 1.** No B3 event-consumer declaration names Automation anywhere in `B3_COMMAND_EVENT_CATALOG.md`, and no frontend evidence (`automationTriggerCatalog`, FB-D02) lists a Discovery-sourced trigger. `DiscoveryJobCompleted` is a plausible future trigger (task brief §10 names it as a candidate) but is deferred, Class B, pending either a frozen B3 consumer declaration or direct product evidence — the same evidentiary bar applied to every other excluded trigger candidate (`B7_TRIGGER_CATALOG.md` §3).
+**Nothing in Phase 1.** No B3 event-consumer declaration names Automation anywhere in `B3_COMMAND_EVENT_CATALOG.md`, and no frontend evidence (`automationTriggerCatalog`, FB-A04) lists a Discovery-sourced trigger. `DiscoveryJobCompleted` is a plausible future trigger (task brief §10 names it as a candidate) but is deferred, Class B, pending either a frozen B3 consumer declaration or direct product evidence — the same evidentiary bar applied to every other excluded trigger candidate (`B7_TRIGGER_CATALOG.md` §3).
 
 ## 2. What B7 invokes on B3
 

@@ -4,19 +4,19 @@
 
 ## 1. Closed DSL — resolved (Class A, `B7-D-A012`)
 
-No Python, JavaScript, SQL, shell, or `eval()` of any kind, at any layer — matching the frontend's own architectural comment that "no expressions, no JavaScript, no executable templates" governs the condition authoring UI (`AutomationModal.tsx:3-6`). Every condition is `{field, operator, value}`, evaluated by a fixed interpreter over a fixed field/operator allow-list. This is directly evidenced and reused near-verbatim from `automationConditionFieldCatalog` (FB-D03).
+No Python, JavaScript, SQL, shell, or `eval()` of any kind, at any layer — matching the frontend's own architectural comment that "no expressions, no JavaScript, no executable templates" governs the condition authoring UI (`AutomationModal.tsx:3-6`). Every condition is `{field, operator, value}`, evaluated by a fixed interpreter over a fixed field/operator allow-list. This is directly evidenced and reused near-verbatim from `automationConditionFieldCatalog` (FB-A05).
 
 ## 2. Operators — justified individually
 
 | Operator | Justified by | Applies to |
 |---|---|---|
-| `equals` / `not_equals` | evidenced (FB-D04), used by every field in the frontend catalog | enum, boolean, string, number |
-| `is_known` / `is_unknown` | evidenced (FB-D04) — null/missing-field check | any type |
-| `greater_than` / `greater_or_equal` / `less_than` / `less_or_equal` | `greater_than`/`less_than` evidenced (FB-D04) on `deal.value`; `_or_equal` variants added for completeness on the same numeric/timestamp types, zero new risk surface | number, timestamp |
+| `equals` / `not_equals` | evidenced (FB-A06), used by every field in the frontend catalog | enum, boolean, string, number |
+| `is_known` / `is_unknown` | evidenced (FB-A06) — null/missing-field check | any type |
+| `greater_than` / `greater_or_equal` / `less_than` / `less_or_equal` | `greater_than`/`less_than` evidenced (FB-A06) on `deal.value`; `_or_equal` variants added for completeness on the same numeric/timestamp types, zero new risk surface | number, timestamp |
 | `in` / `not_in` | not evidenced by frontend, but required to express an enum field against a set without N repeated `equals`/`or` conditions once `B7_ACTION_AUTHORIZATION.md`-adjacent multi-value filters appear; included because every enum field already carries a closed `allowedValues[]` set to validate the operand against | enum |
 | `before` / `after` | required for any timestamp-typed condition (none evidenced yet in Phase-1's actual trigger set, since no included trigger currently exposes a bare timestamp field beyond `occurred_at`, which is not user-conditionable) — **deferred, not included** (§4) | — |
 | `changed` / `changed_from` / `changed_to` | evidenced structurally — `LeadStatusChanged`/`DealStageChanged`-shaped events already carry `from`/`to` in their frozen payload; a condition can express `event.from equals X` / `event.to equals Y` using plain `equals` against those two named fields, so a dedicated `changed_from`/`changed_to` operator would duplicate what `equals` on the right field already does — **not included**, avoiding operator proliferation | — |
-| `contains` / `not_contains` | declared in the frontend's operator-label map (FB-D04) but never actually attached to any field's `operators[]` list in the same fixture (a dead declaration) — **not included** in Phase 1; no field currently justifies substring matching, and re-introducing it later is a pure additive change | — |
+| `contains` / `not_contains` | declared in the frontend's operator-label map (FB-A06) but never actually attached to any field's `operators[]` list in the same fixture (a dead declaration) — **not included** in Phase 1; no field currently justifies substring matching, and re-introducing it later is a pure additive change | — |
 
 **Included operator set: `equals`, `not_equals`, `in`, `not_in`, `is_known`, `is_unknown`, `greater_than`, `greater_or_equal`, `less_than`, `less_or_equal`.** Ten operators, each justified above; `contains`/`not_contains`/`before`/`after`/`changed*` are explicitly deferred rather than silently omitted.
 
@@ -35,7 +35,7 @@ Every condition field belongs to exactly one trigger-compatible `entity_type` (`
 
 ## 5. Invalid rule behavior
 
-A condition referencing a field/operator combination outside §2-3's allow-list is rejected at `CreateAutomationRule`/`UpdateAutomationRule`/`ActivateAutomationRule` validation time (`B7_AUTOMATION_RULE_AGGREGATE.md` §4) with `422 VALIDATION_ERROR`. It can never reach evaluation — there is no runtime "unknown operator" branch to reason about, because the persisted revision's `condition_definition` is only ever written after passing this validation.
+A condition referencing a field/operator combination outside §2-3's allow-list is rejected at `CreateAutomationRule`/`UpdateAutomationRule`/`ActivateAutomationRule` validation time (`B7_AUTOMATION_RULE_AGGREGATE.md` §4) with `422 VALIDATION_ERROR`. It can never reach evaluation — there is no runtime "unknown operator" branch to reason about, because a revision's `automation_rule_conditions` rows (`B7_DATA_MODEL.md` §2b) are only ever inserted after passing this validation, and the table's own `(field, operator)` check constraint refuses anything else.
 
 ## 6. Traversal safety — resolved (Class A, `B7-D-A013`)
 

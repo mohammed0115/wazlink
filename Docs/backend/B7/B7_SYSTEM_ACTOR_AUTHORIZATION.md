@@ -19,28 +19,70 @@
 Five separate, structural facts jointly guarantee this, none of them optional:
 
 1. **No second command path exists.** B7 never writes another domain's table. It calls the identical governed command a human actor calls, through the identical admission sequence (`B6-D-A026`, `B5-D-A025`, and the equivalent B2 "Automation as actor" note all state this independently for their own domain). There is no `internal_execute()` bypass.
-2. **The invoked command still runs its own RBAC check** — against the *rule's* authorization context (§3), not an unconditional grant. A workspace whose plan/role configuration would deny a human actor `deal.update` denies the automation-invoked `MoveDealStage` identically.
+2. **The invoked command still runs its own RBAC check** — against the revision's **authority principal** (§3.1), a real and currently-active membership, not an unconditional grant. A workspace whose plan/role configuration would deny a human actor `deal.update` denies the automation-invoked `MoveDealStage` identically.
 3. **The invoked command still runs its own entitlement check** (§`B7_ENTITLEMENT_RBAC_TENANCY.md`; e.g. `message.send`'s "channel + entitlement + approval policy" condition, `B1_AUTHORIZATION_RBAC.md` row `message.send`, applies to an automation-invoked send exactly as it applies to a human-invoked one).
 4. **The invoked command still runs its own domain validation, concurrency, and idempotency guards** — a stale `expected_version`, an already-`won` Deal, an inactive `PipelineStage`, or a closed conversation service window rejects an automation-invoked command exactly as it rejects a human one (§`B7_CONCURRENCY_MODEL.md`, `B7_EXECUTION_MODEL.md`).
-5. **A dedicated permission gates whether automation may act *at all* in a given workspace/role context** (§3) — `system:automation` is a caller identity for audit/idempotency attribution, never itself a grant of authority.
+5. **`system:automation` carries no grant of its own.** It is a caller *identity*, used for audit and idempotency attribution. Every permission it exercises is borrowed, live, from the membership that activated the rule revision (§3.1), and evaporates the moment that membership does.
 
 ## 3. Authorization model — resolved (Class A, `B7-D-A007`)
 
-**Workspace-capability-plus-rule-authorization-context, not creator-delegated authority.** Concretely, for every action a run attempts:
+**Delegated authority, bound to the membership that activated the revision, re-resolved live at every invocation.**
 
-1. **Trigger eligibility** (can this event admit a run at all) is answered by `B7_TRIGGER_ADMISSION.md` — workspace entitlement (`automation.rules`, FB-D22) and the rule's own `status='active'`.
-2. **Rule ownership/authorship** (`created_by`) is retained for audit attribution only. It is **not** re-checked at execution time and does **not** supply the authority under which an action's target command executes — resolving the task brief's own "what happens if the creator leaves the workspace" question directly: **nothing happens to already-active rules.** A rule created by a member who has since left the workspace continues to execute exactly as before, because authority was never sourced from that member's personal grant.
-3. **Workspace entitlement** (§`B7_ENTITLEMENT_RBAC_TENANCY.md`) gates whether the workspace's plan includes automation at all and whether it has execution quota remaining.
-4. **Command authorization**, at the moment each action invokes its target command, is evaluated against **the target domain's own permission catalog, checked for the workspace** (not against any individual member's grant) — e.g. `MoveDealStage` requires the workspace to have *some* role capable of `deal.update` in its frozen matrix; since RBAC in this corpus is role-based per workspace membership rather than per-token delegated scopes, and `system:automation` is not a Membership row, the invoked command's authorization check resolves against a **workspace-level automation capability flag** (§`B7_ENTITLEMENT_RBAC_TENANCY.md` §2) layered *in front of* the target command's ordinary RBAC check — the target command's guard still runs in full; the workspace capability flag is an additional, not a substitute, gate. This is deliberately conservative: it means a workspace can be entitled to `automation.rules` yet have automation-invoked `deal.update`-class actions blocked at the target-command boundary if the workspace's automation capability is scoped narrower than a member's own role would allow — never the reverse.
-5. **Domain validation** is the target command's own business-rule guard (closed stage, invalid loss reason, etc.) — automation gets no exemption.
+The reason this, and not a "workspace-level automation capability": in this corpus RBAC is **role-based per membership** (`B1_AUTHORIZATION_RBAC.md` §3 — every cell in the matrix is a role's grant, and `B1-D-006` requires the membership, role, and matrix to be read per request inside the request transaction, with no caching). There is no such thing as a permission held by a workspace rather than by a member. Inventing one would (a) create authority with no human accountable for it, and (b) invent entitlement truth that belongs to B8. So B7 borrows authority instead of manufacturing it.
 
-**No implicit superuser, resolved for every named edge case:**
+### 3.1 Where authority comes from
+
+`automation_rule_revisions.activated_by_membership_id` records the membership that executed `ActivateAutomationRule` for that revision — a command already gated by `automation.rule.manage`. That membership is the revision's **authority principal**.
+
+When a run executes an action, the target command's own RBAC check is evaluated against the **authority principal's current role, read live** at invocation time. The caller *identity* remains `system:automation` / `automation_run:RUN-*` (§1) — so audit stays distinguishable from a human actor, satisfying B2's `AT-AUD-6` — while the *authority* is a real, named, currently-active membership.
+
+Consequence, stated plainly: **automation can never do anything the member who switched it on could not do themselves, at the moment it acts.** A rule activated by a `sales`-role member inherits `lead.assign` only conditionally ("sales: own assignments only"), so an `assign_lead_owner` action targeting someone else's Lead fails — correctly.
+
+### 3.2 The five layers, kept separate
+
+| Layer | Question | Answered by |
+|---|---|---|
+| A — trigger eligibility | may this event admit a run at all? | rule `status='active'` + workspace holds `automation.rules` (`B7_TRIGGER_ADMISSION.md`) |
+| B — rule authorship | who wrote it? | `automation_rules.created_by` — **audit attribution only**, never authority |
+| C — workspace entitlement | is automation sold to this workspace, with quota left? | `B7_ENTITLEMENT_RBAC_TENANCY.md` §4 |
+| D — command authorization | may *this principal* invoke *this command*? | the target domain's own frozen permission row, evaluated against the **authority principal** (§3.1) |
+| E — domain validation | is the operation legal right now? | the target command's own guards — state machine, `expected_version`, consent, service window |
+
+Layer B is deliberately not layer D. Authorship and authority are different questions, and conflating them is what produces rules that outlive the accountability for them.
+
+### 3.3 Every named edge case, resolved
 
 | Case | Resolution |
 |---|---|
-| Creator leaves the workspace | No effect on an already-`active` rule (§2 above) — authority was never creator-sourced |
-| Rule owner is suspended | Same as above — Phase-1 has no distinct "owner" (§`B7_AUTOMATION_RULE_AGGREGATE.md` §2); a suspended member's `automation.rule.manage` grant is revoked for *future edits* by the RBAC check on `UpdateAutomationRule`/lifecycle commands, but an already-`active` rule's execution is unaffected |
-| Workspace entitlement changes mid-run | A `running` run finishes uninterrupted (no abrupt stop, §`B7_RULE_LIFECYCLE.md` §3); the *next* trigger-admission check re-evaluates entitlement fresh (§`B7_ENTITLEMENT_RBAC_TENANCY.md` §4) |
-| Action permission is revoked (workspace downgrades a role's grant) | The target command's own RBAC check, re-run at invocation time, rejects the action with the target domain's ordinary `403`-class failure — classified `AUTHORIZATION`, non-retryable (§`B7_FAILURE_RETRY_MODEL.md`) |
+| **The activating member leaves the workspace** | Their membership is no longer active, so layer D fails at the next invocation: the action is `blocked`, classified `AUTHORIZATION`, **non-retryable** (`B7_FAILURE_RETRY_MODEL.md` §1), and the run settles `failed` (`B7_PARTIAL_SUCCESS.md`). **The rule's own `status` is not mutated** — see §3.3a. **Recovery is explicit:** any member holding `automation.rule.manage` re-runs `ActivateAutomationRule`, which rebinds `activated_by_membership_id` to themselves. Authority is never silently inherited, and a departed member's grant never keeps acting. |
+| **The activating member is suspended** | Identical to removal — a suspended membership grants nothing. The rule is not disabled, archived, or edited; its actions simply fail deterministically until someone who can re-activates it. |
+| **The activating member's role is downgraded** | Layer D is evaluated against their *current* role, so the specific actions their new role no longer permits begin failing `AUTHORIZATION`/PERMANENT, while actions still within their role keep working. No cached decision can mask this (`B1-D-006`). |
+| **Workspace entitlement changes mid-run** | A `running` run finishes uninterrupted; the *next* trigger admission and the *next* not-yet-invoked action observe the downgrade (`B7_ENTITLEMENT_RBAC_TENANCY.md` §4). |
+| **A target-domain permission is revoked outright** | Same as a role downgrade — the target command's own check rejects, classified `AUTHORIZATION`, non-retryable. |
+| **A transient failure reading the membership/role** | Classified `TRANSIENT`, retried on the frozen backoff schedule (`B7_FAILURE_RETRY_MODEL.md` §1-§2) — it is **not** an authorization failure, and it can never be mistaken for one, because "authority lost" is only ever concluded from a definitive negative answer, never from the absence of an answer. |
 
-`AT-SEC-AUTOMATION-1` **(NC)**: an implementation letting a rule's `created_by` grant execution authority independent of workspace/role checks — fails; §3.2 above structurally forbids sourcing authority from authorship.
+### 3.3a Authorization failure never mutates rule lifecycle — resolved (Class A, `B7-D-A038`)
+
+An `AUTHORIZATION` failure **fails the affected action and its run, and does nothing else.** Phase-1 declares **no** automatic rule-lifecycle mutation on authority loss: no failure-count threshold, no system-initiated `active → disabled` transition, no `reason='authority_lost'` event field, no system actor performing a lifecycle command. An earlier draft of this pack promised exactly that behavior in prose while defining no threshold value, no transition, no actor, no event field to carry the reason, and no test — a hidden safety behavior specified inside error handling, which is precisely what must not ship.
+
+Three reasons this is the right Phase-1 answer, not merely the smaller one:
+
+1. **Authorization is per-command, and a rule's actions are heterogeneous.** A role downgrade may revoke `lead.assign` while leaving `task.manage` intact. Disabling the whole rule on the first such failure would stop actions that remain perfectly authorized; not disabling it stops exactly the actions that are not.
+2. **Escalation is already prevented without it.** `ActivateAutomationRule` validates the principal at activation, and layer D re-validates live at every invocation (§3.1). A rule whose authority has evaporated executes nothing, whether or not its `status` column says `active`.
+3. **It would be an undeclared lifecycle authority.** A system-initiated `DisableAutomationRule` needs an actor, a permission posture, an `If-Match` story, and a concurrency story against a concurrent human edit. Inventing all four for an unevidenced behavior is exactly the overbuild the brief forbids.
+
+The operational visibility this trades away is supplied instead by data that already exists: `B7_READ_MODELS_QUERY.md` §1's `last_run_status` and §4's failure view surface a rule whose runs are failing `AUTHORIZATION`, and the `executions_failed{error_classification="AUTHORIZATION"}` metric (`B7_OBSERVABILITY_AUDIT.md` §2) alerts on it. An admin then re-activates deliberately.
+
+Automatic disabling after repeated authorization failures is recorded as `B7-D-C006` — a future **operational policy** decision requiring product evidence and, if ever adopted, a first-class Class-A lifecycle transition with its own actor, threshold, event field, and tests. It is not deferred *implementation* of something Phase 1 promises; Phase 1 promises nothing here.
+
+### 3.4 What this deliberately costs
+
+Binding authority to a single membership means a rule stops acting when that member does. That is the intended trade: the alternative — authority that outlives every human who granted it — is precisely the implicit superuser the brief forbids. The cost is bounded and visible without any hidden state change: the rule stays `active`, its runs fail `AUTHORIZATION` deterministically, and `B7_READ_MODELS_QUERY.md` §1/§4 plus the `executions_failed` metric surface it so an admin re-activates deliberately rather than discovering it silently (§3.3a).
+
+`AT-SEC-7` **(NC)**: an implementation letting a rule's `created_by` grant execution authority — fails; §3.2 layer B is audit attribution only, and authority comes from `activated_by_membership_id` (§3.1).
+
+`AT-SEC-8` **(NC)**: an implementation in which a rule keeps invoking target commands after its authority principal is removed or suspended — fails; §3.3 requires a non-retryable `AUTHORIZATION` failure at the next invocation.
+
+`AT-SEC-10` **(NC)**: an implementation that mutates a rule's `status` from any authorization-failure path — fails; §3.3a declares no such transition, and `B7_RULE_LIFECYCLE.md` §2's table contains no system-initiated edge to drive it.
+
+`AT-SEC-9` **(NC)**: an implementation introducing a workspace-level permission or capability that grants automation an action no membership in that workspace could perform — fails; no such construct exists, and §3 sources every grant from the frozen per-membership role matrix.

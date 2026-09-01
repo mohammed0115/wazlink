@@ -4,7 +4,7 @@
 
 ## 1. B8 is not designed yet
 
-B7 does not invent subscription truth, payment truth, plan pricing, invoice truth, or a billing state machine. `B7_ENTITLEMENT_RBAC_TENANCY.md` §4 defines only an **abstract capability check** (`automation.rules`, `automation.rules.max_active`) against whatever entitlement-decision boundary already exists in this corpus — B7 supplies no numeric plan limits, no pricing tier names, no billing-cycle logic.
+B7 does not invent subscription truth, payment truth, plan pricing, invoice truth, or a billing state machine. `B7_ENTITLEMENT_RBAC_TENANCY.md` §4 enforces only the **two keys frozen B1 already fixed** — capability `automation.rules` and usage metric `automationRuns` — against the entitlement-decision boundary that already exists in this corpus. B7 mints no capability key, no usage metric, and no plan-tier vocabulary of its own; it supplies no numeric plan limits, no pricing tier names, and no billing-cycle logic.
 
 ## 2. What B7 never does
 

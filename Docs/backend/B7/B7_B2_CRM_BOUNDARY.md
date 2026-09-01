@@ -4,7 +4,7 @@
 
 ## 1. What B7 consumes from B2
 
-Seven trigger-eligible events (`LeadCreated`, `LeadStatusChanged`, `LeadPriorityChanged`, `LeadOwnerChanged`, `TaskCreated`, `TaskCompleted`, `AppointmentCreated`), plus two added by controlled amendment (`AppointmentCompleted`, `AppointmentNoShowRecorded` — `B7_CONTROLLED_AMENDMENTS.md` `B7-AMEND-01`). Condition fields: `lead.status`, `lead.priority`, `lead.owner_ref`, `task.status`, `appointment.status` — all sourced from B2's own frozen event/DTO shapes, never a wider traversal (`B7_CONDITION_ENGINE.md` §6).
+Seven trigger-eligible events (`LeadCreated`, `LeadStatusChanged`, `LeadPriorityChanged`, `LeadOwnerChanged`, `TaskCreated`, `TaskCompleted`, `AppointmentCreated`), plus two added by controlled amendment (`AppointmentCompleted`, `AppointmentNoShowRecorded` — `B7_CONTROLLED_AMENDMENTS.md` `B7-AM-002`). Condition fields: `lead.status`, `lead.priority`, `lead.owner_ref`, `task.status`, `appointment.status` — all sourced from B2's own frozen event/DTO shapes, never a wider traversal (`B7_CONDITION_ENGINE.md` §6).
 
 ## 2. What B7 invokes on B2
 
@@ -16,7 +16,7 @@ Never writes `leads`/`contacts`/`tasks`/`appointments`/`notes` directly. Never i
 
 ## 4. Provenance
 
-B2-owned `tasks`/`appointments` rows carry a nullable `created_by_automation_run_id`-shaped backreference (evidenced FB-D21) — B2's column, B2's migration; B7 only ever supplies the `RUN-*` value at `CreateTask`/`ScheduleAppointment` invocation time.
+B2-owned `tasks`/`appointments` rows carry a nullable `created_by_automation_run_id`-shaped backreference (evidenced FB-A34) — B2's column, B2's migration; B7 only ever supplies the `RUN-*` value at `CreateTask`/`ScheduleAppointment` invocation time.
 
 ## 5. Negative controls
 

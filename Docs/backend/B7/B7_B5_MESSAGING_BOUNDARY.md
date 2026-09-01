@@ -4,7 +4,7 @@
 
 ## 1. What B7 consumes from B5
 
-**Nothing in Phase 1.** `B5_DOMAIN_OWNERSHIP.md` explicitly lists `AutomationRun` as **DEFERRED** and pre-declares no event consumer for Automation. `needs_reply` is a read-time computed flag, not an event (`B5_DOMAIN_OWNERSHIP.md` line 57), and cannot be a trigger regardless. `ConversationNeedsReply`/`ConversationClosed`/`MessageReceived`/`MessageDelivered`/`MessageFailed` are all deferred (`B7_TRIGGER_CATALOG.md` §3), despite appearing in the frontend's trigger catalog (FB-D02) — evidence for *consumption* is weaker here than for B2/B6 (no frozen consumer declaration, no dedicated boundary doc naming them), so Phase 1 does not include them.
+**Nothing in Phase 1.** `B5_DOMAIN_OWNERSHIP.md` explicitly lists `AutomationRun` as **DEFERRED** and pre-declares no event consumer for Automation. `needs_reply` is a read-time computed flag, not an event (`B5_DOMAIN_OWNERSHIP.md` line 57), and cannot be a trigger regardless. `ConversationNeedsReply`/`ConversationClosed`/`MessageReceived`/`MessageDelivered`/`MessageFailed` are all deferred (`B7_TRIGGER_CATALOG.md` §3), despite appearing in the frontend's trigger catalog (FB-A04) — evidence for *consumption* is weaker here than for B2/B6 (no frozen consumer declaration, no dedicated boundary doc naming them), so Phase 1 does not include them.
 
 ## 2. What B7 invokes on B5
 
@@ -16,7 +16,11 @@ Never writes `conversations`/`messages`/`message_deliveries`. Never bypasses con
 
 ## 4. The forbidden-list tension, resolved explicitly
 
-`forbiddenAutomationActions` (FB-D06) names `send_message`/`send_whatsapp` — the mock's own conservative demo posture, explicitly self-disqualified as backend-mechanism truth (FB-D23). Two independent frozen documents (`B5_MESSAGE_MODEL.md` §2's reserved `senderType='system'`, `B5_MESSAGE_STATE_MACHINE.md`'s named forward-reference) point the opposite direction for the real backend. B7 resolves this by including the action under **mandatory, non-configurable `approval_required`** — full detail and justification in `B7_ACTION_CATALOG.md` §3.
+`forbiddenAutomationActions` (FB-A13) names `send_message`/`send_whatsapp` — the mock's own conservative demo posture, explicitly self-disqualified as backend-mechanism truth (FB-A55). Two independent frozen documents (`B5_MESSAGE_MODEL.md` §2's reserved `senderType='system'`, `B5_MESSAGE_STATE_MACHINE.md`'s named forward-reference) point the opposite direction for the real backend. B7 resolves this by including **one canonical governed send action** under **mandatory, non-configurable `approval_required`** — full detail and justification in `B7_ACTION_CATALOG.md` §3.
+
+**Status: CTO-approved product/architecture decision for Phase 1 (`B7-D-A016`).** B5 provisioned for this caller by name but deliberately left the adopt-or-stay-strict choice open; that choice was put to the CTO as a controlled decision by the independent verification, and approved. It is **not** classified as a frozen B0-B6 amendment, because no frozen text changes — B7 is a new caller of an unmodified command (`B7_CONTROLLED_AMENDMENTS.md` §4).
+
+**One action, not two.** `send_message` and `send_whatsapp` denote the same operation — B5's only channel is WhatsApp — and B7 models exactly one action over B5's single admission sequence. Every B5 check applies unchanged and none is optional: channel binding, recipient/contact resolution, consent, suppression, the customer service window, template requirements, media restrictions, ambiguous-send safety, rate and cost admission, idempotency, and audit (`B5_OUTBOUND_PIPELINE.md` §2, unmodified). A human must approve every automation-initiated send, every time, with no `auto_safe` override available to any rule author.
 
 ## 5. Negative controls
 

@@ -49,7 +49,7 @@ Class legend, identical to `B6_FRONTEND_BEHAVIOR_INVENTORY.md` §2: **A** = auth
 | FB-A19 | Every run persists an immutable snapshot at admission: `automationRuleVersion`, `ruleNameSnapshot`, `triggerSnapshot`, `actionSnapshot[]` | `data.js:952`; integrity check N (`data.js:995`) | A |
 | FB-A20 | Run status vocabulary is `evaluating` \| `matched` \| `skipped` \| `awaiting_approval` \| `executed` \| `failed` \| `cancelled` | `data.js:778` | B — frozen `BACKEND_STATE_MACHINES.md` already fixes `AutomationRun` as `created→awaiting_approval→queued→running→completed/failed/cancelled`; B7 maps onto the frozen vocabulary rather than introducing a second one (`B7_EXECUTION_MODEL.md` §3) |
 | FB-A21 | Per-action execution status vocabulary is `proposed` \| `awaiting_approval` \| `approved` \| `rejected` \| `executed` \| `failed` \| `blocked` | `data.js:779` | B — same reason; `step_runs` is internal per frozen `BACKEND_PUBLIC_ID_REGISTRY.md` §B and carries a reduced status set (`B7_ACTION_EXECUTION_MODEL.md` §3) |
-| FB-A22 | Run admission is idempotent on `rule:version:eventId:firstActionId`; a repeat returns the **existing** run rather than creating a second | `data.js:929,951` | B — B7 keys on `(workspace, rule, source_event)` **excluding** the revision, so a rule edited between two deliveries of the same event still cannot produce two runs (`B7_IDEMPOTENCY_MODEL.md` §3) |
+| FB-A22 | Run admission is idempotent on `rule:version:eventId:firstActionId`; a repeat returns the **existing** run rather than creating a second | `data.js:929,951` | B — B7 keys on `(workspace, rule, source_event)` **excluding** the revision, so a rule edited between two deliveries of the same event still cannot produce two runs. The mock's `rule.version` component is dropped rather than translated to `rule_revision_id`, and the exclusion is enforced by a declared partial-unique constraint, not only by a derived key (`B7_IDEMPOTENCY_MODEL.md` §1.1-§1.4, `B7_DATA_MODEL.md` §3 `uq_automation_runs_event_rule`) |
 | FB-A23 | Loop guard: any event whose `origin === "automation"` produces a **skipped** run and never executes — blanket same-origin suppression | `data.js:949`; integrity check P (`data.js:997`) | B — a blanket rule also suppresses the legitimate `Rule A → Task → Rule B` chain; B7 replaces it with lineage + same-rule-same-target suppression + a depth bound (`B7_LOOP_PREVENTION.md`) |
 | FB-A24 | A trigger-type mismatch produces **no run row at all** — only matching rules are admitted | `data.js:950` | A |
 | FB-A25 | A `manual_only` rule reached by an automatic trigger is admitted, recorded, and blocked with an explicit reason rather than silently dropped | `data.js:952` | A |
@@ -88,13 +88,21 @@ Class legend, identical to `B6_FRONTEND_BEHAVIOR_INVENTORY.md` §2: **A** = auth
 | FB-A48 | The Lead 360 automation panel counts runs whose trigger entity resolves to the Lead directly, via its conversation, or via its deal | `LeadControlPanels.tsx:104–113` | A |
 | FB-A49 | The `lead.status` condition field advertises `customer` as an allowed value; frozen `B2_LEAD_AGGREGATE.md` §2 defines the enum as `new`\|`contacted`\|`qualified`\|`unqualified`\|`nurturing` — `customer` is not a Lead status | `data.js:795` vs `B2_LEAD_AGGREGATE.md:18` | **D** |
 | FB-A50 | The `task.status` condition field advertises only `pending`\|`completed`; frozen `B2_TASK_APPOINTMENT_MODEL.md` §2 defines `pending`\|`completed`\|`cancelled` | `data.js:801` vs `B2_TASK_APPOINTMENT_MODEL.md:18` | B — B7 takes the field's allowed values from the owning domain's frozen enum, never from the mock's copy |
-| FB-A51 | The `deal.stage` condition field is matched through a hand-maintained slug map (`STG-1001`→`"new"` … `STG-1007`→`"won"`) that conflates stage identity with Won/Lost | `data.js:797,865` | **D** — already ruled *not carried forward* by frozen `B6_B7_AUTOMATION_BOUNDARY.md` §4 |
-| FB-A52 | `conversation_needs_reply` is offered as a trigger, but `needs_reply` is a **computed read-time predicate** in frozen B5, not an event | `data.js:785` vs `B5_CONVERSATION_MODEL.md` §7, `B5_DOMAIN_OWNERSHIP.md:57` | B — B7 admits it as a derived trigger off `MessageReceived` (`B7_TRIGGER_CATALOG.md` §4) |
-| FB-A53 | `agent_action_executed` is offered as a trigger; frozen `BACKEND_PUBLIC_ID_REGISTRY.md` §C resolves the agent action `AGA-*` **to `RUN-*`, the AutomationRun itself** — the trigger would fire automation on automation's own output | `data.js:788` vs `BACKEND_PUBLIC_ID_REGISTRY.md:106` | **D** |
+| FB-A51 | The `deal.stage` condition field is matched through a hand-maintained slug map (`STG-1001`→`"new"` … `STG-1007`→`"won"`) that conflates stage identity with Won/Lost | `automationConditionFieldCatalog` field entry, `data.js:798`; slug map `getAutomationStageKey`, `data.js:856`, consumed at `buildAutomationContext`, `data.js:903` | **D** — already ruled *not carried forward* by frozen `B6_B7_AUTOMATION_BOUNDARY.md` §4 |
+| FB-A52 | `conversation_needs_reply` is offered as a trigger, but `needs_reply` is a **computed read-time predicate** in frozen B5, not an event | `automationTriggerCatalog` entry, `data.js:788`, vs `B5_CONVERSATION_MODEL.md` §7 and `B5_DOMAIN_OWNERSHIP.md:57` | B — a read-time predicate cannot be a trigger type as authored. B7 therefore **defers** it with every other B5-sourced trigger (`B7-D-B006`): no frozen B5 consumer declaration names Automation, so Phase 1 admits none (`B7_TRIGGER_CATALOG.md` §3, `B7_B5_MESSAGING_BOUNDARY.md` §1) |
+| FB-A53 | `agent_action_executed` is offered as a trigger; frozen `BACKEND_PUBLIC_ID_REGISTRY.md` §C resolves the agent action `AGA-*` **to `RUN-*`, the AutomationRun itself** — the trigger would fire automation on automation's own output | `automationTriggerCatalog` entry, `data.js:789`, vs `BACKEND_PUBLIC_ID_REGISTRY.md` §C row `AGA-` | **D** |
 | FB-A54 | The React create-rule modal always submits `status: "enabled"` with exactly one condition and one action, silently bypassing the `draft` option the legacy form still offers | `AutomationModal.tsx:52–61` vs `automation.js` `renderRuleForm` | B — B7 supports both (`draft` is the created state, activation is a separate command) and the divergence is resolved in favour of the explicit two-step lifecycle |
 | FB-A55 | The engine has no scheduler, worker, queue, webhook, or background execution; evaluation happens only inside an explicit user action | `data.js:776`; integrity check V (`data.js:1002`) | **C** — a mock constraint, not a product requirement; B7 supplies the async boundary B0 ADR-004/005 already selected |
 | FB-A56 | Rules, runs, and executions carry no workspace field — the mock is single-tenant | `data.js:837–851` | B — every B7 automation row is workspace-scoped per frozen `B0_BACKEND_BLUEPRINT.md` non-negotiable rule 1 |
 | FB-A57 | There is no delay/wait action, no time-based or scheduled trigger, and no cron affordance anywhere in the automation surface | absence across `data.js:784–814`, `Automation.tsx`, `AutomationModal.tsx` | A (as an absence — recorded because B7 declines to invent one; see `B7_SCHEDULE_DELAY_MODEL.md`) |
+
+### Group E — Product framing and one frozen-B0 unification
+
+| ID | Behavior | Source | Class |
+|---|---|---|---|
+| FB-A58 | The automation surface presents a fixed six-step decision rail — الحدث (Event) → الشروط (Conditions) → القاعدة (Rule) → الإجراء (Action) → **الموافقة (Approval)** → التدقيق (Audit) — as the product's own articulation of the pipeline | `automation.js` `renderDecisionRail`; `Automation.tsx` `railSteps` | A — independently corroborates that **approval is a first-class pipeline stage**, not an optional add-on, matching frozen `BACKEND_DOMAIN_OWNERSHIP.md`'s "no unapproved sensitive action" |
+| FB-A59 | A live rule-sentence preview ("عندما X، إذا كان Y، Z.") renders while authoring, composed purely from the three closed catalogs | `automation.js` `getAutomationRulePreview`; `AutomationModal.tsx` | C — pure client-side composition; the only backend obligation it implies is that the catalogs be fetchable, which `GET /automation/triggers` and `GET /automation/actions` satisfy |
+| FB-A60 | The S8 Copilot's "governed agent action" `AGA-*` is resolved by frozen `BACKEND_PUBLIC_ID_REGISTRY.md` §C **to `RUN-*` — the AutomationRun itself** — reached through `POST /automation/runs/{id}/approve` | `BACKEND_PUBLIC_ID_REGISTRY.md` §C row `AGA-`; `features/ai/*`, `domain/sales-ai.js` | A — a frozen-B0 fact rather than a frontend-only one, recorded here because it determines that "propose an action, get human approval, execute" is **one** backend primitive shared by S8 and S9, and that an `AutomationRun` need not always have an `AutomationRule` behind it (`B7_EXECUTION_MODEL.md` §4) |
 
 ## 3. Behaviors with no frontend evidence, stated explicitly
 
@@ -108,7 +116,7 @@ The following B7 concerns have **no** frontend evidence in either direction. The
 | Run cancellation by a user | `cancelled` exists in the status vocabulary (FB-A20) but **no code path ever sets it** | `B7_PAUSE_DISABLE_CANCEL.md` §4 |
 | Cross-workspace isolation | none — single-tenant mock (FB-A56) | `B7_ENTITLEMENT_RBAC_TENANCY.md` §3 |
 | Which membership's authority an automation action executes under | none — the mock passes `CRM_ACTOR_ID`, a module constant | `B7_SYSTEM_ACTOR_AUTHORIZATION.md` |
-| Concurrent execution of one rule, and `expected_version` handling | none — single-threaded mock | `B7_CONCURRENCY_MODEL.md`, `B7_ACTION_AUTHORIZATION.md` §6 |
+| Concurrent execution of one rule, and `expected_version` handling | none — single-threaded mock | `B7_CONCURRENCY_MODEL.md` §2, §5 |
 | Scheduled / delayed automation | none, and deliberately so (FB-A57) | `B7_SCHEDULE_DELAY_MODEL.md` — **deferred out of Phase 1** |
 
 ## 4. Counts
@@ -116,25 +124,37 @@ The following B7 concerns have **no** frontend evidence in either direction. The
 Mechanically recounted from the tables' own trailing `Class` column, taking each row's **leading** class letter — the same single-leading-letter discipline `B6_FRONTEND_BEHAVIOR_INVENTORY.md` §5 applies to its split rows. Exactly one row here carries a split note: **FB-A39** leads with **A** (the manual-run mechanism is authoritative) and carries a secondary **C** (its hardcoded default-entity map is fixture scaffolding). It is counted once, under **A**.
 
 ```
-FRONTEND_BEHAVIOR_COUNT = 57   (FB-A01-FB-A57, contiguous, no gaps)
-FRONTEND_A              = 39
+FRONTEND_BEHAVIOR_COUNT = 60   (FB-A01-FB-A60, contiguous, no gaps)
+FRONTEND_A              = 41
 FRONTEND_B              = 10
-FRONTEND_C              = 2
+FRONTEND_C              = 3
 FRONTEND_D              = 6
 FRONTEND_UNCLASSIFIED   = 0
 
-39 + 10 + 2 + 6 + 0 = 57, matching the row count exactly.
+41 + 10 + 3 + 6 + 0 = 60, matching the row count exactly.
 ```
 
 Per-class membership, listed in full so the split is mechanically re-verifiable without re-parsing prose:
 
-- **A (39):** FB-A01, A02, A03, A04, A05, A07, A08, A09, A10, A12, A13, A14, A15, A16, A17, A18, A19, A24, A25, A26, A27, A28, A30, A31, A32, A33, A34, A35, A36, A38, **A39**, A40, A41, A42, A43, A44, A46, A48, A57
+- **A (41):** FB-A58, FB-A60, FB-A01, A02, A03, A04, A05, A07, A08, A09, A10, A12, A13, A14, A15, A16, A17, A18, A19, A24, A25, A26, A27, A28, A30, A31, A32, A33, A34, A35, A36, A38, **A39**, A40, A41, A42, A43, A44, A46, A48, A57
 - **B (10):** FB-A11, A20, A21, A22, A23, A29, A50, A52, A54, A56
-- **C (2):** FB-A37, A55
+- **C (3):** FB-A37, A55, A59
 - **D (6):** FB-A06, A45, A47, A49, A51, A53
 
 `B7_VERIFICATION_MATRIX.md` §3 re-derives all five numbers mechanically from this file rather than restating them.
 
-## 5. What this inventory does *not* license
+## 5. How the forbidden list is carried forward
 
-The mock's `forbiddenAutomationActions` list (FB-A13) is **preserved verbatim as Phase-1 policy**, not relaxed. In particular, the presence of `deal_created`/`deal_stage_changed` in the trigger catalogue authorises Deal events as *triggers* only; the same fixture independently forbids `close_won_deal`, `close_lost_deal`, `change_deal_value`, `change_deal_probability`, `create_revenue`, and `create_attribution` as *actions*, and `B6_B7_AUTOMATION_BOUNDARY.md` §4 records that two independent mock surfaces (S8 and S9) maintain that same list. `B7_ACTION_CATALOG.md` §5 carries the exclusion forward structurally.
+The mock's `forbiddenAutomationActions` (FB-A13) blocks nine action types unconditionally, and `B6_B7_AUTOMATION_BOUNDARY.md` §4 records that two independent mock surfaces (S8 Agent and S9 Automation) maintain the same list. It is strong evidence and B7 does not wave it away.
+
+**Seven of the nine remain forbidden in Phase 1**, structurally: `change_deal_value`, `change_deal_probability`, `close_won_deal`, `close_lost_deal`, `create_revenue`, `create_attribution`, `delete_lead`. `B7_ACTION_CATALOG.md` §4 carries each exclusion with its own rationale, and the last three are additionally impossible by construction — no B7-reachable command produces a `RevenueEvent` or `AttributionTouchpoint` (`B7_REVENUE_FIREWALL.md`), and B2's frozen catalog contains no Lead hard-delete command for any actor.
+
+**Two of the nine — `send_message` and `send_whatsapp`, which name one action, not two — are deliberately relaxed**, under a non-configurable `approval_required` tier. This is a real divergence from an A-classified frontend behavior, declared as such and **approved by the CTO as a Phase-1 product/architecture decision** (`B7-D-A016`), not smuggled in and not disguised as a frozen amendment. Three frozen B5 statements, all verified against the frozen text rather than paraphrased, drive it:
+
+- `B5_MESSAGE_MODEL.md` §2 defines `sender_type = … | system` as *"reserved for a future governed-automation sender"*;
+- `B5_MESSAGE_STATE_MACHINE.md` justifies its `cancelled` state partly because *"B7's future governed-automation sends will need one"*;
+- `B5_B6_B7_BOUNDARIES.md` §2 states B5 is compatible with the forbidden list *"remaining exactly as strict as it is today, **or** with a future B7 phase deliberately, explicitly relaxing it through the same governed command — never through a bypass."*
+
+B5 therefore does not merely tolerate automation sends; it provisions for them by name. What the frontend's list actually protects against — an automation autonomously sending a WhatsApp message with no human in the loop — remains structurally impossible, because the action's safety tier is fixed at `approval_required` and a rule author cannot set it to `auto_safe` (`B7_ACTION_CATALOG.md` §3), and because the send itself still passes through B5's unmodified admission sequence including consent, service window, and template rules (`B7_B5_MESSAGING_BOUNDARY.md`).
+
+**`move_deal_stage` relaxes nothing** — it does not appear on the forbidden list at all. It is included because `B6_DATA_MODEL.md` §4 reserves `deal_stage_transitions.reason_source='automation'` specifically for a B7 caller, which is forward-provisioning by the immediately-preceding frozen phase rather than a gap in the evidence.

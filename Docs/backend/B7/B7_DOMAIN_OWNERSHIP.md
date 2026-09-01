@@ -24,15 +24,15 @@ Every row is workspace-scoped (`workspace_id NOT NULL`) per frozen `B0_BACKEND_B
 
 | # | Entity | Table | Identity | Public ID | Mutability | Versioned | Retention |
 |---|---|---|---|---|---|---|---|
-| 1 | **AutomationRule** | `automation_rules` | `(workspace_id, public_id)` | `AUTO-*` (`B7-AM-001`) | mutable: `name`, `description`, `status`, `active_revision_id`, `version` | yes (ADR-010 `version`) | archive, never delete (`B7_RETENTION_DELETION.md` §2) |
+| 1 | **AutomationRule** | `automation_rules` | `(workspace_id, public_id)` | `AUTO-*` (`B7-AM-001`) | mutable: `name`, `description`, `status`, `active_revision_id`, `version` | yes (ADR-010 `version`) | archive, never delete (`B7_RETENTION_DELETION.md` §1) |
 | 2 | **AutomationRuleRevision** | `automation_rule_revisions` | `(rule_id, revision_no)` | none — addressed as `AUTO-*/revisions/{n}` | **immutable after creation** except `status` and `superseded_at` | revision number *is* the version | retained as long as any run references it |
 | 3 | **AutomationRuleTrigger** | `automation_rule_triggers` | `(revision_id)` — exactly one per revision | none | **immutable** — child of an immutable revision | n/a | with its revision |
 | 4 | **AutomationRuleCondition** | `automation_rule_conditions` | `(revision_id, position)` | none | **immutable** | n/a | with its revision |
 | 5 | **AutomationRuleAction** | `automation_rule_actions` | `(revision_id, position)` | none | **immutable** | n/a | with its revision |
-| 6 | **AutomationRun** | `automation_runs` | `(workspace_id, public_id)` | **`RUN-*`** (frozen, §A) | append-mostly: `status`, timestamps, terminal fields; never re-pointed to another rule or revision | yes (`version`, for the frozen approval `If-Match`-equivalent) | tiered by outcome (`B7_RETENTION_DELETION.md` §3) |
+| 6 | **AutomationRun** | `automation_runs` | `(workspace_id, public_id)` | **`RUN-*`** (frozen, §A) | append-mostly: `status`, timestamps, terminal fields; never re-pointed to another rule or revision | yes (`version`, for the frozen approval `If-Match`-equivalent) | audit-retention window (`B7_RETENTION_DELETION.md` §1) |
 | 7 | **AutomationRunStep** | `automation_run_steps` | `(run_id, step_index)` | none — frozen registry §B: *"`step_runs` is internal and is not exposed by the Core contract"* | append-mostly: `status`, attempt counters, result ref | no | with its run |
 | 8 | **AutomationRunApproval** | `automation_run_approvals` | `(run_id)` — at most one decision per run | none | **immutable after the decision is recorded** | no | with its run |
-| 9 | **AutomationEventInbox** | `automation_event_inbox` | `(workspace_id, source_event_id)` UNIQUE | none — internal | append-only; `processed_at` set once | no | short (`B7_RETENTION_DELETION.md` §4) |
+| 9 | **AutomationInboxRecord** | `automation_inbox_records` | `(workspace_id, source_event_id)` UNIQUE | none — internal | append-only; `processed_at` set once | no | short prune window (`B7_RETENTION_DELETION.md` §1, `B7-D-B012`) |
 | 10 | **AutomationRuleAudit** | *(none — see below)* | — | — | — | — | — |
 
 **Row 10 is deliberately empty.** The mock keeps its own `automationActivities` store (FB-A41). B7 does **not** create a private audit table: frozen `BACKEND_DOMAIN_OWNERSHIP.md` gives Audit its own domain with `audit_logs` as the single authoritative table and "immutable/no secrets" as its forbidden coupling. B7 writes audit rows *there*, through the Audit domain's writer, exactly as B2/B5/B6 do. See `B7_OBSERVABILITY_AUDIT.md` §2.

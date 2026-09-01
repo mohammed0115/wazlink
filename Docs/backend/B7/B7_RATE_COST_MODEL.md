@@ -22,10 +22,9 @@ These are **technical safety invariants**, uniform across every plan tier — ne
 | Control | Phase-1 shape | Numeric value |
 |---|---|---|
 | `automation.rules` (binary gate) | present/absent | B8-owned |
-| `automation.rules.max_active` (active-rule quota) | integer ceiling, checked at `ActivateAutomationRule` | B8-owned, deferred |
-| Execution quota (if a plan later caps monthly run count) | not implemented in Phase 1 — no frontend/architecture evidence requires it yet; `runsToday` (FB-D20) is informative-only, not enforced | deferred Class B/C |
+| `automationRuns` (frozen usage metric) | one unit reserved per `AutomationRun` created, transactionally, at both creation paths — `B7_ENTITLEMENT_RBAC_TENANCY.md` §4.1, reusing frozen `B1_FAILURE_SCENARIOS.md` F16 unmodified. Exhaustion is `403 QUOTA_EXHAUSTED`, `details.metric="automationRuns"` | B8-owned per-period limit (`B7-D-B009`) |
 
-B7 defines the shape of every commercial gate it needs (`B7_ENTITLEMENT_RBAC_TENANCY.md` §4) without inventing final numbers B8 has not frozen — matching the task brief's explicit §48 instruction to keep technical and commercial limits separate and to defer numbers safely rather than invent them.
+Both keys above are frozen inherited vocabulary (`B1_ENTITLEMENT_QUOTA_BOUNDARY.md` §3, *"do not reinvent"*); B7 enforces them and invents neither a third key nor any numeric value B8 has not frozen — an earlier draft's `automation.rules.max_active` was exactly such an invention and is removed — matching the task brief's explicit §48 instruction to keep technical and commercial limits separate and to defer numbers safely rather than invent them.
 
 ## 4. B7-level abuse controls beyond the technical safety limits
 

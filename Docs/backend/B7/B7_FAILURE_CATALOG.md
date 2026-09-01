@@ -8,10 +8,10 @@ Stable IDs `B7-AF-001`…`B7-AF-034`, contiguous, no gaps, no duplicate semantic
 |---|---|---|---|---|
 | `B7-AF-001` | missing/invalid session on any B7 endpoint | 401 | `UNAUTHENTICATED` | `AUTHORIZATION`, non-retryable |
 | `B7-AF-002` | caller lacks `automation.rule.view`/`.manage`/`.run.approve` for the attempted operation | 403 | `PERMISSION_DENIED` | `AUTHORIZATION`, non-retryable |
-| `B7-AF-003` | a referenced `ARULE-*`/`RUN-*`/`DEAL-*`/`LEAD-*` belongs to a different workspace | 404 | `ENTITY_NOT_FOUND` | `VALIDATION`, non-retryable (Doctrine R-1 non-disclosure shape) |
-| `B7-AF-004` | workspace lacks the `automation.rules` capability | 403 | `ENTITLEMENT_REQUIRED` | `ENTITLEMENT`, non-retryable |
-| `B7-AF-005` | workspace's active-rule count would exceed `automation.rules.max_active` | 403 | `USAGE_EXHAUSTED` | `ENTITLEMENT`, non-retryable |
-| `B7-AF-006` | `ARULE-*` does not resolve in this workspace | 404 | `ENTITY_NOT_FOUND` | `VALIDATION`, non-retryable |
+| `B7-AF-003` | a referenced `AUTO-*`/`RUN-*`/`DEAL-*`/`LEAD-*` belongs to a different workspace | 404 | `ENTITY_NOT_FOUND` | `VALIDATION`, non-retryable (Doctrine R-1 non-disclosure shape) |
+| `B7-AF-004` | workspace lacks the `automation.rules` capability | 403 | `ENTITLEMENT_LOCKED` \| `details.capability="automation.rules"`, `reason="capability_locked"` (frozen `BACKEND_ERROR_CATALOG.md`; shape per `B1_FAILURE_SCENARIOS.md` F15) | `ENTITLEMENT`, non-retryable |
+| `B7-AF-005` | workspace's `automationRuns` usage is exhausted for the period when a run would be created | 403 | `QUOTA_EXHAUSTED` \| `details.metric="automationRuns"`, `reason="usage_exhausted"`, `period` (frozen `BACKEND_ERROR_CATALOG.md`; shape per `B1_FAILURE_SCENARIOS.md` F16) | `ENTITLEMENT`, non-retryable |
+| `B7-AF-006` | `AUTO-*` does not resolve in this workspace | 404 | `ENTITY_NOT_FOUND` | `VALIDATION`, non-retryable |
 | `B7-AF-007` | `If-Match` on `AutomationRule.version` is stale | 409 | `CONFLICT` | `CONCURRENCY`, retry-with-fresh-read only, never blind |
 | `B7-AF-008` | an illegal lifecycle transition is requested (e.g. `archived→active`) | 409 | `INVALID_TRANSITION` | `VALIDATION`, non-retryable |
 | `B7-AF-009` | `trigger.type` is outside the closed catalog | 422 | `VALIDATION_ERROR` \| `unsupported_trigger` | `VALIDATION`, non-retryable |
@@ -27,8 +27,8 @@ Stable IDs `B7-AF-001`…`B7-AF-034`, contiguous, no gaps, no duplicate semantic
 | `B7-AF-019` | admission would exceed same-rule loop suppression | n/a (internal; run persisted `skipped`) | `error_classification=POLICY` \| `loop_blocked_same_rule` | `POLICY`, non-retryable |
 | `B7-AF-020` | admission would exceed `MAX_AUTOMATION_DEPTH` | n/a (internal; run persisted `skipped`) | `POLICY` \| `depth_exceeded` | `POLICY`, non-retryable |
 | `B7-AF-021` | admission would exceed the rolling execution budget for the lineage | n/a (internal; run persisted `skipped`) | `POLICY` \| `execution_budget_exceeded` | `POLICY`, non-retryable |
-| `B7-AF-022` | `scheduled` trigger's `resume_at`/relative offset is malformed or already in the past at authoring time | 422 | `VALIDATION_ERROR` \| `invalid_schedule` | `VALIDATION`, non-retryable |
-| `B7-AF-023` | a command targets a run already in a terminal state (`succeeded`/`failed`/`cancelled`/`skipped`/`dead_lettered`) with an operation only legal on a non-terminal run | 409 | `CONFLICT` \| `execution_already_terminal` | `VALIDATION`, non-retryable |
+| `B7-AF-022` | at invocation time the bound revision's authority principal (`activated_by_membership_id`) is absent, removed, suspended, or no longer holds the target command's permission | n/a (internal; action `blocked`, run `failed`) | `AUTHORIZATION` \| `authority_principal_invalid` | `AUTHORIZATION`, non-retryable — no rule-lifecycle mutation (`B7_SYSTEM_ACTOR_AUTHORIZATION.md` §3.3a) |
+| `B7-AF-023` | a command targets a run already in a terminal state (`completed`/`failed`/`cancelled`/`skipped`/`dead_lettered`) with an operation only legal on a non-terminal run | 409 | `CONFLICT` \| `execution_already_terminal` | `VALIDATION`, non-retryable |
 | `B7-AF-024` | `CancelAutomationExecution` targets an already-terminal run | 409 | `CONFLICT` \| `cancel_invalid` | `VALIDATION`, non-retryable |
 | `B7-AF-025` | `ReplayAutomationExecution` targets a run whose status is not `dead_lettered` | 409 | `CONFLICT` \| `replay_invalid` | `VALIDATION`, non-retryable |
 | `B7-AF-026` | the target domain's service is temporarily unavailable (timeout/5xx) | 503 | `DEPENDENCY_UNAVAILABLE` | `DEPENDENCY_UNAVAILABLE`, retryable per `BACKEND_RETRY_POLICY.md` |
@@ -36,7 +36,7 @@ Stable IDs `B7-AF-001`…`B7-AF-034`, contiguous, no gaps, no duplicate semantic
 | `B7-AF-028` | an action's retry budget (5 attempts) is exhausted on a `TRANSIENT`/`DEPENDENCY_UNAVAILABLE` failure | n/a (internal transition) | `error_classification` unchanged, run → `dead_lettered` | terminal — `B7_FAILURE_RETRY_MODEL.md` §3 |
 | `B7-AF-029` | a run reaches `dead_lettered` | n/a (terminal state) | — | `B7_DEAD_LETTER_REPLAY.md` §1 |
 | `B7-AF-030` | the workspace is suspended (`B1_AUTHORIZATION_RBAC.md`-governed workspace state) | 403 | `WORKSPACE_SUSPENDED` | `ENTITLEMENT`, non-retryable — new admission blocked; in-flight runs finish per `B7_RULE_LIFECYCLE.md` §3 |
-| `B7-AF-031` | `ApproveAutomationAction` attempted by the action's own rule author below manager rank | 403 | `PERMISSION_DENIED` \| `self_approval_forbidden` | `AUTHORIZATION`, non-retryable |
+| `B7-AF-031` | `ApproveAutomationRun` attempted by the action's own rule author below manager rank | 403 | `PERMISSION_DENIED` \| `self_approval_forbidden` | `AUTHORIZATION`, non-retryable |
 | `B7-AF-032` | a consumed event envelope is malformed (missing required field) | n/a (dropped, not retried) | logged, `envelope_invalid` | `VALIDATION`, non-retryable |
 | `B7-AF-033` | a consumed event's `schema_version` is newer than B7's admission code understands | n/a (dropped, not retried) | logged, `schema_version_unknown` | `VALIDATION`, non-retryable |
 | `B7-AF-034` | a Create/Update DTO attempts to set `workspace_id`/`version`/`status`/`created_by`/any system-actor or correlation field | 400 | `VALIDATION_ERROR` \| `additionalProperties` | `VALIDATION`, non-retryable (Doctrine R-4) |

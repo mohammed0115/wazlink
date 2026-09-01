@@ -4,7 +4,7 @@
 
 ## 1. The invariant
 
-**An `AutomationRun` MUST be reproducible against the exact rule definition that ran, and a later rule edit MUST NOT change that historical record.** This is the single most safety-critical modeling decision in B7 (task brief §9) and is directly evidenced: every frontend run record already carries `ruleNameSnapshot` and `automationRuleVersion` (FB-D16, `data.js` mock model), captured once at trigger time and never recomputed from the live rule.
+**An `AutomationRun` MUST be reproducible against the exact rule definition that ran, and a later rule edit MUST NOT change that historical record.** This is the single most safety-critical modeling decision in B7 (task brief §9) and is directly evidenced: every frontend run record already carries `ruleNameSnapshot` and `automationRuleVersion` (FB-A19, `data.js` mock model), captured once at trigger time and never recomputed from the live rule.
 
 ## 2. Design
 
@@ -22,4 +22,4 @@
 
 ## 4. Acceptance proof (resolves task brief §9's closing requirement)
 
-`AT-RVN-1`: create a rule, trigger a run, record its `rule_revision_id` and the revision's `action_definitions`. Edit the rule (`UpdateAutomationRule`, different action). Re-fetch the original run: its `rule_revision_id` and the referenced revision's `action_definitions` are byte-identical to what was recorded before the edit. `AT-RVN-2` **(NC)**: an implementation that recomputes a historical run's displayed action list from the *current* `active_revision_id` rather than the run's own stored `rule_revision_id` — fails, because the two revisions' `action_definitions` differ after the edit in `AT-RVN-1` and the displayed history would silently change.
+`AT-RVN-1`: create a rule, trigger a run, record its `rule_revision_id` and that revision's `automation_rule_actions` rows. Edit the rule (`UpdateAutomationRule`, different action). Re-fetch the original run: its `rule_revision_id` is unchanged and the referenced revision's `automation_rule_actions` rows are identical, row for row, to what was recorded before the edit. `AT-RVN-2` **(NC)**: an implementation that recomputes a historical run's displayed action list from the *current* `active_revision_id` rather than the run's own stored `rule_revision_id` — fails, because the two revisions' action rows differ after the edit in `AT-RVN-1` and the displayed history would silently change.

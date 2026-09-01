@@ -16,6 +16,6 @@ Never writes `revenue_events`/`revenue_reversals`/`attribution_touchpoints`. Nev
 
 ## 4. Negative control
 
-`AT-B9FIN-1` **(NC)**: an implementation where a B7 action's success handler independently computes and stores an "estimated revenue impact" value anywhere in B7's own tables — fails; no such column exists on `automation_runs`/`automation_action_executions` (`B7_DATA_MODEL.md`).
+`AT-B9FIN-1` **(NC)**: an implementation where a B7 action's success handler independently computes and stores an "estimated revenue impact" value anywhere in B7's own tables — fails; no such column exists on `automation_runs`/`automation_run_steps` (`B7_DATA_MODEL.md`).
 
 `B9_FINANCE_AUTHORITY_LEAKS = 0`.

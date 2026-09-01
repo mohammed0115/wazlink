@@ -8,11 +8,11 @@ Backing `GET /automation/rules`: `public_id, name, status, trigger_type, executi
 
 ## 2. Rule detail
 
-`GET /automation/rules/{id}`: the full `AutomationRule` DTO (`B7_API_DTO_CONTRACTS.md` §2) plus the active revision's trigger/conditions/actions, plus summary counters: `execution_count`, `success_count`, `failure_count`, `last_triggered_at`, `last_success_at`, `last_failure_at` — all read-time aggregates over `automation_runs`, matching the metric cards evidenced at FB-D20.
+`GET /automation/rules/{id}`: the full `AutomationRule` DTO (`B7_API_DTO_CONTRACTS.md` §2) plus the active revision's trigger/conditions/actions, plus summary counters: `execution_count`, `success_count`, `failure_count`, `last_triggered_at`, `last_success_at`, `last_failure_at` — all read-time aggregates over `automation_runs`, matching the metric cards evidenced at FB-A46.
 
 ## 3. Execution list / detail / action history
 
-`GET /automation/runs`: `public_id, rule_ref (nullable), rule_name_snapshot, status, trigger_source, trigger_entity_ref, queued_at, completed_at`. `rule_name_snapshot` is read from the bound `automation_rule_revisions.name_snapshot` — never from the live rule's current name, preserving FB-D16's evidenced behavior even in the list view. `GET /automation/runs/{id}`: full detail plus `condition_snapshot`. `GET /automation/runs/{id}/actions`: every `AutomationActionExecution` in order, each with its approval decision (`decided_by`/`decided_at`) inlined from `automation_approvals` where present.
+`GET /automation/runs`: `public_id, rule_ref (nullable), rule_name_snapshot, status, skip_reason (nullable), trigger_source, trigger_entity_ref, created_at, queued_at, completed_at` — `created_at` is the run's age (always present), `queued_at` is nullable and absent on a run that never queued (`B7_DATA_MODEL.md` §3, `B7-D-A042`). `rule_name_snapshot` is read from the bound `automation_rule_revisions.name_snapshot` — never from the live rule's current name, preserving FB-A19's evidenced behavior even in the list view. `GET /automation/runs/{id}`: full detail plus `condition_snapshot`. `GET /automation/runs/{id}/actions`: every `AutomationRunStep` in order, each with its approval decision (`decided_by`/`decided_at`) inlined from `automation_run_approvals` where present.
 
 ## 4. Failure / dead-letter view
 

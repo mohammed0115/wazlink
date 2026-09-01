@@ -25,4 +25,4 @@ An `event.*` condition never re-reads live state — by definition it evaluates 
 
 ## 4. Snapshot persistence
 
-`automation_runs.condition_snapshot` (`B7_DATA_MODEL.md` §3) stores both the `event.*` values used and any `current.*` values read, exactly as evaluated — so a historical run's audit trail (FB-D15) shows precisely what was compared, without requiring a second live read (which could now return a different answer) to explain a past decision.
+`automation_runs.condition_snapshot` (`B7_DATA_MODEL.md` §3) stores both the `event.*` values used and any `current.*` values read, exactly as evaluated — so a historical run's audit trail (FB-A42) shows precisely what was compared, without requiring a second live read (which could now return a different answer) to explain a past decision.
