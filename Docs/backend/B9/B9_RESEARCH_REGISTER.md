@@ -1,0 +1,77 @@
+# B9 — Research Register
+
+> **B9 status:** Target design only. Not closed. Awaits independent CTO verification.
+
+## 1. Method, and an honest statement about it
+
+The **original** authoring pass had no live network access. It fetched no external source and asserted no external fact as verified, recording five genuinely external questions as `UNRESOLVED` rather than citing plausible-sounding sources it had not read. That was the right call and the design was built to survive it: **no architectural decision depends on an unverified external claim.**
+
+The **`B9-FIX.1` pass had network access**, and researched those five questions against official primary sources. Every row below marked `VERIFIED (external)` was fetched and read in that session, on the access date shown; nothing is copied from a secondary summary, and no citation is carried over from anyone else's report unread.
+
+The outcome did not change a single design decision. Each external answer either confirms a boundary B9 already drew or is irrelevant to it — which is what "the design does not depend on it" was supposed to mean, now tested rather than asserted.
+
+**`B9-FIX.2` added one repository fact, `B9-R-020`**, and it is load-bearing in a way worth naming: it establishes that the workspace presentation currency and its role as the report default are both *frozen* facts, which is what lets `currency` stay an optional parameter and keeps the frozen parameterless `GET /attribution` valid. The same row also records that the column is workspace-**writable** and carries no history, which `B9-FIX.2a` turned into the explicit request-time resolution rule (`B9-D-A043`) rather than leaving "stable" to be read as "immutable". Without it, defaulting the currency would have been an invented policy and the only alternative would have been a breaking change to a frozen operation.
+
+The risk in a finance domain is not a missing citation; it is a document that says "IFRS-compliant" because it sounded right. No B9 document makes such a claim, and §3 records what would have to change if one ever did.
+
+## 2. Register
+
+| ID | Claim / question | Source consulted | Access date | Architecture dependency | Confidence | Status |
+|---|---|---|---|---|---|---|
+| `B9-R-001` | Money must be exact decimal, never binary float; scale 4; decimal string on the wire | **Repository (frozen)** — `BACKEND_OPENAPI_V1.yaml` `Money`: *"Decimal string; never a binary float."* | 2026-09-02 | `B9_CURRENCY_MONEY_MODEL.md` §4 | **high** | **VERIFIED** (against the frozen contract) |
+| `B9-R-002` | The set of economically active ISO-4217 codes, and its maintenance cadence | **not fetched** — the full register was not retrieved | — | Would have gated a currency allow-list | none | **UNRESOLVED** → B9 validates syntactically and defers the list (`B9-D-B012`). Unchanged by `B9-R-017` |
+| `B9-R-003` | Whether B9's recognition policy satisfies IFRS 15 or any accounting standard | IFRS Foundation, *IFRS 15 Revenue from Contracts with Customers* — `https://www.ifrs.org/issued-standards/list-of-standards/ifrs-15-revenue-from-contracts-with-customers/` | 2026-09-02 | Would have gated a compliance claim | high | **VERIFIED (external)** — IFRS 15 recognises revenue through a five-step model built on identifying **performance obligations**, determining and allocating a transaction price, and recognising as obligations are satisfied. B9's register does none of that: it records an authorized human assertion. The two are **not** the same model, B9 claims no equivalence, and performance obligations remain an explicit Class-C deferral (`B9-D-C002`). **No B9 design changes.** |
+| `B9-R-004` | Whether B9's register satisfies Saudi statutory accounting/bookkeeping requirements | IFRS Foundation jurisdiction profile, *Saudi Arabia* — `https://www.ifrs.org/use-around-the-world/use-of-ifrs-standards-by-jurisdiction/view-jurisdiction/saudi-arabia/`; SOCPA — `https://socpa.org.sa/` | 2026-09-02 | same | high | **VERIFIED (external)** — Saudi Arabia requires IFRS **as endorsed by SOCPA**, mandatory for publicly accountable entities from 2017-01-01 and for other entities including SMEs from 2018-01-01, with SOCPA adding disclosures for Sharia and local law. So a workspace's statutory revenue figure is an IFRS-15 figure, and B9's is not. This **strengthens** rather than weakens `B9_FINANCIAL_MODEL.md` §7's caveat, and is why residual risk `R-3` is stated rather than dismissed. **No B9 design changes.** |
+| `B9-R-005` | ZATCA e-invoicing obligations and whether recognized revenue triggers any | ZATCA, *E-Invoicing (Fatoora)* — `https://zatca.gov.sa/en/E-Invoicing/Pages/default.aspx`; roll-out phases — `https://zatca.gov.sa/en/E-Invoicing/Introduction/Pages/Roll-out-phases.aspx` | 2026-09-02 | Would have gated a tax linkage | high | **VERIFIED (external)** — the obligation attaches to VAT-registered taxpayers **issuing tax invoices, credit notes and debit notes**, in two phases (Generation from 2021-12-04; Integration in waves). It is an *invoice-issuance* obligation, not a revenue-recognition one. This **corroborates** B9's firewall: `RevenueEvent ≠ tax invoice`, and a reversal is explicitly not a credit note (`B9_B10_TAX_BOUNDARY.md` §5). **No B9 design changes.** |
+| `B9-R-006` | Tap (the frozen payment provider) refund/chargeback semantics and timing | Tap Payments developer documentation, *Create a Refund* — `https://developers.tap.company/reference/create-a-refund` | 2026-09-02 | Would have informed auto-reversal | high | **VERIFIED (external)** — a refund requires `charge_id`, `amount`, `currency` and `reason`; **both full and partial refunds are supported**; statuses observed are `REFUNDED` and `PENDING`; a refund is a **child of the original charge**, never a new charge; and an `idempotent` reference key is supported. Two consequences. (1) B9 never auto-reverses, so no recognition or reversal rule depends on any of this — the original "correct regardless of the answer" claim is now *tested*, not assumed. (2) A partial refund carries **its own amount**, which is not derivable from `Payment.status`; that is precisely why `B9-AM-009` exposes a `Refund` fact rather than inferring one (`B9_RECONCILIATION_MODEL.md` §3a). |
+| `B9-R-007` | Whether a PostgreSQL `CHECK` can enforce a cross-row/cross-table aggregate invariant | **Repository + SQL semantics** — a `CHECK` is evaluated per row against that row's own values | 2026-09-02 | `B9_STORAGE_MODEL.md` §2a — the over-reversal bound is enforced by row lock + transaction, not `CHECK` | **high** | **VERIFIED** |
+| `B9-R-008` | `RecordRevenueEvent` / `ReverseRevenueEvent` / `RecordTouchpoint` are the frozen command names | **Repository (frozen)** — `BACKEND_DOMAIN_OWNERSHIP.md` Revenue and Attribution rows; ADR-007 | 2026-09-02 | `B9_COMMAND_EVENT_CATALOG.md` §1 | **high** | **VERIFIED** |
+| `B9-R-009` | Phase 1 attribution is first-touch, multi-touch deferred | **Repository (frozen)** — ADR-008; `BACKEND_ANALYTICS_SEMANTICS.md` | 2026-09-02 | `B9_FIRST_TOUCH_MODEL.md` §1 | **high** | **VERIFIED** |
+| `B9-R-010` | Recognized Revenue is periodised by `RevenueEvent.recognized_at` where status recognized | **Repository (frozen)** — `BACKEND_ANALYTICS_SEMANTICS.md`; corroborated by `analytics-engine.js:19,70` | 2026-09-02 | `B9_TIME_PERIOD_MODEL.md` §2 | **high** | **VERIFIED** |
+| `B9-R-011` | B9 must read B8 facts on demand and must **not** subscribe to B8 events | **Repository (frozen)** — `B8_B9_FINANCE_BOUNDARY.md` §4 | 2026-09-02 | `B9-D-A002`, `B9_B8_BILLING_BOUNDARY.md` §3 | **high** | **VERIFIED** |
+| `B9-R-012` | `REV-*` and `ATT-*` are already registered canonical prefixes; `REVR-`/`FRC-` are not | **Repository (frozen)** — `BACKEND_PUBLIC_ID_REGISTRY.md` §A | 2026-09-02 | `B9_CONTROLLED_AMENDMENTS.md` `B9-AM-002`/`B9-AM-005` | **high** | **VERIFIED** |
+| `B9-R-013` | No revenue/finance permission exists in the frozen B1 registry | **Repository (frozen)** — `B1_AUTHORIZATION_RBAC.md` §2, enumerated mechanically | 2026-09-02 | `B9-AM-001` | **high** | **VERIFIED** — the registry holds **23** permission groups and none is financial. (`B9-FIX.1` `N-4`: an earlier draft reported 18, having enumerated only the domain groups and dropped the five identity groups. The count was wrong; the substantive claim was not.) |
+| `B9-R-014` | The frozen reconciliation process table has no Revenue row, while mandating seven fields per mismatch | **Repository (frozen)** — `BACKEND_RECONCILIATION.md` | 2026-09-02 | `B9-AM-003`, `B9-AM-006` | **high** | **VERIFIED** |
+| `B9-R-015` | The frozen frontend derives recognized revenue from attribution in one layer and correctly separates them in another | **Repository** — `domain/data.js:363-390`; `domain/analytics-engine.js:174-176` | 2026-09-02 | `B9-D-A013`; `B9_FRONTEND_BEHAVIOR_INVENTORY.md` §4 | **high** | **VERIFIED** |
+| `B9-R-016` | The mock labels its attribution model `multi_touch_weighted` while ADR-008 fixes Phase 1 at first-touch | **Repository** — `analytics-engine.js:102` vs ADR-008 | 2026-09-02 | `FB-B9-020`; resolved in favour of the frozen ADR | **high** | **VERIFIED (conflict, adjudicated)** |
+| `B9-R-017` | Whether ISO-4217's minor-unit exponents ever exceed 4, which would make `NUMERIC(18,4)` lossy | SIX (ISO-4217 maintenance agency), *ISO 4217 Amendment 157* — `https://www.six-group.com/dam/download/financial-information/data-center/iso-currrency/amendments/dl_currency_iso_amendment_157.pdf` | 2026-09-02 | `B9_CURRENCY_MONEY_MODEL.md` §4 | high | **VERIFIED (external)** — the maximum assigned minor-unit exponent is **4**, held by `CLF` (Chilean Unidad de Fomento), amended from 0 to 4 in 2014. Scale 4 is therefore sufficient for every currently assigned ISO-4217 code. B9 nonetheless continues to present scale 4 as a **product policy inherited from the frozen `Money` pattern**, not as an ISO requirement (`AT-MON-5` **NC**) — the research removes a latent risk, it does not become a compliance claim. **No B9 design changes.** |
+| `B9-R-018` | Whether B3's `discovery_results` provides an immutable, workspace-scoped, append-only acquisition timestamp suitable as a first-touch candidate | **Repository (frozen)** — `B3_ACQUISITION_PROVENANCE.md` §3, §3.1, §4; `BACKEND_PUBLIC_ID_REGISTRY.md` §A (`RES-`) | 2026-09-02 | `B9-D-A035`, `B9_FIRST_TOUCH_MODEL.md` §2.2 | **high** | **VERIFIED** — `discovery_results` is append-only, workspace-scoped, carries `job_id`/`business_id`/`page_index`/`position_in_page`, and `discovered_at` is *"WazLink's trusted server clock, sampled inside the ingestion transaction"*, explicitly **not** a provider clock. `RES-` is a registered §A workspace-scoped prefix |
+| `B9-R-020` | Whether a workspace presentation currency exists in a frozen contract, and whether the frozen analytics contract already designates it as the report currency — the two facts `B9-D-A039`'s default rests on | **Repository (frozen)** — `B1_IDENTITY_DATA_MODEL.md` workspaces table; `B1_API_DTO_CONTRACTS.md` `WorkspaceDetail`; `BACKEND_ANALYTICS_SEMANTICS.md` | 2026-09-02 | `B9_API_DTO_CONTRACTS.md` §3a, `B9-AM-012` | **high** | **VERIFIED** — `workspaces.currency` is *"text, ISO-4217, **default `SAR`**"*, exposed on `WorkspaceDetail` as `currency` (R,W; `^[A-Z]{3}$`) and therefore always present; and `BACKEND_ANALYTICS_SEMANTICS.md` states *"Currency is the requested workspace/report currency; Phase 1 defaults to SAR"*. B9 therefore **reads** a default the frozen contracts already fix rather than inventing one, which is what makes `currency` safe to leave optional and the frozen parameterless `getAttribution` safe to preserve (`B9-FIX.2`). **`(R,W)` also means it is mutable** — `WorkspaceUpdateRequest` accepts `currency` and `UpdateWorkspace` changes it — so the fact establishes *presence and default*, never immutability; `B9-FIX.2a` reads the same evidence forward into the resolution-instant rule (`B9-D-A043`), and frozen B1 stores **no** currency history, which is why an as-of resolution is unbuildable |
+| `B9-R-019` | Whether `SRC-*` is a backend public ID | **Repository (frozen)** — `BACKEND_PUBLIC_ID_REGISTRY.md` §B; `B3_CONTROLLED_AMENDMENTS.md`; `B3_DATA_MODEL.md` | 2026-09-02 | `B9-D-A037` | **high** | **VERIFIED (contradiction found and corrected)** — §B states `SRC-` is a contract string *"not an `EntityRef`"*, B3 restates *"`SRC-` stays a section B contract string"*, and `discovery_sources` is a **global** catalogue. An earlier B9 draft promoted it to a workspace-resolved `EntityRef`; `B9-FIX.1` reverted that by redesign (`B9_ATTRIBUTION_MODEL.md` §4) |
+
+```
+RESEARCH_FACT_COUNT   = 20
+RESEARCH_VERIFIED     = 19      (14 repository, 5 external primary sources)
+RESEARCH_PARTIAL      = 0
+RESEARCH_UNRESOLVED   = 1       (B9-R-002, the ISO-4217 active-code register)
+RESEARCH_CONTRADICTED = 0
+CLASS_A_EXTERNAL_DEPENDENCY_GAPS = 0
+```
+
+## 3. What the one remaining UNRESOLVED item means for closure
+
+`B9-R-002` — the current set of economically active ISO-4217 codes — remains the **only** unresolved fact, and does not block closure. Validation is syntactic, so every real code is accepted; an economically meaningless but syntactically valid code is surfaced as the `unknown_currency` data-quality case rather than blocking a legitimate recognition. Shipping a hardcoded register B9 has no authoritative process to maintain would create a defect where none exists (`B9-D-B012`). `B9-R-017` resolved the part of the currency question that *was* load-bearing — whether scale 4 can lose precision — and it cannot.
+
+**No Class-A decision depends on an unresolved external fact.** `CLASS_A_EXTERNAL_DEPENDENCY_GAPS = 0`.
+
+### What the four newly-verified facts did and did not change
+
+| Fact | Effect on B9 |
+|---|---|
+| `B9-R-003` IFRS 15 | **No design change.** Confirms B9's model is not IFRS 15's, which B9 already said |
+| `B9-R-004` SOCPA/KSA | **No design change.** Strengthens the §7 caveat and residual risk `R-3` |
+| `B9-R-005` ZATCA | **No design change.** Corroborates the B10 firewall |
+| `B9-R-006` Tap refunds | **No recognition or reversal change.** But it confirmed that a partial refund's amount lives on the refund, not the payment — which is the evidentiary basis for `B9-AM-009` |
+| `B9-R-017` ISO-4217 exponents | **No design change.** Removes a latent precision risk and adds `AT-MON-5` **(NC)** so the fact is never restated as a compliance claim |
+
+Each would become material only if a future phase claimed compliance or automated recognition — both Class-C deferrals (`B9-D-C001`, `B9-D-C006`).
+
+## 4. What is still worth asking, and of whom
+
+These are **product and legal** questions, not research gaps, and none is B9's to answer:
+
+1. **Does WazLink intend workspaces to use these figures for statutory reporting?** A product decision. If yes, the gap between B9's register and SOCPA-endorsed IFRS 15 (`B9-R-003`, `B9-R-004`) becomes a product problem needing accountants, not a documentation problem.
+2. **Does a recognized revenue fact, absent an issued tax invoice, create any ZATCA obligation?** B10's to own, with tax counsel. B9 asserts nothing either way (`B9_B10_TAX_BOUNDARY.md` §5).
+3. **Tap's chargeback timing**, if auto-reversal is ever proposed. `B9-R-006` covers refunds; chargeback timing was not researched because nothing in Phase 1 depends on it — a chargeback reaches B9 only as a human-chosen `reason='chargeback'` on a reversal.
+
+Nothing in the current design would change to *ask* any of them.
