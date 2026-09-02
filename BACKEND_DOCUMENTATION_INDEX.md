@@ -432,6 +432,68 @@ B10 mints **zero new public-ID prefixes** (`TAX-` already registered, reused ver
 
 B10 is design-only and grants no implementation authorization.
 
+## B11 — Files & Storage target design — **DESIGN IN PROGRESS**
+
+> **B11 is NOT closed.** It is uncommitted and awaits independent CTO verification. Nothing below is approved, and no implementation may act on it.
+
+`Docs/backend/B11/` holds the B11 Files & Storage target-design package — 35 documents. It is **additive**: it modifies no frozen B0-B10 file and no frontend file. B0-B9 remain at the SHAs recorded above, and the B10 pack is committed at `8ca5d77e4119c0687395dfc269c3a692941d5441`, which is this pass's `HEAD` and `origin/main`.
+
+B11 realizes the `Files` domain frozen B0 named in twenty-one separate places and never defined (`BACKEND_DOMAIN_OWNERSHIP.md`: aggregate `FileAsset`, table `file_assets`, commands `CreateUpload`/`DeleteAsset`, event `FileUploaded`, integration Hostinger, forbidden coupling "no arbitrary paths"), honors the frozen `file_assets` constraints and the frozen five-state lifecycle verbatim, and closes the boundary B5 pre-committed to from its own side (`B5_MEDIA_B11_HANDOFF.md`). B11 answers "what durable bytes does this workspace own, are they intact, and may this actor read them right now" — it never answers what those bytes *mean*.
+
+Research during this pass established that **Hostinger publishes no managed object-storage product**: its S3-compatible offering is a self-hosted Docker template on a customer VPS whose pre-signed-URL, content-length-enforcement, and checksum behavior is documented nowhere this pass could read (`B11-X-001` `PARTIAL`, `B11-X-007` `UNRESOLVED`). Rather than assume the capability, B11 chose **application-proxied upload for Phase 1** (`B11-D-A007`) — every integrity property this pack promises is *derivable* under proxying and merely *asserted* under pre-signing — with a `supports_presigned_upload()` predicate on the frozen `FileStorageProvider` port so the faster flow later becomes an adapter swap that changes no state machine, command, DTO, table, or acceptance test. Phase 1 therefore uses only `put`/`stat`/`open`/`delete`/`list`, which any S3-compatible store or plain filesystem provides, and **no unresolved provider capability blocks Phase-1 architecture**.
+
+Key B11 decisions: **the row is the file, not the bytes** (`B11-D-A001`), and **no URL is ever identity** (`B11-D-A003`). **Two orthogonal state machines** — the frozen five-state lifecycle adopted unchanged, plus a separate five-state byte-disposition machine — make §20's requirement structural rather than procedural: **a provider delete failure cannot resurrect access, because `archived` has no exit transition anywhere in the pack and the purge command writes no lifecycle field at all** (`B11-D-A006`/`A016`). **Zero new public-ID prefix** — `FILE-` is already registered, and three candidates were considered and rejected (`B11-D-A004`). **SHA-256 computed server-side in flight, written once, never updated**; a provider ETag is disqualified as an integrity authority on AWS's own words, since it "may or may not be an MD5 digest" and never is for a multipart upload (`B11-X-002`, `VERIFIED`). **Three content-type columns, never one** — declared, detected, canonical — with a declared-vs-detected group mismatch **rejected** rather than silently reclassified (`B11-D-A010`); the canonical column is never null, carrying the validated provisional type while `pending` and the verified detected type after finalize, so the frozen required `FileAsset.content_type` holds in every lifecycle state without being relaxed. **Storage keys contain no client-supplied string in any position**, so path traversal has nothing to sanitize, and the key is immutable, which is what makes unknown-outcome retry safe (`B11-D-A018`). **Attachments are a hybrid model with a closed two-value subject enum and mint no new permission** — attach composes `file.upload` with the subject domain's own write permission (`B11-D-A014`). **An unattached file is not garbage**: three orphan classes are deliberately never auto-cleaned, because a detachment may itself be under review and a stray provider object is as likely to be a lost row as a leaked one (`B11-D-A017`). **B8 keeps entitlement truth absolutely** — B11 files no sixth quota metric and enforces only a uniform, plan-independent platform safety ceiling (`B11-D-A020`). **B10 keeps tax truth absolutely** — a `legal`-class file is undeletable by any command, worker, timer, or operator, and `retention_class` is immutable in both directions, so the unresolved statutory retention period cannot become blocking (`B11-D-A023`).
+
+B11 also had to state three things the frozen corpus left implied. **B5 was promised a scanner it will not get**: B11 performs no malware scanning in Phase 1 (`B11-D-A024`) — contract-compliant, since `BACKEND_SECURITY_ARCHITECTURE.md` says "malware scanning *where available*" — so `B11-AM-007` files the clarification, names six compensating controls, and gives `quarantine` a working Phase-1 producer rather than leaving the state dormant. **The frozen API catalog and the frozen OpenAPI disagree** about what the two Files operations return; `B11-AM-003` resolves it so both frozen descriptions become simultaneously true. **The frozen `CONFLICT` reason vocabulary is closed**, so `B11-AM-009` registers three new values in the same pass that uses them.
+
+B11 declares a **12-item controlled amendment bundle — 10 additive, 2 compatible clarifications, 0 non-additive** — across 14 frozen artifacts, all requiring CTO approval **before implementation**; B11 applies none. Its own decision register holds **26 Class A decisions, 0 unresolved**, plus 10 Class B and 4 Class C. It adds **three error codes**, having absorbed **8 of 12** candidates into existing ones, and **two permissions** (`file.delete`, `file.manage`), having composed five candidate operations rather than granting them codes.
+
+> **A STORED ARTIFACT IS NOT A DOMAIN FACT.** A `FileAsset` never determines whether a Message was delivered, a tax document was cleared, a payment succeeded, revenue was recognized, or a Lead is qualified — and the converse holds equally: a subject's state never changes a file's lifecycle. B11 has zero write path to any B2, B5, B6, B8, B9, or B10 table. See `Docs/backend/B11/B11_DOMAIN_ATTACHMENT_MODEL.md`, `B11_MESSAGING_MEDIA_BOUNDARY.md`, `B11_TAX_DOCUMENT_BOUNDARY.md`, and `B11_BILLING_QUOTA_BOUNDARY.md`.
+
+The frozen frontend (`client/src`) contains **no `<input type="file">`, no `FileReader`, no drag-and-drop handler, and no server upload call of any kind** — the only attach affordance is a hardcoded chip in the messaging composer, the only two `Blob` uses build CSV entirely client-side, every avatar is a first-letter initial, the invoice download button is permanently disabled, and the billing usage panel renders exactly the five frozen metrics with no storage figure. Eleven behaviors, individually itemized, a real count rather than one padded to resemble a larger prior phase. See `Docs/backend/B11/B11_FRONTEND_BEHAVIOR_INVENTORY.md`.
+
+| Document | Purpose |
+|---|---|
+| `Docs/backend/B11/B11_EXECUTIVE_SUMMARY.md` | scope, central design problem, key decisions, package map |
+| `Docs/backend/B11/B11_SCOPE_AND_OWNERSHIP.md` | sub-module split, forbidden coupling, Referenced Entity Registry (`REFERENCED_ENTITY_COUNT = 6`) |
+| `Docs/backend/B11/B11_FRONTEND_BEHAVIOR_INVENTORY.md` | 11-behavior frontend evidence inventory (A=3, B=1, C=4, D=3) |
+| `Docs/backend/B11/B11_DOMAIN_MODEL.md` | what a File is, why one aggregate, why two orthogonal machines, where each fact lives |
+| `Docs/backend/B11/B11_FILE_LIFECYCLE.md` | 4 state machines, 15 states, all transitions, 6 rejected candidate states |
+| `Docs/backend/B11/B11_UPLOAD_MODEL.md` | proxied vs. pre-signed vs. hybrid comparison, intent/finalize split, import-from-URL constraints |
+| `Docs/backend/B11/B11_STORAGE_PROVIDER_BOUNDARY.md` | the frozen `FileStorageProvider` port, capability predicates, unknown-outcome rule, the honest Hostinger boundary |
+| `Docs/backend/B11/B11_STORAGE_KEY_MODEL.md` | deterministic key shape; why the prefix is containment, never the tenancy control |
+| `Docs/backend/B11/B11_FILE_VALIDATION.md` | 10 ordered gates, three content-type columns, filename rules, allow-list, deferred scanning with compensating controls |
+| `Docs/backend/B11/B11_CHECKSUM_INTEGRITY.md` | SHA-256 choice, write-once invariant, mismatch handling, why an ETag is not a checksum |
+| `Docs/backend/B11/B11_RBAC_TENANCY.md` | 2 reused + 2 new permissions, the six cross-workspace attacks, composed attach authorization, per-request download re-authorization |
+| `Docs/backend/B11/B11_DOMAIN_ATTACHMENT_MODEL.md` | three models compared, hybrid chosen, closed subject enum, 4-layer integrity, the authority firewall |
+| `Docs/backend/B11/B11_MESSAGING_MEDIA_BOUNDARY.md` | symmetric counterpart to `B5_MEDIA_B11_HANDOFF.md`; three identities kept apart |
+| `Docs/backend/B11/B11_TAX_DOCUMENT_BOUNDARY.md` | B10 firewall; `legal` retention class; why the unresolved period cannot block |
+| `Docs/backend/B11/B11_BILLING_QUOTA_BOUNDARY.md` | B8 keeps entitlement truth; safety ceiling is not an entitlement; the adoption path if it ever becomes one |
+| `Docs/backend/B11/B11_STORAGE_USAGE_MODEL.md` | logical vs. physical usage; what counts; the race-safe two-point enforcement protocol |
+| `Docs/backend/B11/B11_DELETION_RETENTION_MODEL.md` | three deletion models compared; the archived row as tombstone; retention timers as product decisions |
+| `Docs/backend/B11/B11_ORPHAN_CLEANUP_MODEL.md` | 6 orphan classes; 4-condition eligibility; the three classes never auto-cleaned |
+| `Docs/backend/B11/B11_RECONCILIATION_MODEL.md` | 8 mismatch classes with an explicit precedence rule; realizes the new reconciliation row |
+| `Docs/backend/B11/B11_IDEMPOTENCY_CONCURRENCY.md` | idempotency identity per command; the eight races; lock ordering; transaction boundaries |
+| `Docs/backend/B11/B11_SECURITY_PRIVACY.md` | 15 threats each with a control and a test; logging/redaction lists; download headers |
+| `Docs/backend/B11/B11_OBSERVABILITY.md` | 13 metrics with bounded-cardinality labels, 13 audit actions, alert bindings |
+| `Docs/backend/B11/B11_COMMAND_EVENT_CATALOG.md` | 12 commands, 8 produced events, 0 consumed, 4 rejected event candidates |
+| `Docs/backend/B11/B11_API_DTO_CONTRACTS.md` | 11 operations (2 frozen, 9 additive), additive DTO fields, what is never returned |
+| `Docs/backend/B11/B11_FAILURE_CATALOG.md` | 11 reused + 3 new error codes, 8 absorbed candidates, 35 failure scenarios |
+| `Docs/backend/B11/B11_STORAGE_MODEL.md` | full per-table schema (4 tables), both frozen `file_assets` constraints honored verbatim |
+| `Docs/backend/B11/B11_PUBLIC_ID_REGISTRY.md` | zero new prefixes minted; three candidates rejected; values that must never be identity |
+| `Docs/backend/B11/B11_CROSS_DOMAIN_CONTRACT_MATRIX.md` | 40 frozen references swept mechanically, plus the searches that returned nothing |
+| `Docs/backend/B11/B11_B12_ASYNC_BOUNDARY.md` | 9 semantic requirements handed to B12; failure posture; 5 negative controls |
+| `Docs/backend/B11/B11_CONTROLLED_AMENDMENTS.md` | every frozen-artifact change B11 requires (12 items), plus what required none |
+| `Docs/backend/B11/B11_ACCEPTANCE_TESTS.md` | 129 tests across 26 categories, 88 negative controls, with brief-§38 coverage mapping |
+| `Docs/backend/B11/B11_RESEARCH_REGISTER.md` | 9 external facts (2 VERIFIED, 4 PARTIAL, 3 UNRESOLVED, 0 CONTRADICTED) + claims B11 does not make |
+| `Docs/backend/B11/B11_DECISION_REGISTER.md` | 26 Class A (0 unresolved), 10 Class B, 4 Class C |
+| `Docs/backend/B11/B11_IMPLEMENTATION_READINESS.md` | pre-implementation gate, readiness by concern, sequence, and the explicit MUST-NOT list |
+| `Docs/backend/B11/B11_VERIFICATION_MATRIX.md` | mechanically derived counters, semantic checks, reference integrity, drift gate |
+
+B11 mints **zero new public-ID prefixes** (`FILE-` already registered, reused verbatim), **reuses two frozen permissions** (`file.upload`, `file.download`) and adds **two** (`file.delete`, `file.manage`) while composing attach/detach from existing codes rather than minting more, and introduces **no new error-envelope shape and no new HTTP status** — only 3 new `code` values and 3 new `details.reason` values inside the existing taxonomy. **No document in this package creates or authorizes business authority over any other domain's state, asserts a provider capability it did not verify, or claims a compliance or scanning guarantee WazLink does not provide.**
+
+B11 is design-only and grants no implementation authorization.
+
 ## Required next-phase gate
 
 Before implementation, resolve all items marked `PRODUCT DECISION REQUIRED`, `REQUIRES OFFICIAL ZATCA VALIDATION`, or `REQUIRES PROVIDER CONTRACT VALIDATION`; approve the API/DTO/ERD/OpenAPI/identity documents as frozen; then authorize Backend Architecture-to-Coding transition explicitly. This package contains no implementation. B0-FIX.3 repairs are documentation/contract-only and do not self-close B0.
