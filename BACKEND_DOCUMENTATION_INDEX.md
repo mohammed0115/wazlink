@@ -494,6 +494,80 @@ B11 mints **zero new public-ID prefixes** (`FILE-` already registered, reused ve
 
 B11 is design-only and grants no implementation authorization.
 
+## B12 — Async & Integration Platform target design — **DESIGN IN PROGRESS**
+
+> **B12 is NOT closed.** It is uncommitted and awaits independent CTO verification. Nothing below is approved, and no implementation may act on it.
+>
+> **B12-FIX.1 applied.** An independent CTO verification returned `FAIL` on 1 MAJOR (three command ↔ state-machine contradictions) and 4 MINOR findings. All are repaired documentation-only: the frozen `WebhookReceipt` terminals stand and replay routes through the existing dead-letter machinery (`B12-D-A050`); credential rotation from `connected` is a legal transition (`B12-D-A051`); the unreachable `disabled` status is removed rather than justified (`B12-D-A052`); outbox completions are fenced by a per-claim token (`B12-D-A055`); the webhook `dedup_key` is binding-scoped so one tenant cannot poison another's identity (`B12-D-A056`); and all 15 commands are surface-classified. **B12-FIX.1a** then closed two hygiene findings from a second independent countersign: a stale `STATE_COUNT` header, and an unreachable operator path claimed for `RetryJob`/`RetryWebhook` — both are now **system-only** (`B12-D-A053`). Counters were re-derived, not preserved.
+
+`Docs/backend/B12/` holds the B12 Async & Integration Platform target-design package — 45 documents. It is **additive**: it modifies no frozen B0-B11 file and no frontend file. B0-B10 remain at the SHAs recorded above, and the B11 pack is committed at `d15a64a3a082848923bc7ad19352e0678e7fee74`, which is this pass's `HEAD` and `origin/main`.
+
+B12 is the execution and integration substrate eleven closed domains already assumed. Frozen `BACKEND_DOMAIN_OWNERSHIP.md` gives its two rows the forbidden couplings **"no domain ownership"** (Jobs) and **"no direct domain mutation"** (Webhooks), and B12 treats those five words as its charter: it answers only *"did this committed intent reach the outside world, exactly once in effect, and do we know it?"* — never what the intent means.
+
+The design replaces `request → task → provider → hope` with **six layers that are never collapsed** (`B12-D-A001`): business command · durable intent · outbox event · broker delivery · worker execution · provider attempt. **Only layer 4, the broker, may be lost** — everything above and below it is a committed PostgreSQL row, so losing Redis degrades latency and never correctness. The corollary is stated rather than hidden: **B12 does not claim exactly-once delivery** (`B12-D-A004`); effectively-once *effect* comes from nine idempotency classes, durable uniqueness constraints at each consumer, state-machine preconditions, and reconciliation.
+
+Primary-source research redirected two decisions rather than merely confirming them. **Providers do not sign the same thing**: Meta signs the payload under `X-Hub-Signature-256` (`B12-X-001`) while Tap signs a *field concatenation* under `hashstring` (`B12-X-005`) — so a universal raw-body verifier is simply wrong for one of them, and verification became an adapter responsibility with a shared contract (`B12-D-A030`). **Provider retry generosity is asymmetric**: Meta retries a failed callback for 36 hours and explicitly instructs consumers to deduplicate (`B12-X-003`), while Tap allows *"two more retry attempts"* and then marks the POST `ERROR` (`B12-X-006`) — so for Tap a lost callback is lost permanently, which is why B8's `retrieve_charge` reconciliation is recorded as the guarantee rather than an optimization (`B12-D-A025`). And **no Phase-1 provider is confirmed to accept a client-supplied idempotency key**, so capabilities are tri-valued and the design depends on none of them (`B12-D-A012`, `B12-D-A024`); exactly two capability cells read `supported` platform-wide, both primary-sourced.
+
+Key B12 decisions: **an outbox row is written in the same transaction as the state it announces**, with five enumerated crash windows each given a durable answer (`B12-D-A006`) and every completion write fenced by a per-claim `lease_token` (`B12-D-A055`). **Two inboxes, one owned** — B12 owns the external `webhook_receipts` and deliberately does not own the internal one, ratifying the split frozen `B7_DATA_MODEL.md` §6 already drew (`B12-D-A008`). **Nine idempotency keys, not one**, because a client key cannot dedup a provider retry (`B12-D-A016`). **Six retry counters with six owners**, three of them belonging to domains and untouchable by transport retry (`B12-D-A017`). **Three outcomes, not two** — `unknown` is durable and first-class, the provider attempt row is committed *before* the call, and a non-idempotent operation is never retried on an unresolved unknown, with no override flag anywhere (`B12-D-A019`…`A021`). **Five queues derived from four isolation properties**, with four rejected splits documented (`B12-D-A013`). **One Redis test** — *if this instance is flushed now, is the system still correct after recovery from PostgreSQL?* — with the subtle case spelled out: an abuse counter may live in Redis, but a counter that bounds provider cost or commercial entitlement is a PostgreSQL row (`B12-D-A014`, `B12-D-A015`).
+
+> **A B12 table can tell you that something was *attempted*, *delivered*, or *failed to dispatch*. It can never tell you that a Lead is qualified, a Message was read, a Payment succeeded, revenue was recognized, a tax document was cleared, or a file is available.** Every domain effect B12 causes is caused by invoking that domain's own guarded command; B12 writes no domain table by any path. Two firewalls deserve naming: **B7** — generic scheduling is not automation, and B7 explicitly *removed* its wakeup-sweep request, so B12 builds none; **B9** — financial write paths are synchronous by B9's own design, so B12 has no asynchronous write path into B9 at all. See `Docs/backend/B12/B12_DOMAIN_FIREWALLS.md`.
+
+The frozen frontend's integrations surface is **substantially built**, unlike B11's file surface: 226 lines of real UI over a seven-row catalogue with five statuses, per-integration capabilities, an activity log, and four guarded operator actions. Most importantly the shipped client already persists **only** `hasConfiguredSecret` — no token field, no mask, no last-four — and says so in its own header comment, so B12's hardest redaction rule was corroborated rather than invented. Eleven behaviors, individually itemized; four of the ten API operations are frontend-grounded and six are frozen-backend-grounded, and that distinction is recorded rather than blurred. See `Docs/backend/B12/B12_FRONTEND_BEHAVIOR_INVENTORY.md`.
+
+B12 declares a **10-item controlled amendment bundle — 10 additive, 0 compatible clarifications, 0 non-additive** — across 12 frozen artifacts, all requiring CTO approval **before implementation**; B12 applies none. Every amendment was **re-classified from scratch in B12-FIX.1** rather than re-affirmed. Its decision register holds **56 Class A decisions, 0 unresolved**, plus 12 Class B and 4 Class C. It adds **one error code**, having absorbed **10 of 11** candidates into frozen ones, and **two permissions** (`platform.operations.view`, `platform.operations.replay`) while reusing frozen `integration.manage` verbatim with its role row untouched.
+
+| Document | Purpose |
+|---|---|
+| `Docs/backend/B12/B12_EXECUTIVE_SUMMARY.md` | scope, the six-layer spine, the research that changed the design, package map |
+| `Docs/backend/B12/B12_SCOPE_AND_OWNERSHIP.md` | sub-module split, the two frozen platform rows realized, Referenced Entity Registry (`REFERENCED_ENTITY_COUNT = 4`) |
+| `Docs/backend/B12/B12_FROZEN_INPUT_INVENTORY.md` | 49 frozen anchors and delegations swept mechanically, plus the searches that returned nothing |
+| `Docs/backend/B12/B12_FRONTEND_BEHAVIOR_INVENTORY.md` | 11-behavior frontend evidence inventory (A=4, B=2, C=3, D=2) over a substantially-built integrations surface |
+| `Docs/backend/B12/B12_ASYNC_EXECUTION_MODEL.md` | the six layers, what each owns, at-least-once stated honestly, why the naive shape fails |
+| `Docs/backend/B12/B12_OUTBOX_MODEL.md` | same-transaction rule, claim/lease/**fencing-token** semantics, the five crash windows each with a durable answer |
+| `Docs/backend/B12/B12_INBOX_MODEL.md` | external inbox owned, internal inbox specified and deliberately not owned |
+| `Docs/backend/B12/B12_CELERY_EXECUTION_MODEL.md` | references-not-snapshots payload rule, late acknowledgement, timeout pairs, three duplicate guards |
+| `Docs/backend/B12/B12_QUEUE_TOPOLOGY.md` | five queues derived from four isolation properties, with four rejected splits documented |
+| `Docs/backend/B12/B12_REDIS_BOUNDARY.md` | one test, permitted and forbidden lists, the durable-vs-abuse counter split, a worked recovery example |
+| `Docs/backend/B12/B12_IDEMPOTENCY_MODEL.md` | nine classes with nine keys, their composition, and the provider-key evidence rule |
+| `Docs/backend/B12/B12_RETRY_BACKOFF_MODEL.md` | six retry counters with six owners; the frozen table reused; `MIN(class_max, domain_remaining)` |
+| `Docs/backend/B12/B12_UNKNOWN_OUTCOME_MODEL.md` | three outcomes, five named scenarios, write-before-call, and the rule with no override |
+| `Docs/backend/B12/B12_CONCURRENCY_MODEL.md` | ten races, the five unknown-outcome interleavings, fixed lock order, transaction boundaries |
+| `Docs/backend/B12/B12_PROVIDER_PORT_ARCHITECTURE.md` | frozen port names reused, shared infrastructure vs. domain-shaped ports, the four-class error taxonomy |
+| `Docs/backend/B12/B12_PROVIDER_CONFIGURATION_MODEL.md` | credentials → check → connected → enable; status and enabled orthogonal; safe-check rule; scope split |
+| `Docs/backend/B12/B12_PROVIDER_CAPABILITY_MODEL.md` | tri-valued capabilities, the Phase-1 matrix, and the Meta/Tap retry asymmetry |
+| `Docs/backend/B12/B12_OUTBOUND_HTTP_POLICY.md` | four-level decision hierarchy, status classification, and why connect and read timeouts differ |
+| `Docs/backend/B12/B12_WEBHOOK_GATEWAY.md` | the twelve-step pipeline, fast acknowledgement as a safety property, disabled providers still receipted |
+| `Docs/backend/B12/B12_WEBHOOK_SECURITY.md` | five rules; per-provider verification proven necessary by primary-source research; tenant binding |
+| `Docs/backend/B12/B12_WEBHOOK_DEDUP_ORDERING.md` | dedup vs. ordering separated; three-tier identity hierarchy; ordering left with the owning domain |
+| `Docs/backend/B12/B12_RECONCILIATION_MODEL.md` | one additive platform row, eight mismatch classes with precedence, five report-only or operator-gated |
+| `Docs/backend/B12/B12_DEAD_LETTER_REPLAY_MODEL.md` | durable records, four states, computed replay eligibility, no automatic replay |
+| `Docs/backend/B12/B12_RATE_LIMIT_BACKPRESSURE.md` | six layers, the enumerated durable domain budgets, backpressure without a circuit breaker |
+| `Docs/backend/B12/B12_INTEGRATION_HEALTH_MODEL.md` | six orthogonal facts, health as evidence not authority, why no Phase-1 circuit breaker |
+| `Docs/backend/B12/B12_DATA_MODEL.md` | full per-table schema (8 tables), both frozen constraint notes honored verbatim |
+| `Docs/backend/B12/B12_STATE_MACHINES.md` | 6 machines, 27 states, the frozen receipt machine unchanged (terminals included), the command ↔ transition cross-check, 7 rejected or removed candidate states |
+| `Docs/backend/B12/B12_COMMAND_EVENT_CATALOG.md` | 15 commands (4 frozen names), 10 produced events, 0 consumed, 5 rejected event candidates |
+| `Docs/backend/B12/B12_API_DTO_CONTRACTS.md` | 14 additive operations, 3 uncounted webhook routes, the no-masked-secret redaction contract |
+| `Docs/backend/B12/B12_RBAC_TENANCY.md` | 1 reused + 2 added permissions, the seven cross-workspace attacks, system-actor rules |
+| `Docs/backend/B12/B12_ERROR_TAXONOMY.md` | 14 frozen codes reused, 1 added, 10 of 11 candidates absorbed, safe provider metadata |
+| `Docs/backend/B12/B12_DOMAIN_FIREWALLS.md` | eight per-domain firewalls plus three no-contact domains, each with negative controls |
+| `Docs/backend/B12/B12_SCHEDULING_MODEL.md` | what may be scheduled, what may never be, and why a missed schedule is safe |
+| `Docs/backend/B12/B12_SECURITY_PRIVACY.md` | 14 threats each with a control and a test; the exhaustive redaction list; secret boundary |
+| `Docs/backend/B12/B12_OBSERVABILITY_HANDOFF.md` | the correlation contract across the provider hop, required signals, cardinality discipline |
+| `Docs/backend/B12/B12_CONFIGURATION_INVENTORY.md` | symbolic configuration keys with scope/secret/change classification; no real secret anywhere |
+| `Docs/backend/B12/B12_PROVIDER_RESEARCH_REGISTER.md` | 15 external facts (9 VERIFIED, 1 PARTIAL, 5 UNRESOLVED, 0 CONTRADICTED) + claims B12 does not make |
+| `Docs/backend/B12/B12_FAILURE_CATALOG.md` | 50 failure scenarios with detection, durable state, retryability, impact, visibility, recovery |
+| `Docs/backend/B12/B12_ACCEPTANCE_TESTS.md` | 191 tests across 42 categories, 93 negative controls, with brief-§71/§72 coverage mapping |
+| `Docs/backend/B12/B12_CLASS_A_REFERENCE_REGISTRY.md` | 95 frozen dependencies, each with an exact location and quoted fact |
+| `Docs/backend/B12/B12_CONTROLLED_AMENDMENTS.md` | every frozen-artifact change B12 requires (10 items, all additive), plus what required none |
+| `Docs/backend/B12/B12_DECISION_REGISTER.md` | 56 Class A (0 unresolved), 12 Class B, 4 Class C |
+| `Docs/backend/B12/B12_IMPLEMENTATION_HANDOFF.md` | pre-implementation gate, the concrete answer list, readiness by concern, sequence, MUST-NOT list |
+| `Docs/backend/B12/B12_B13_BOUNDARY.md` | what B12 requires of B13, what it deliberately does not decide, the one deployment rule it does fix |
+| `Docs/backend/B12/B12_VERIFICATION_MATRIX.md` | mechanically derived counters, semantic checks, reference integrity, drift gate |
+
+B12 mints **one new public-ID prefix** (`INT-`, grounded in both shipped frontend evidence and a real addressable API resource; `WHR-` is reused verbatim), **reuses one frozen permission** and adds **two**, and introduces **no new error-envelope shape and no new HTTP status** — only 1 new `code` value and 3 new `details.reason` values inside the existing taxonomy. **No document in this package creates or authorizes business authority over any other domain's state, asserts a provider capability it did not verify, or claims a delivery guarantee the architecture does not provide.**
+
+B12 is design-only and grants no implementation authorization.
+
 ## Required next-phase gate
 
 Before implementation, resolve all items marked `PRODUCT DECISION REQUIRED`, `REQUIRES OFFICIAL ZATCA VALIDATION`, or `REQUIRES PROVIDER CONTRACT VALIDATION`; approve the API/DTO/ERD/OpenAPI/identity documents as frozen; then authorize Backend Architecture-to-Coding transition explicitly. This package contains no implementation. B0-FIX.3 repairs are documentation/contract-only and do not self-close B0.
