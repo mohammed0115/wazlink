@@ -568,6 +568,68 @@ B12 mints **one new public-ID prefix** (`INT-`, grounded in both shipped fronten
 
 B12 is design-only and grants no implementation authorization.
 
+## B13 — Security & Operations target design — **DESIGN IN PROGRESS**
+
+> **B13 is NOT closed.** It is uncommitted and awaits independent CTO verification. Nothing below is approved, and no implementation may act on it.
+
+`Docs/backend/B13/` holds the B13 Security & Operations target-design package — 39 documents. It is **additive**: it modifies no frozen B0–B12 file and no frontend file. B0–B11 remain at the SHAs recorded above, and the B12 pack is committed at `9c2f2815f5d8e0cd74fa50c112931a9c3387abbe`, which is this pass's `HEAD`, `origin/main`, and remote `main`.
+
+B13 answers the question B0–B12 left open by design: how must WazLink be secured, observed, operated, recovered, audited, configured, and administered in production. Unlike every domain phase before it, B13 owns no business aggregate and adds no table, event, or command of its own — its task is to state the production enforcement, monitoring, and operational layer around ninety-two already-frozen documents across twelve phases, not to invent new domain authority. `B13_FROZEN_INPUT_INVENTORY.md` catalogs the 82 frozen anchors it depends on, each with an exact citation.
+
+B13 declares a **zero-item controlled amendment bundle** — the first phase in this corpus to require none at all (`B13_CONTROLLED_AMENDMENTS.md`). Every security and operational control in the pack operationalizes an existing frozen clause (session cookie mechanics, the 16-step authorization pipeline, per-domain rate/cost budgets, the per-provider webhook verification schemes, file validation gates, and the four independent revenue/payment firewalls) rather than extending any frozen artifact's shape. Its own decision register holds **82 Class A items** (frozen input, not re-decided), **29 Class B decisions** (B13-original, mostly proposed tunable defaults — backup cadence, file-size ceilings, alert thresholds — plus a small number of closed mechanism choices including Row-Level Security evaluated and rejected for Phase 1 in favor of the already-proven application-layer tenancy doctrine), and **12 Class C items** genuinely left open (chief among them Saudi data-locality and breach-notification timing, inherited unresolved from ADR-012 rather than manufactured new).
+
+Key B13 decisions: **four rate-limit classes are never merged** — a security abuse control, a domain cost budget, a provider's own rate limit, and a retry budget answer four different questions and remain four different counters, restated from frozen B0's own instruction that limits "combine abuse protection, provider cost control, and entitlement quotas." **Tenant isolation is one doctrine applied at every seam**, including three surfaces B1 never had to reach directly — background jobs (workspace ID carried in the task payload, never a session), webhooks (tenancy resolved from the verified signing secret, never the payload), and platform operator surfaces (still workspace-scoped, with no operator exemption) — proven by a twelve-row cross-tenant negative-control table. **Fail-closed is reserved for security-critical configuration and fail-open for optional-provider availability**, drawn as an explicit per-configuration-class table rather than left as a general instruction. **The repository currently has no committed dependency lockfile** — discovered and disclosed during this pass (`npm audit` cannot even run today) rather than assumed resolved, and filed as an implementation-phase blocker in `B13_SUPPLY_CHAIN_SECURITY.md`.
+
+The frozen frontend (`30bc15e9ca3c0205df2b49e792fce1b8e78a36b1`, confirmed byte-identical to the current `client/` tree) was found to perform **zero client-side authentication or authorization enforcement of any kind** — `signedIn` is tracked in state but read by no route guard, and no screen contains a hard-delete confirmation, a rate-limit-aware error state, or a file-upload control. Twenty-six behaviors, individually itemized (11 Class A, 8 Class B, 4 Class C, 3 Class D), confirm this negative finding directly and independently corroborate the no-secret-round-trip and no-card-data invariants B8 and B12 had already found. See `Docs/backend/B13/B13_FRONTEND_EVIDENCE.md`.
+
+Eight external technical facts not already covered by a frozen phase's own research register were fetched from official documentation during this pass — Django's own security-settings warnings, NIST SP 800-63B's password-composition guidance, Sentry's data-scrubbing mechanics, OWASP's HTTP-headers guidance, and Celery's own pickle-serializer warning — six `VERIFIED`, one `PARTIAL`, one superseded-`UNRESOLVED`, zero `CONTRADICTED`. See `Docs/backend/B13/B13_RESEARCH_REGISTER.md`.
+
+| Document | Purpose |
+|---|---|
+| `Docs/backend/B13/B13_EXECUTIVE_SUMMARY.md` | scope, inherited-vs-added decisions, package map |
+| `Docs/backend/B13/B13_FROZEN_INPUT_INVENTORY.md` | 82 frozen anchors from B0–B12 and the frontend, each with an exact citation |
+| `Docs/backend/B13/B13_FRONTEND_EVIDENCE.md` | 26-behavior frontend evidence inventory (A=11, B=8, C=4, D=3) |
+| `Docs/backend/B13/B13_SECURITY_PRINCIPLES.md` | 25 production security controls, threat/resource/enforcement/failure/audit/observability/acceptance |
+| `Docs/backend/B13/B13_THREAT_MODEL.md` | 16 threat actors, 28 threat classes, full defense/detection/recovery matrix |
+| `Docs/backend/B13/B13_AUTHENTICATION_SESSION_SECURITY.md` | production session lifecycle, cookie flags, MFA classification |
+| `Docs/backend/B13/B13_AUTHORIZATION_TENANCY.md` | tenancy enforcement contract across every domain, background job, webhook, and operator surface |
+| `Docs/backend/B13/B13_DJANGO_DRF_SECURITY_BASELINE.md` | implementation-ready settings baseline, classified invariant/env-specific/deployment |
+| `Docs/backend/B13/B13_SECRETS_MANAGEMENT.md` | secret classes, lifecycle, rotation, revocation |
+| `Docs/backend/B13/B13_AUDIT_LOGGING.md` | consolidated 146-action security-audit catalog |
+| `Docs/backend/B13/B13_RATE_LIMIT_ABUSE_MODEL.md` | four-counter-class reconciliation of every frozen domain budget |
+| `Docs/backend/B13/B13_INPUT_OUTPUT_SECURITY.md` | mass-assignment, injection, SSRF, and validation controls |
+| `Docs/backend/B13/B13_FILE_SECURITY.md` | production operational layer over B11's frozen file architecture |
+| `Docs/backend/B13/B13_WEBHOOK_SECURITY.md` | production operational layer over B12's per-provider verification design |
+| `Docs/backend/B13/B13_PAYMENT_FINANCIAL_SECURITY.md` | the four revenue/payment firewalls, restated as one production posture |
+| `Docs/backend/B13/B13_DATABASE_SECURITY.md` | roles, constraints, lock discipline, the RLS evaluation-and-rejection |
+| `Docs/backend/B13/B13_REDIS_CELERY_SECURITY.md` | network isolation, authentication, serialization safety, poison-task handling |
+| `Docs/backend/B13/B13_LOGGING_REDACTION.md` | consolidated exhaustive redaction list and structured-log contract |
+| `Docs/backend/B13/B13_OBSERVABILITY.md` | signal inventory, alert-to-severity-to-owner-to-runbook bindings |
+| `Docs/backend/B13/B13_HEALTH_READINESS.md` | three-tier liveness/readiness/degraded model |
+| `Docs/backend/B13/B13_INCIDENT_MANAGEMENT.md` | four-tier severity model, per-class response procedure |
+| `Docs/backend/B13/B13_BACKUP_RESTORE.md` | backup subjects, retention classes, restore-testing cadence, proposed RPO/RTO |
+| `Docs/backend/B13/B13_DISASTER_RECOVERY.md` | authority-before-derived-execution ordering across ten disaster classes |
+| `Docs/backend/B13/B13_DEPLOYMENT_SECURITY.md` | ingress exposure table, network segmentation, trusted-proxy contract |
+| `Docs/backend/B13/B13_ENVIRONMENT_STRATEGY.md` | dev/test/staging/production security differences |
+| `Docs/backend/B13/B13_CONFIGURATION_MANAGEMENT.md` | configuration classes, fail-open/fail-closed boundary |
+| `Docs/backend/B13/B13_SUPPLY_CHAIN_SECURITY.md` | dependency policy; discloses the current missing-lockfile gap |
+| `Docs/backend/B13/B13_BROWSER_SECURITY.md` | derived CSP and browser-boundary contract |
+| `Docs/backend/B13/B13_PRIVACY_DATA_MINIMIZATION.md` | minimization rules and the technical/business/legal retention split |
+| `Docs/backend/B13/B13_OPERATOR_MODEL.md` | platform operator access control, mandatory-reason gates |
+| `Docs/backend/B13/B13_RUNBOOKS.md` | 18 implementation-ready runbooks |
+| `Docs/backend/B13/B13_FAILURE_SCENARIOS.md` | 23 failure scenarios with authority-preserved and acceptance-reference columns |
+| `Docs/backend/B13/B13_ACCEPTANCE_TESTS.md` | canonical index across 23 mandated categories, 202 tests total |
+| `Docs/backend/B13/B13_DECISION_REGISTER.md` | Class A (82, inherited) / B (29) / C (12) |
+| `Docs/backend/B13/B13_CONTROLLED_AMENDMENTS.md` | 0 items — every control operationalizes an existing frozen clause |
+| `Docs/backend/B13/B13_RESEARCH_REGISTER.md` | 8 external findings, 6 verified, 1 partial, 1 superseded-unresolved |
+| `Docs/backend/B13/B13_B14_BOUNDARY.md` | what B14 receives, what remains a deployment/business/legal decision |
+| `Docs/backend/B13/B13_IMPLEMENTATION_HANDOFF.md` | pre-implementation gate, readiness-by-concern, sequence, MUST-NOT list |
+| `Docs/backend/B13/B13_VERIFICATION_MATRIX.md` | mechanically re-derived counters, semantic gates, reference-integrity, drift gate |
+
+B13 mints **zero new public-ID prefixes, zero new permission codes, zero new error codes, and zero new HTTP statuses** — every operator/security surface it specifies reuses an already-frozen B1/B8/B9/B10/B12 permission or error code verbatim. **No document in this package creates new domain authority, weakens a frozen security control, or claims an implementation status this design has not earned.**
+
+B13 is design-only and grants no implementation authorization.
+
 ## Required next-phase gate
 
 Before implementation, resolve all items marked `PRODUCT DECISION REQUIRED`, `REQUIRES OFFICIAL ZATCA VALIDATION`, or `REQUIRES PROVIDER CONTRACT VALIDATION`; approve the API/DTO/ERD/OpenAPI/identity documents as frozen; then authorize Backend Architecture-to-Coding transition explicitly. This package contains no implementation. B0-FIX.3 repairs are documentation/contract-only and do not self-close B0.
