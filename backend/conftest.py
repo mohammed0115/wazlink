@@ -21,6 +21,47 @@ def _registries_populated():
 
 
 @pytest.fixture
+def delivered(_registries_populated):
+    """Test-only sink bound to the out-of-band credential delivery boundary.
+
+    Production binds a DISCARDING adapter, so a raw token reaches nobody. Tests
+    bind this instead, which is how a flow that needs the token can complete
+    WITHOUT the API ever returning one. Nothing here relaxes production
+    behaviour: the sink lives only for the duration of one test.
+    """
+    from common.ports import ports
+
+    class Sink:
+        def __init__(self):
+            self.items: list[dict] = []
+
+        def deliver(self, *, kind, subject_ref, raw_token, command_id):
+            self.items.append(
+                {
+                    "kind": kind,
+                    "subject_ref": subject_ref,
+                    "raw_token": raw_token,
+                    "command_id": command_id,
+                }
+            )
+
+        def kinds(self):
+            return [item["kind"] for item in self.items]
+
+        def token_for(self, kind):
+            for item in reversed(self.items):
+                if item["kind"] == kind:
+                    return item["raw_token"]
+            return None
+
+    sink = Sink()
+    previous = ports.credential_delivery
+    ports.bind(credential_delivery=sink)
+    yield sink
+    ports.bind(credential_delivery=previous)
+
+
+@pytest.fixture
 def api():
     from rest_framework.test import APIClient
 

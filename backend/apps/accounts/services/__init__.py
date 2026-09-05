@@ -3,29 +3,74 @@
 from __future__ import annotations
 
 from django.contrib.auth.hashers import check_password, make_password
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from common.errors import DomainConflict, ValidationFailed
+from common.delivery import ACCOUNT_EXISTS, VERIFY_EMAIL, deliver_credential, new_command_id
+from common.errors import ValidationFailed
 
 from ..models import User, UserCredential, UserEmailToken
 
 
+def _notify_account_exists(normalized_email: str, command_id: str) -> None:
+    """The frozen duplicate branch: notify the address owner, create nothing.
+
+    This travels the same seam as a real verification, so the two branches are
+    indistinguishable to the caller — only the mailbox owner learns which one
+    happened, which is exactly the property the anti-enumeration control buys.
+    """
+    existing = User.objects.filter(email=normalized_email).only("public_id").first()
+    deliver_credential(
+        kind=ACCOUNT_EXISTS,
+        subject_ref=existing.public_id if existing is not None else "",
+        command_id=command_id,
+    )
+
+
 @transaction.atomic
-def register_user(*, email: str, password: str, full_name: str = "") -> tuple[User, str]:
-    """Register. Returns the user and the RAW verification token (returned once)."""
+def register_user(*, email: str, password: str, full_name: str = "") -> None:
+    """RegisterUser — frozen B1_AUTH_SESSION_DESIGN §3.7.
+
+    Returns NOTHING. The raw verification token leaves this transaction only
+    through the out-of-band delivery boundary: it is returned to the caller
+    zero times, not once (B1-D-A19), and the row stores sha256 only.
+
+    Both branches — fresh address and already-registered — end in the same
+    silent success, so an unauthenticated caller cannot learn from the status
+    code, body, error code, message or response shape whether an account
+    exists. Input validation runs FIRST and identically in both branches, so a
+    malformed request is not an oracle either.
+    """
     normalized = (email or "").strip().lower()
     if not normalized:
         raise ValidationFailed("An email address is required.")
     if len(password or "") < 12:
         raise ValidationFailed("The password must be at least 12 characters.")
-    if User.objects.filter(email=normalized).exists():
-        raise DomainConflict("An account with that email already exists.")
 
-    user = User.objects.create_user(email=normalized, password=password, full_name=full_name)
-    UserCredential.objects.create(user=user, password_hash=user.password)
-    _token, raw = UserEmailToken.issue(user, "verify_email")
-    return user, raw
+    command_id = new_command_id()
+
+    if User.objects.filter(email=normalized).exists():
+        _notify_account_exists(normalized, command_id)
+        return None
+
+    try:
+        # Inner block so the unique-index race leaves the outer transaction
+        # usable; R15 requires the loser to return the same 202 and create
+        # nothing.
+        with transaction.atomic():
+            user = User.objects.create_user(email=normalized, password=password, full_name=full_name)
+            UserCredential.objects.create(user=user, password_hash=user.password)
+            _token, raw = UserEmailToken.issue(user, "verify_email")
+    except IntegrityError:
+        if not User.objects.filter(email=normalized).exists():
+            raise  # not the email-uniqueness race; never swallow a real fault
+        _notify_account_exists(normalized, command_id)
+        return None
+
+    deliver_credential(
+        kind=VERIFY_EMAIL, subject_ref=user.public_id, raw_token=raw, command_id=command_id
+    )
+    return None
 
 
 @transaction.atomic

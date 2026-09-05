@@ -8,6 +8,7 @@ from django.utils.text import slugify
 
 from common.audit import write_audit
 from common.concurrency import bump_version, require_version
+from common.delivery import INVITATION, deliver_credential
 from common.errors import DomainConflict, EntityNotFound, PermissionDeniedError, ValidationFailed
 from common.outbox import publish_event
 from common.permissions_catalog import ROLE_RANK, WORKSPACE_ROLES
@@ -44,10 +45,13 @@ def create_workspace(*, user, name: str) -> tuple[Workspace, Membership]:
 
 
 @transaction.atomic
-def invite_member(*, context, email: str, role: str) -> tuple[Invitation, str]:
-    """Invite a member. Returns the invitation and the RAW token (once).
+def invite_member(*, context, email: str, role: str) -> Invitation:
+    """InviteMember. Returns the Invitation ONLY.
 
-    The raw token is NEVER stored — only its hash.
+    The raw token is never stored (sha256 only) and never returned: it leaves
+    this transaction through the out-of-band delivery boundary and reaches the
+    invitee at the address the invitation is bound to, which is the
+    mailbox-control proof acceptance depends on (B1-D-A22, §3.1).
     """
     normalized = (email or "").strip().lower()
     if not normalized:
@@ -85,7 +89,9 @@ def invite_member(*, context, email: str, role: str) -> tuple[Invitation, str]:
         target_ref=invitation.public_id,
         changed_fields=["email", "role"],
     )
-    return invitation, raw  # the raw token never touches the database
+    # The one seam the raw token crosses. It is dropped when this returns.
+    deliver_credential(kind=INVITATION, subject_ref=invitation.public_id, raw_token=raw)
+    return invitation
 
 
 @transaction.atomic

@@ -8,12 +8,14 @@ pytestmark = pytest.mark.django_db
 
 
 @pytest.mark.security
-def test_invitation_raw_token_is_never_stored_in_plaintext(actor):
+def test_invitation_raw_token_is_never_stored_in_plaintext(actor, delivered):
     from apps.workspaces.models import Invitation
     from apps.workspaces.services import invite_member
 
     a = actor()
-    invitation, raw = invite_member(context=a.context, email="new@example.test", role="member")
+    invitation = invite_member(context=a.context, email="new@example.test", role="member")
+    raw = delivered.token_for("invitation")
+    assert raw, "the token must reach the delivery boundary"
 
     stored = Invitation.objects.get(pk=invitation.pk)
     assert stored.token_hash != raw
@@ -150,7 +152,7 @@ def test_self_role_change_is_refused(actor):
         )
 
 
-def test_manager_cannot_invite_at_or_above_own_rank(actor):
+def test_manager_cannot_invite_at_or_above_own_rank(actor, delivered):
     from apps.workspaces.services import invite_member
     from common.errors import PermissionDeniedError
 
@@ -158,16 +160,18 @@ def test_manager_cannot_invite_at_or_above_own_rank(actor):
     with pytest.raises(PermissionDeniedError):
         invite_member(context=manager.context, email="x@example.test", role="admin")
 
-    invitation, _raw = invite_member(context=manager.context, email="ok@example.test", role="member")
+    invitation = invite_member(context=manager.context, email="ok@example.test", role="member")
     assert invitation.role == "member"
 
 
-def test_invitation_accept_binds_to_the_invited_address(actor, make_user):
+def test_invitation_accept_binds_to_the_invited_address(actor, make_user, delivered):
     from apps.workspaces.services import accept_invitation, invite_member
     from common.errors import PermissionDeniedError
 
     a = actor()
-    _invitation, raw = invite_member(context=a.context, email="invited@example.test", role="member")
+    invite_member(context=a.context, email="invited@example.test", role="member")
+    # The raw token reaches the invitee ONLY through the delivery boundary.
+    raw = delivered.token_for("invitation")
 
     wrong = make_user(email="someoneelse@example.test")
     with pytest.raises(PermissionDeniedError):

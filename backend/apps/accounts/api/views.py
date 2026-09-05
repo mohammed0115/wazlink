@@ -11,29 +11,24 @@ from ..services import change_password, register_user, verify_email
 
 
 class RegisterView(APIView):
+    """POST /auth/register — frozen `202 Empty` (B1_API_DTO_CONTRACTS §1).
+
+    The response carries NO body: no user reference, no email echo, no
+    verification state and — above all — no verification token. Registering a
+    fresh address and registering one that already exists produce the identical
+    202 with the identical empty body, which is the anti-enumeration control.
+    """
+
     authentication_classes: list = []
 
     def post(self, request):
         data = request.data or {}
-        user, raw_token = register_user(
+        register_user(
             email=data.get("email", ""),
             password=data.get("password", ""),
             full_name=data.get("full_name", ""),
         )
-        # The raw token is delivered out of band in production. It is surfaced
-        # here only so a local/test caller can complete the flow; it is never
-        # written to the database and never logged.
-        return Response(
-            {
-                "user": {
-                    "user_ref": user.public_id,
-                    "email": user.email,
-                    "email_verified": user.is_email_verified,
-                },
-                "verification_token": raw_token,
-            },
-            status=201,
-        )
+        return Response(status=202)
 
 
 class VerifyEmailView(APIView):

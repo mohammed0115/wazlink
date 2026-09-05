@@ -17,12 +17,21 @@ PASSWORD="correct-horse-battery-staple"
 jqr() { python3 -c "import sys,json;d=json.load(sys.stdin);print(eval('d'+sys.argv[1]))" "$1"; }
 step() { printf '\n\033[1m== %s\033[0m\n' "$1"; }
 
-step "1. Register + verify + log in"
-REG=$(curl -sS -X POST "$BASE/auth/register" -H 'Content-Type: application/json' \
+# The raw verification token is delivered ONLY out of band (B1-D-A19): no API
+# response returns it, in any environment. Wave 1 binds no email provider, so
+# this local demo stands in for the mailbox by marking the address verified
+# directly in the development database — an operator action, outside the API.
+verify_out_of_band() {
+  docker exec wazlink-pg psql -U wazlink -d wazlink -tAc \
+    "UPDATE users SET email_verified_at = now() WHERE email = '$1';" >/dev/null
+}
+
+step "1. Register + verify (out of band) + log in"
+REG_CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$BASE/auth/register" \
+  -H 'Content-Type: application/json' \
   -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\",\"full_name\":\"Demo Owner\"}")
-VTOKEN=$(echo "$REG" | jqr "['verification_token']")
-curl -sS -X POST "$BASE/auth/verify-email" -H 'Content-Type: application/json' \
-  -d "{\"token\":\"$VTOKEN\"}" >/dev/null
+echo "register -> $REG_CODE (frozen 202 Empty; no token, no account-existence signal)"
+verify_out_of_band "$EMAIL"
 LOGIN=$(curl -sS -X POST "$BASE/auth/login" -H 'Content-Type: application/json' \
   -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")
 TOKEN=$(echo "$LOGIN" | jqr "['session_token']")
@@ -99,11 +108,9 @@ REV=$(docker exec wazlink-pg psql -U wazlink -d wazlink -tAc \
 echo "  revenue/attribution tables touched by a Won Deal: $REV  (WON_DEAL_EQUALS_REVENUE = FALSE)"
 
 step "10. A second workspace cannot reach any of it"
-curl -sS -X POST "$BASE/auth/register" -H 'Content-Type: application/json' \
-  -d "{\"email\":\"$OTHER\",\"password\":\"$PASSWORD\"}" > /tmp/other_reg.json
-OV=$(jqr "['verification_token']" < /tmp/other_reg.json)
-curl -sS -X POST "$BASE/auth/verify-email" -H 'Content-Type: application/json' \
-  -d "{\"token\":\"$OV\"}" >/dev/null
+curl -sS -o /dev/null -X POST "$BASE/auth/register" -H 'Content-Type: application/json' \
+  -d "{\"email\":\"$OTHER\",\"password\":\"$PASSWORD\"}"
+verify_out_of_band "$OTHER"
 OTOKEN=$(curl -sS -X POST "$BASE/auth/login" -H 'Content-Type: application/json' \
   -d "{\"email\":\"$OTHER\",\"password\":\"$PASSWORD\"}" | jqr "['session_token']")
 OAUTH=(-H "X-Session-Token: $OTOKEN" -H 'Content-Type: application/json')

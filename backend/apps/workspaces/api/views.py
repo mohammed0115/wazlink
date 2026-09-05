@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from common.authz import authorize, resolve_in_workspace
 from common.concurrency import parse_if_match
 from common.errors import AuthRequired, ValidationFailed
+from common.masking import mask_email
 from common.views import WazlinkAPIView
 
 from ..models import Membership, Workspace
@@ -104,26 +105,37 @@ class MemberListView(WazlinkAPIView):
         )
 
 
+def invitation_payload(invitation) -> dict:
+    """The frozen `Invitation` DTO (B1_API_DTO_CONTRACTS §3).
+
+    The raw token is NOT a field of this DTO and is returned by no operation.
+    The address is `email_masked` on EVERY surface including creation, so one
+    response shape can never leak what another masks.
+    """
+    return {
+        "invitation_ref": invitation.public_id,
+        "workspace_ref": invitation.workspace.public_id,
+        "email_masked": mask_email(invitation.email),
+        "role": invitation.role,
+        "status": invitation.status,
+        "invited_by": invitation.invited_by.public_id,
+        "expires_at": invitation.expires_at,
+        "accepted_at": invitation.accepted_at,
+        "created_at": invitation.created_at,
+        "version": invitation.version,
+    }
+
+
 class InvitationCreateView(WazlinkAPIView):
     permission_code = "member.invite"
 
     def post(self, request):
         context = self.context(request)
         data = request.data or {}
-        invitation, raw = invite_member(
+        invitation = invite_member(
             context=context, email=data.get("email", ""), role=data.get("role", "member")
         )
-        return Response(
-            {
-                "invitation_ref": invitation.public_id,
-                "email": invitation.email,
-                "role": invitation.role,
-                "expires_at": invitation.expires_at,
-                # Delivered out of band in production; never stored.
-                "invitation_token": raw,
-            },
-            status=201,
-        )
+        return Response(invitation_payload(invitation), status=201)
 
 
 class InvitationAcceptView(WazlinkAPIView):

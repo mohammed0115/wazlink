@@ -34,6 +34,21 @@ class SessionPort(Protocol):
     def resolve(self, raw_token: str) -> Any | None: ...
 
 
+class CredentialDeliveryPort(Protocol):
+    """The out-of-band credential delivery boundary (B1_COMMAND_EVENT_CATALOG §3.3).
+
+    This is the ONLY path by which a raw credential token leaves its issuing
+    transaction. It never reaches an API response, the outbox, an audit row, a
+    Celery argument or a log line — a domain that mints a token hands it here
+    and keeps nothing.
+
+    B1 defines no provider, no template and no transport, so the bound default
+    is a discard. Until a provider adapter exists the seam is the contract.
+    """
+
+    def deliver(self, *, kind: str, subject_ref: str, raw_token: str, command_id: str) -> None: ...
+
+
 class _Bindings:
     """Ports bound once by the composition root."""
 
@@ -42,6 +57,7 @@ class _Bindings:
     outbox: OutboxPort | None = None
     entitlement: EntitlementPort | None = None
     session: SessionPort | None = None
+    credential_delivery: CredentialDeliveryPort | None = None
 
     def bind(self, **ports: Any) -> None:
         for name, port in ports.items():

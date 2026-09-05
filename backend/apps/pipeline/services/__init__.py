@@ -113,9 +113,11 @@ def create_deal(
 
 @transaction.atomic
 def move_deal_stage(*, context, deal: Deal, stage_ref: str, expected_version: int | None) -> Deal:
+    # Lock first: the open/closed decision must be made on committed truth, not
+    # on the snapshot this request opened with (B1_CONCURRENCY_IDEMPOTENCY R1).
+    require_version(deal, expected_version)
     if deal.status != "open":
         raise DomainConflict("A closed deal cannot change stage.", {"status": deal.status})
-    require_version(deal, expected_version)
 
     stage = PipelineStage.objects.filter(
         workspace=context.workspace, pipeline=deal.pipeline, public_id=stage_ref
@@ -160,11 +162,15 @@ def close_deal(
     """
     if outcome not in ("won", "lost"):
         raise ValidationFailed("A deal is closed as 'won' or 'lost'.")
-    if deal.status != "open":
-        raise DomainConflict("This deal is already closed.", {"status": deal.status})
     if outcome == "lost" and not (loss_reason or "").strip():
         raise ValidationFailed("A lost deal requires a loss reason.")
+
+    # Lock, then decide. Two writers holding the same expected_version serialize
+    # here; the loser sees the bumped version and is refused 409 STALE_VERSION,
+    # so a Deal can never emit both DealWon and DealLost.
     require_version(deal, expected_version)
+    if deal.status != "open":
+        raise DomainConflict("This deal is already closed.", {"status": deal.status})
 
     deal.status = outcome
     deal.loss_reason = (loss_reason or "").strip() if outcome == "lost" else ""

@@ -218,10 +218,12 @@ def convert_business_to_lead(*, context, business, owner_membership=None) -> Lea
 def set_lead_status(*, context, lead: Lead, status: str, expected_version: int | None) -> Lead:
     from ..models import LEAD_STATUSES
 
-    _guard_not_archived(lead)
     if status not in LEAD_STATUSES:
         raise ValidationFailed("That lead status does not exist.")
+    # Lock BEFORE the state guard: `archived_at` must be read under the lock,
+    # not from the snapshot this request opened with.
     require_version(lead, expected_version)
+    _guard_not_archived(lead)
 
     before = lead.status
     lead.status = status
@@ -252,10 +254,10 @@ def set_lead_status(*, context, lead: Lead, status: str, expected_version: int |
 def set_lead_priority(*, context, lead: Lead, priority: str, expected_version: int | None) -> Lead:
     from ..models import LEAD_PRIORITIES
 
-    _guard_not_archived(lead)
     if priority not in LEAD_PRIORITIES:
         raise ValidationFailed("That priority does not exist.")
     require_version(lead, expected_version)
+    _guard_not_archived(lead)
 
     before = lead.priority
     lead.priority = priority
@@ -275,8 +277,8 @@ def set_lead_priority(*, context, lead: Lead, priority: str, expected_version: i
 @transaction.atomic
 def archive_lead(*, context, lead: Lead, expected_version: int | None) -> Lead:
     """Archive. No cascade: contacts, tasks, notes and activities are retained."""
-    _guard_not_archived(lead)
     require_version(lead, expected_version)
+    _guard_not_archived(lead)
     lead.archived_at = timezone.now()
     bump_version(lead)
     lead.save(update_fields=["archived_at", "version", "updated_at"])

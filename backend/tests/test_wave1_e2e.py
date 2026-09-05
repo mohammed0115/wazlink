@@ -29,8 +29,12 @@ def _client(token: str | None = None) -> APIClient:
     return client
 
 
-def _register_and_login(email: str) -> str:
-    """Steps 1: register, verify the email, log in. Returns the session token."""
+def _register_and_login(email: str, delivered) -> str:
+    """Steps 1: register, verify the email, log in. Returns the session token.
+
+    The verification token is obtained from the OUT-OF-BAND delivery boundary,
+    never from the HTTP response — the frozen `202 Empty` carries no body.
+    """
     anon = _client()
 
     registered = anon.post(
@@ -38,8 +42,10 @@ def _register_and_login(email: str) -> str:
         {"email": email, "password": PASSWORD, "full_name": "Test Owner"},
         format="json",
     )
-    assert registered.status_code == 201, registered.content
-    verification_token = registered.json()["verification_token"]
+    assert registered.status_code == 202, registered.content
+    assert not registered.content, "202 Empty carries no body"
+    verification_token = delivered.token_for("verify_email")
+    assert verification_token, "the token must reach the delivery boundary"
 
     verified = anon.post("/api/v1/auth/verify-email", {"token": verification_token}, format="json")
     assert verified.status_code == 200
@@ -54,9 +60,9 @@ def _register_and_login(email: str) -> str:
     return body["session_token"]
 
 
-def test_wave1_end_to_end():
+def test_wave1_end_to_end(delivered):
     # ---- 1. create / authenticate a user --------------------------------
-    token = _register_and_login("owner@wave1.test")
+    token = _register_and_login("owner@wave1.test", delivered)
     client = _client(token)
 
     # ---- 2 & 3. create a workspace; membership is established ------------
@@ -232,7 +238,7 @@ def test_wave1_end_to_end():
         assert cursor.fetchall() == [], "a Won Deal produced revenue truth"
 
     # ---- 12. Workspace B cannot reach Workspace A -------------------------
-    other_token = _register_and_login("intruder@wave1.test")
+    other_token = _register_and_login("intruder@wave1.test", delivered)
     other = _client(other_token)
     other.post("/api/v1/workspaces", {"name": "Other Co"}, format="json")
 
@@ -263,7 +269,7 @@ def test_wave1_end_to_end():
         assert other.get(path).json()["items"] == []
 
 
-def test_wave1_requires_no_provider_credential(monkeypatch):
+def test_wave1_requires_no_provider_credential(monkeypatch, delivered):
     """DEMO 0: starting with ZERO provider credentials must succeed."""
     for variable in (
         "OPENAI_API_KEY",
@@ -274,7 +280,7 @@ def test_wave1_requires_no_provider_credential(monkeypatch):
     ):
         monkeypatch.delenv(variable, raising=False)
 
-    token = _register_and_login("noproviders@wave1.test")
+    token = _register_and_login("noproviders@wave1.test", delivered)
     client = _client(token)
     client.post("/api/v1/workspaces", {"name": "No Providers Co"}, format="json")
 

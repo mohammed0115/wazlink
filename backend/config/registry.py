@@ -74,6 +74,22 @@ def register_commands() -> None:
     command_registry.register("CreateCustomer", create_customer)
 
 
+class DiscardingCredentialDelivery:
+    """The bound default for the out-of-band delivery boundary.
+
+    B1 defines no provider, no template and no transport for credential
+    delivery, so the correct Wave 1 behaviour is to accept the handoff and
+    retain NOTHING: no storage, no logging, no echo. A deployment that wants
+    real email binds a provider adapter here and changes nothing else.
+
+    Discarding is the safe default. Returning the token to the caller — the
+    posture B1-D-A22 exists to forbid — is not an option this seam offers.
+    """
+
+    def deliver(self, *, kind: str, subject_ref: str, raw_token: str, command_id: str) -> None:
+        return None
+
+
 def bind_ports() -> None:
     """Bind every class B port. common/ declares them; config/ supplies the
     implementations, so common/ never imports apps/ (T-ARCH-8)."""
@@ -125,6 +141,7 @@ def bind_ports() -> None:
         outbox=simple_port(publish=publish_outbox),
         entitlement=simple_port(evaluate_entitlement=evaluate_entitlement, evaluate_quota=evaluate_quota),
         session=simple_port(resolve=Session.objects.for_token),
+        credential_delivery=DiscardingCredentialDelivery(),
     )
 
 
