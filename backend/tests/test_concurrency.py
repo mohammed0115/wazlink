@@ -365,3 +365,49 @@ def test_lock_aggregate_refuses_to_run_outside_a_transaction(owner):
     customer = create_customer(context=owner.context, party_kind="organization", name="No Txn")
     with pytest.raises(RuntimeError, match="transaction"):
         lock_aggregate(customer)
+
+
+def test_concurrent_import_commit_yields_one_winner_and_one_conflict(owner):
+    """Two writers commit the same ImportBatch from the same version.
+
+    The batch carries `version` (`B14_04` §M13) and its commit endpoint is
+    frozen to accept `If-Match` (`B14_06` §Imports), so ADR-010 applies to the
+    aggregate exactly as it does to a Deal. Exactly one writer may consume a
+    given version; the other is refused. Per-row semantics are unaffected: the
+    winner still commits each row in its own transaction.
+    """
+    from apps.customers.models import Customer
+    from apps.imports.models import ImportBatch
+    from apps.imports.services import commit_batch, create_import_batch, set_mapping
+
+    for _round in range(ROUNDS):
+        batch = create_import_batch(
+            context=owner.context,
+            target_kind="customer",
+            raw_csv="name,phone\nRace One,+966500000021\nRace Two,+966500000022\n",
+        )
+        batch = set_mapping(
+            context=owner.context, batch=batch, mapping={"name": "name", "phone": "phone"}
+        )
+        version = batch.version
+        before = Customer.objects.filter(workspace=owner.workspace).count()
+
+        def commit(*, pk=batch.pk, expected=version):
+            def _do():
+                fresh = ImportBatch.objects.get(pk=pk)
+                return commit_batch(context=owner.context, batch=fresh, expected_version=expected)
+
+            return _do
+
+        results = _run_concurrently([commit(), commit()])
+        successes, conflicts = _classify(results)
+
+        assert len(successes) == 1, f"round {_round}: {len(successes)} writers committed, expected 1"
+        assert len(conflicts) == 1, f"round {_round}: expected exactly one conflict"
+
+        final = ImportBatch.objects.get(pk=batch.pk)
+        assert final.version == version + 1, "version must increment exactly once"
+        assert final.status == "completed"
+        # The winner imported every row exactly once — the loser wrote nothing.
+        assert Customer.objects.filter(workspace=owner.workspace).count() == before + 2
+        assert sorted(final.rows.values_list("outcome", flat=True)) == ["created", "created"]

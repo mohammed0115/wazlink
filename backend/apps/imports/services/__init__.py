@@ -13,6 +13,7 @@ import io
 from django.db import transaction
 from django.utils import timezone
 
+from common.concurrency import bump_version, lock_aggregate, require_version
 from common.errors import DomainConflict, ValidationFailed
 
 from ..models import TARGET_KINDS, ImportBatch, ImportRow
@@ -74,21 +75,55 @@ def dry_run(*, context, batch: ImportBatch) -> dict:
     }
 
 
-def commit_batch(*, context, batch: ImportBatch, expected_version: int | None = None) -> ImportBatch:
-    """Commit. Each row is processed independently and idempotently on
-    (batch_id, row_number). A failed row does NOT roll back a committed one."""
-    from common.concurrency import require_version
+@transaction.atomic
+def _begin_commit(*, batch: ImportBatch, expected_version: int | None) -> None:
+    """The ONE guarded transition of CommitImportBatch: lock, validate, flip.
 
+    This is the narrowest correct transaction boundary, and the boundary is
+    narrow by contract rather than by preference. Wrapping the whole command in
+    `transaction.atomic` would be WRONG here: the frozen per-row identity
+    `(batch_id, row_number)` (`B14_04` §M13, `B14_09` `import_process_row`) and
+    `T-IMP-2` require that a failed row leave an already-committed row standing,
+    which a single enclosing transaction would roll back. It would also hold the
+    aggregate lock across the entire row loop. So exactly the aggregate's own
+    status/version transition is transactional; each row keeps its own
+    transaction, unchanged, below.
+
+    The lock is taken unconditionally, not only when `If-Match` is present: the
+    `completed` guard is a concurrent-state decision and must read committed
+    truth, not the snapshot this request opened with. `require_version` then
+    applies ADR-010 against that same locked row -- re-taking a lock this
+    transaction already holds costs one statement and keeps the version rule in
+    the single place that owns it.
+    """
+    lock_aggregate(batch)
+    # Frozen: `409` if already committed (`B14_06` §Imports). No other terminal
+    # state is refused here -- a re-commit of an in-flight batch is already a
+    # per-row no-op, because only `pending` rows are processed.
     if batch.status == "completed":
         raise DomainConflict("This batch is already committed.")
     require_version(batch, expected_version, required=False)
 
     batch.status = "committing"
-    batch.save(update_fields=["status", "updated_at"])
+    bump_version(batch)
+    batch.save(update_fields=["status", "version", "updated_at"])
+
+
+def commit_batch(*, context, batch: ImportBatch, expected_version: int | None = None) -> ImportBatch:
+    """Commit. Each row is processed independently and idempotently on
+    (batch_id, row_number). A failed row does NOT roll back a committed one.
+
+    `version` moves exactly once, at the guarded transition, so a retried
+    `If-Match` carrying the consumed version is `409 STALE_VERSION`
+    (`B1_CONCURRENCY_IDEMPOTENCY` §3) rather than a second commit.
+    """
+    _begin_commit(batch=batch, expected_version=expected_version)
 
     for row in batch.rows.filter(outcome="pending").order_by("row_number"):
         _commit_row(context=context, batch=batch, row=row)
 
+    # Terminal write of the same command: one statement, so it needs no
+    # transaction of its own, and no second version bump.
     batch.status = "completed"
     batch.committed_at = timezone.now()
     batch.save(update_fields=["status", "committed_at", "updated_at"])

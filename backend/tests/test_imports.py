@@ -120,3 +120,113 @@ def test_imp_8_errors_csv_lists_failed_rows(actor, auth_client):
     body = response.content.decode()
     assert "row_number,outcome,error" in body
     assert "2,failed" in body
+
+
+# --- T-IMP-9..12 — the frozen `If-Match` contract on POST /imports/{id}/commit ---
+# `B14_06_API_IMPLEMENTATION_MAP` §Imports freezes this endpoint as
+# `If-Match` -> `ImportBatch` `202`, `409` if already committed. These run on
+# real PostgreSQL and mock nothing.
+
+
+def test_imp_9_commit_with_a_valid_if_match_succeeds(actor, auth_client):
+    """The frozen success path: `If-Match: <version>` -> `202`, never a 500."""
+    from apps.customers.models import Customer
+    from apps.imports.models import ImportBatch
+
+    a = actor()
+    batch = _batch(a)
+    before = Customer.objects.filter(workspace=a.workspace).count()
+
+    response = auth_client(a).post(
+        f"/api/v1/imports/{batch.public_id}/commit",
+        {},
+        format="json",
+        HTTP_IF_MATCH=str(batch.version),
+    )
+
+    assert response.status_code == 202, response.content
+    body = response.json()
+    assert body["status"] == "completed"
+    # The aggregate moved exactly once under ADR-010.
+    assert body["version"] == batch.version + 1
+    assert ImportBatch.objects.get(pk=batch.pk).version == batch.version + 1
+    # The durable import actually happened, through the owning domain command.
+    assert Customer.objects.filter(workspace=a.workspace).count() == before + 2
+    assert body["outcomes"] == {"created": 2}
+
+
+def test_imp_10_commit_with_a_stale_if_match_is_refused_and_writes_nothing(actor, auth_client):
+    """A stale version is `409 STALE_VERSION` and commits NO row."""
+    from apps.customers.models import Customer
+    from apps.imports.models import ImportBatch
+
+    a = actor()
+    batch = _batch(a)
+    before = Customer.objects.filter(workspace=a.workspace).count()
+
+    response = auth_client(a).post(
+        f"/api/v1/imports/{batch.public_id}/commit",
+        {},
+        format="json",
+        HTTP_IF_MATCH=str(batch.version + 5),
+    )
+
+    assert response.status_code == 409, response.content
+    assert response.json()["error"]["code"] == "STALE_VERSION"
+
+    # No row was committed and the aggregate did not move.
+    assert Customer.objects.filter(workspace=a.workspace).count() == before
+    stored = ImportBatch.objects.get(pk=batch.pk)
+    assert stored.version == batch.version
+    assert stored.status == "mapped"
+    assert set(stored.rows.values_list("outcome", flat=True)) == {"pending"}
+
+
+def test_imp_11_a_consumed_if_match_version_cannot_commit_twice(actor, auth_client):
+    """`If-Match` is at-most-once: replaying the consumed version is refused."""
+    from apps.customers.models import Customer
+
+    a = actor()
+    batch = _batch(a)
+    client = auth_client(a)
+
+    first = client.post(
+        f"/api/v1/imports/{batch.public_id}/commit", {}, format="json",
+        HTTP_IF_MATCH=str(batch.version),
+    )
+    assert first.status_code == 202
+    after_first = Customer.objects.filter(workspace=a.workspace).count()
+
+    replay = client.post(
+        f"/api/v1/imports/{batch.public_id}/commit", {}, format="json",
+        HTTP_IF_MATCH=str(batch.version),
+    )
+    assert replay.status_code == 409, replay.content
+    assert Customer.objects.filter(workspace=a.workspace).count() == after_first
+
+
+def test_imp_12_partial_failure_still_stands_when_committed_via_if_match(actor, auth_client):
+    """The narrow transaction must not have become whole-operation atomicity.
+
+    `B14_04` §M13 and `T-IMP-2` freeze the per-row identity: a failed row leaves
+    an already-committed row standing. A single enclosing transaction would roll
+    the committed rows back, so this is the guard against "fixing" the 500 by
+    wrapping the command.
+    """
+    from apps.customers.models import Customer
+
+    a = actor()
+    batch = _batch(a, CSV_MIXED)  # row 2 has no name and must fail
+    before = Customer.objects.filter(workspace=a.workspace).count()
+
+    response = auth_client(a).post(
+        f"/api/v1/imports/{batch.public_id}/commit", {}, format="json",
+        HTTP_IF_MATCH=str(batch.version),
+    )
+
+    assert response.status_code == 202, response.content
+    assert response.json()["outcomes"] == {"created": 2, "failed": 1}
+    # The two good rows COMMITTED even though a sibling row failed.
+    assert Customer.objects.filter(workspace=a.workspace).count() == before + 2
+    outcomes = dict(batch.rows.values_list("row_number", "outcome"))
+    assert outcomes == {1: "created", 2: "failed", 3: "created"}
