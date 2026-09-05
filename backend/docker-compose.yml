@@ -1,0 +1,73 @@
+# Local development infrastructure only. This file carries NO real credential:
+# the values below are development placeholders, and production secrets come
+# from the server environment (B14_11 §1).
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: wazlink
+      POSTGRES_PASSWORD: wazlink_dev_pw
+      POSTGRES_DB: wazlink
+    ports:
+      - "55433:5432"
+    volumes:
+      - wazlink_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wazlink"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "56379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  web:
+    build: .
+    command: >
+      sh -c "python manage.py migrate &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000"
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgres://wazlink:wazlink_dev_pw@postgres:5432/wazlink
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+  worker:
+    build: .
+    # The five frozen queues only. No sixth.
+    command: celery -A config worker -Q default,providers.fast,providers.slow,webhooks,maintenance --loglevel=INFO
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgres://wazlink:wazlink_dev_pw@postgres:5432/wazlink
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+  beat:
+    build: .
+    command: celery -A config beat --loglevel=INFO
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgres://wazlink:wazlink_dev_pw@postgres:5432/wazlink
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+volumes:
+  wazlink_pgdata:

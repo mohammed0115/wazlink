@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+staticfiles/
+*.sqlite3
+*.egg-info/
+nohup.out
