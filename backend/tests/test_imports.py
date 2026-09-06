@@ -126,8 +126,22 @@ def test_imp_8_errors_csv_lists_failed_rows(actor, auth_client):
 # `B14_06_API_IMPLEMENTATION_MAP` §Imports freezes this endpoint as
 # `If-Match` -> `ImportBatch` `202`, `409` if already committed. These run on
 # real PostgreSQL and mock nothing.
+#
+# All four take `transaction=True`, and that is load-bearing rather than
+# incidental. `ATOMIC_REQUESTS` is not set, so a real request runs OUTSIDE any
+# transaction — which is precisely why `require_version`'s row lock raised
+# `RuntimeError: lock_aggregate() requires an open transaction` and the endpoint
+# returned `500`. The default `django_db` fixture wraps each test in a
+# transaction, so under it `in_atomic_block` is already true and the regression
+# CANNOT reproduce: these same tests pass against the broken service. Only the
+# transactional fixture reproduces the production posture, so only it can pin
+# this blocker shut. It also makes `T-IMP-12`'s durability claim real — under a
+# wrapping transaction, "the committed rows stand" is unfalsifiable, because
+# every row would be rolled back at teardown either way.
+transactional = pytest.mark.django_db(transaction=True)
 
 
+@transactional
 def test_imp_9_commit_with_a_valid_if_match_succeeds(actor, auth_client):
     """The frozen success path: `If-Match: <version>` -> `202`, never a 500."""
     from apps.customers.models import Customer
@@ -155,6 +169,7 @@ def test_imp_9_commit_with_a_valid_if_match_succeeds(actor, auth_client):
     assert body["outcomes"] == {"created": 2}
 
 
+@transactional
 def test_imp_10_commit_with_a_stale_if_match_is_refused_and_writes_nothing(actor, auth_client):
     """A stale version is `409 STALE_VERSION` and commits NO row."""
     from apps.customers.models import Customer
@@ -182,6 +197,7 @@ def test_imp_10_commit_with_a_stale_if_match_is_refused_and_writes_nothing(actor
     assert set(stored.rows.values_list("outcome", flat=True)) == {"pending"}
 
 
+@transactional
 def test_imp_11_a_consumed_if_match_version_cannot_commit_twice(actor, auth_client):
     """`If-Match` is at-most-once: replaying the consumed version is refused."""
     from apps.customers.models import Customer
@@ -205,6 +221,7 @@ def test_imp_11_a_consumed_if_match_version_cannot_commit_twice(actor, auth_clie
     assert Customer.objects.filter(workspace=a.workspace).count() == after_first
 
 
+@transactional
 def test_imp_12_partial_failure_still_stands_when_committed_via_if_match(actor, auth_client):
     """The narrow transaction must not have become whole-operation atomicity.
 
