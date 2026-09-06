@@ -8,8 +8,11 @@ here (`T-DISC-2`).
 Two integrity rules carry this slice, and both are enforced by PostgreSQL
 rather than by Python:
 
-*   **Business identity** is `(workspace_id, provider_external_id)` under a
-    unique constraint (`B3-INV-4`). Re-observing an external record UPSERTS.
+*   **Business identity** is `(workspace_id, provider, provider_external_id)`
+    on `business_identities` under a unique constraint (`B3-INV-5`).
+    Re-observing an external record UPSERTS; the SAME opaque string from a
+    DIFFERENT provider is a different identity and never collapses two
+    companies into one (`AT-ID-6`, negative control `AT-ID-11`).
 *   **Execution identity** is `(query, attempt_no)` under a unique constraint,
     claimed with `SELECT ... FOR UPDATE`. A redelivered task, a second worker
     and a concurrent retry all converge on ONE execution row, so provider work
@@ -73,6 +76,7 @@ from ..models import (
     OUTCOME_UNKNOWN,
     SUCCESS_OUTCOMES,
     Business,
+    BusinessIdentity,
     DiscoveryJob,
     DiscoveryQuery,
     DiscoveryQueryExecution,
@@ -133,20 +137,40 @@ def failure_message_for(code: str) -> str:
 def upsert_business(*, workspace, result: NormalizedBusinessResult) -> tuple[Business, bool]:
     """Create or refresh the Business for a normalized provider record.
 
-    Identity is `(workspace, provider_external_id)`, held by a UNIQUE
-    CONSTRAINT. Two workers observing the same record concurrently therefore
-    cannot both insert: one wins, the other's `IntegrityError` resolves to the
-    winner's row. An `if exists()` test could not do this — between the test
-    and the insert, the competitor commits.
+    `B3_BUSINESS_IDENTITY_MODEL.md` §4, followed step for step:
 
-    The constraint is per WORKSPACE, so two tenants observing the same real
-    business each own a separate row and neither can see the other
-    (`T-DISC-3`).
+    1.  **Deterministic lookup** on `business_identities` by
+        `(workspace, provider, provider_external_id)` — `B3-INV-5`.
+    2.  **Hit** → that Business; refresh its normalized fields.
+    3.  **Miss** → §5.1 `NONE`, so a new Business plus its `anchor` identity.
+
+    The identity tuple carries `provider` because an external id is opaque
+    *within one provider's namespace*. Two providers both minting `"12345"` is
+    not evidence of anything, and treating it as identity silently merges two
+    unrelated companies (`AT-ID-6`, negative control `AT-ID-11`).
+
+    Concurrency is decided by the UNIQUE INDEX, never by the pre-check: a lost
+    race surfaces as an `IntegrityError` on the identity insert and re-resolves
+    to the winner's Business rather than raising (race `R-07`). An
+    `if exists()` test could not do this — between the test and the insert, the
+    competitor commits.
+
+    Scoping is per WORKSPACE at every step, so two tenants observing the same
+    real business each own a separate row and neither can see the other
+    (`B3-INV-1`, `T-DISC-3`).
     """
     external_id = (result.provider_external_id or "").strip()[:200]
     if not external_id:
         raise ValidationFailed("A provider result carried no identity.")
+    provider = (result.source_provider or "").strip()[:40]
+    if not provider:
+        # Without a provider the tuple is not an identity, and storing it would
+        # recreate exactly the provider-blind key this path exists to avoid.
+        raise ValidationFailed("A provider result carried no source provider.")
 
+    # The anchor pair and `first_observed_at` are deliberately ABSENT here:
+    # they are write-once (`B3_DATA_MODEL.md` §6) and refreshing them is what
+    # let a second provider rewrite where a Business came from.
     fields = {
         "name": result.name[:250],
         "city": (result.city or "")[:120],
@@ -158,30 +182,57 @@ def upsert_business(*, workspace, result: NormalizedBusinessResult) -> tuple[Bus
         "longitude": result.longitude,
         "rating": result.rating,
         "review_count": result.review_count,
-        "source_provider": (result.source_provider or "")[:40],
         "last_observed_at": result.observed_at,
     }
 
-    try:
-        with transaction.atomic():
-            business, created = Business.objects.get_or_create(
-                workspace=workspace,
-                provider_external_id=external_id,
-                defaults={**fields, "first_observed_at": result.observed_at},
-            )
-    except IntegrityError:
-        # A competitor won the race. Its row IS the identity — adopt it.
-        business, created = (
-            Business.objects.get(workspace=workspace, provider_external_id=external_id),
-            False,
-        )
-
-    if not created:
+    identity = _resolve_identity(workspace=workspace, provider=provider, external_id=external_id)
+    if identity is not None:
+        business = identity.business
         for key, value in fields.items():
             setattr(business, key, value)
         business.save(update_fields=[*fields, "updated_at"])
+        BusinessIdentity.objects.filter(pk=identity.pk).update(last_seen_at=result.observed_at)
+        return business, False
 
-    return business, created
+    try:
+        with transaction.atomic():
+            business = Business.objects.create(
+                workspace=workspace,
+                provider_external_id=external_id,
+                source_provider=provider,
+                first_observed_at=result.observed_at,
+                **fields,
+            )
+            BusinessIdentity.objects.create(
+                workspace=workspace,
+                business=business,
+                provider=provider,
+                provider_external_id=external_id,
+                link_basis=BusinessIdentity.LINK_ANCHOR,
+                first_seen_at=result.observed_at,
+                last_seen_at=result.observed_at,
+            )
+    except IntegrityError:
+        # A competitor won the race and its identity row IS the identity.
+        # Adopt the winner's Business; the Business this attempt built was
+        # rolled back with the savepoint, so nothing orphaned survives.
+        identity = _resolve_identity(
+            workspace=workspace, provider=provider, external_id=external_id
+        )
+        if identity is None:
+            raise
+        return identity.business, False
+
+    return business, True
+
+
+def _resolve_identity(*, workspace, provider: str, external_id: str) -> BusinessIdentity | None:
+    """Step 1 of `B3_BUSINESS_IDENTITY_MODEL.md` §4. Workspace-scoped, always."""
+    return (
+        BusinessIdentity.objects.select_related("business")
+        .filter(workspace=workspace, provider=provider, provider_external_id=external_id)
+        .first()
+    )
 
 
 # --------------------------------------------------------------------------
@@ -619,6 +670,22 @@ def merge_business(*, context, source: Business, target: Business) -> Business:
     lock_aggregate(source)
     if source.merged_into_id:
         raise DomainConflict("This business has already been merged.")
+
+    # `B3_BUSINESS_IDENTITY_MODEL.md` §6.1 step 2 — re-point every identity from
+    # the loser to the survivor, so a later observation of a moved identity
+    # resolves to `S` rather than to a tombstone. The unique constraint absorbs
+    # an identity `S` already holds, which is why the collision is dropped
+    # rather than re-pointed.
+    held = set(
+        BusinessIdentity.objects.filter(business=target).values_list(
+            "provider", "provider_external_id"
+        )
+    )
+    for identity in BusinessIdentity.objects.filter(business=source):
+        if (identity.provider, identity.provider_external_id) in held:
+            identity.delete()
+        else:
+            BusinessIdentity.objects.filter(pk=identity.pk).update(business=target)
 
     source.merged_into = target
     bump_version(source)

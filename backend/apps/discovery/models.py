@@ -10,18 +10,29 @@ literal and never branches on it.
 > carried no attempt, progress, counter, completion or failure columns, no
 > execution table existed, and `businesses` carried no provider identity — so
 > the frozen B3 job state machine and `B3-INV-4` upsert identity were not
-> expressible. I3 completes `M04` to its frozen shape. Every operation is
-> ADDITIVE (`T-MIG-4`): no column is dropped, narrowed or retyped. The one
-> non-additive-looking change is the `status` CHOICES list, which moves to the
-> frozen `B3-D-A006` five-state vocabulary; it is safe because no job row can
-> exist before this slice (`T-MIG-6` asserts the feature was unreachable), and
-> `choices` is a Python-level validation that leaves the column type untouched.
+> expressible. I3 completes `M04` to its frozen shape across two migrations.
+>
+> `0002` is ADDITIVE throughout (`T-MIG-4`): no column is dropped, narrowed or
+> retyped. Its one non-additive-looking change is the `status` CHOICES list,
+> which moves to the frozen `B3-D-A006` five-state vocabulary; that is safe
+> because no job row can exist before this slice (`T-MIG-6` asserts the feature
+> was unreachable), and `choices` is a Python-level validation that leaves the
+> column type untouched.
+>
+> `0003` is the one place I3 is **not** additive, and deliberately: it drops
+> `0002`'s provider-blind unique key on `businesses` — which violated
+> `B3-INV-5` — and replaces Wave 1's placeholder `business_identities` shape
+> with the frozen one. No row is lost: the old table has never had a writer, and
+> the migration REFUSES to run rather than dropping a row if that turns out to
+> be false. Existing Businesses keep their identity because their anchor is
+> backfilled into the new table.
 """
 
 from __future__ import annotations
 
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 from common.models import PublicIdModel, TimestampedModel, VersionedModel
 
@@ -95,15 +106,32 @@ FAILURE_TIMEOUT = "provider_timeout"
 FAILURE_UNKNOWN = "provider_outcome_unknown"
 FAILURE_PLANNING = "job_planning_failed"
 
+# Why one identity points at one Business (`B3_DATA_MODEL.md` §7). Wave 2 writes
+# only `anchor`; the other three belong to paths `B14_03` §3 does not schedule
+# for this module.
+LINK_ANCHOR = "anchor"
+LINK_STRONG_MATCH = "strong_match"
+LINK_MERGE = "merge"
+LINK_OPERATOR = "operator"
+LINK_BASES = (LINK_ANCHOR, LINK_STRONG_MATCH, LINK_MERGE, LINK_OPERATOR)
+
 
 class Business(PublicIdModel, TimestampedModel, VersionedModel):
     """A discovered business. Owned by discovery; CRM never writes it (T-MIG-5).
 
-    Identity is `(workspace_id, provider_external_id)` (`B3-INV-4`,
-    `B14_16` §2): the same external record observed twice — by a retry, a
-    second query in the same job, or a job months later — UPSERTS this row
-    rather than creating a second one. The constraint is partial so a Business
-    that never came from a provider is still insertable.
+    **Identity does not live here.** It lives in `business_identities`, keyed
+    `(workspace_id, provider, provider_external_id)` — `B3-INV-5`. A provider's
+    external id is opaque *within that provider's namespace only*, so two
+    providers minting the same string say nothing about the world; keying
+    without `provider` collapses two unrelated companies into one row, which is
+    the defect `AT-ID-11` names.
+
+    What this row carries is the **anchor**: `source_provider` and
+    `provider_external_id` are the pair that CREATED it, and they are
+    IMMUTABLE (`B3_DATA_MODEL.md` §6, `B3_NORMALIZATION_DATA_QUALITY.md` §3).
+    Every identity — including the anchor's own — is a `business_identities`
+    row, which is what lets one Business be reachable through several providers
+    without any of them being able to rewrite where it came from.
     """
 
     PUBLIC_ID_PREFIX = "BIZ"
@@ -135,25 +163,63 @@ class Business(PublicIdModel, TimestampedModel, VersionedModel):
     class Meta:
         db_table = "businesses"
         indexes = [models.Index(fields=["workspace", "name"])]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["workspace", "provider_external_id"],
-                condition=~Q(provider_external_id=""),
-                name="uq_business_provider_identity",
-            ),
-        ]
+        # No uniqueness on the anchor: `business_identities` owns identity
+        # (`B3_DATA_MODEL.md` §7). A unique key here could only ever be
+        # provider-blind or a duplicate of the real one.
 
 
 class BusinessIdentity(TimestampedModel):
+    """The many-to-one map from a provider identity to a Business (B3 §7).
+
+    > **Unique `(workspace_id, provider, provider_external_id)`** — `B3-INV-5`.
+
+    This is the table `B3_BUSINESS_IDENTITY_MODEL.md` §4 step 1 resolves
+    against, and the unique index — not the pre-check — is what decides a race:
+    a loser re-resolves to the winner's Business rather than raising (race
+    `R-07`).
+
+    `link_basis` records WHY this identity points where it does. Wave 2 writes
+    only `anchor`, because the `§5` cross-provider match evaluator needs
+    `business_match_candidates`, phone/domain/country canonicalization and the
+    ">5 businesses" guards — none of which `B14_03` §3 schedules for this
+    module. An unlinked second provider therefore falls to `§5.1 NONE` and
+    creates its own Business, which is the conservative direction: `B3-INV-6`
+    forbids over-merging, and a deferred link is a completeness gap rather than
+    a corruption.
+    """
+
+    LINK_ANCHOR = LINK_ANCHOR
+    LINK_BASIS_CHOICES = [(basis, basis) for basis in LINK_BASES]
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace", on_delete=models.RESTRICT, related_name="business_identities"
+    )
     business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name="identities")
-    identity_kind = models.CharField(max_length=40)
-    identity_value = models.CharField(max_length=300)
+    # OPAQUE, and meaningful only inside `provider`'s namespace.
+    provider = models.CharField(max_length=40)
+    provider_external_id = models.CharField(max_length=200)
+    link_basis = models.CharField(max_length=20, choices=LINK_BASIS_CHOICES, default=LINK_ANCHOR)
+    link_evidence = models.JSONField(default=dict, blank=True)
+    # `default=` rather than `auto_now_add=`: the column is added to an existing
+    # (empty) table, and an `auto_now_add` field cannot be added without one.
+    linked_at = models.DateTimeField(default=timezone.now)
+    first_seen_at = models.DateTimeField(null=True, blank=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "business_identities"
+        indexes = [
+            models.Index(fields=["workspace", "business"]),
+            models.Index(fields=["workspace", "provider"]),
+        ]
         constraints = [
             models.UniqueConstraint(
-                fields=["business", "identity_kind", "identity_value"], name="uq_business_identity"
+                fields=["workspace", "provider", "provider_external_id"],
+                name="uq_business_identity",
+            ),
+            models.CheckConstraint(
+                condition=Q(link_basis__in=LINK_BASES),
+                name="ck_business_identity_link_basis",
             ),
         ]
 
