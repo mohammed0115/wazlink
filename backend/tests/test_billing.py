@@ -421,7 +421,13 @@ def test_no_card_or_credential_data_is_stored_anywhere():
                       OR column_name ILIKE '%%cvv%%' OR column_name ILIKE '%%secret%%'
                       OR column_name ILIKE '%%api_key%%')"""
         )
-        assert cursor.fetchall() == []
+        found = cursor.fetchall()
+
+    # A `*_secret_ref` column holds a REFERENCE NAME resolved from the
+    # environment at call time — the pattern B14_13 prescribes — so it is the
+    # opposite of a stored credential. Anything else matching is a real leak.
+    offenders = [(table, column) for table, column in found if not column.endswith("_secret_ref")]
+    assert offenders == [], f"a credential-shaped column exists: {offenders}"
 
 
 def test_the_tap_secret_never_reaches_a_response_or_audit(actor, auth_client, monkeypatch):

@@ -22,8 +22,13 @@ def _won_deal(a):
 
 @pytest.mark.nc
 def test_rev_1_closing_a_deal_won_writes_no_revenue_row(actor):
-    """The primary negative control. There is no revenue table in Wave 1, and
-    closing a deal must not create one, nor any row that stands in for one."""
+    """The primary negative control: `WON_DEAL_EQUALS_REVENUE = FALSE`.
+
+    Through Wave 2 this was proved by the revenue register not existing yet.
+    Wave 3 (I10) builds it, so the proof moves to its stronger and permanent
+    form: the register EXISTS, is reachable, and closing a Deal writes **zero
+    rows** into it. "No table" was only ever a proxy for that.
+    """
     from django.db import connection
 
     a = actor()
@@ -35,9 +40,16 @@ def test_rev_1_closing_a_deal_won_writes_no_revenue_row(actor):
             SELECT table_name FROM information_schema.tables
             WHERE table_schema = 'public'
               AND (table_name LIKE '%%revenue%%' OR table_name LIKE '%%attribution%%')
+            ORDER BY table_name
         """)
         tables = [row[0] for row in cursor.fetchall()]
-    assert tables == [], f"a revenue-shaped table exists in Wave 1: {tables}"
+    # The register is real — otherwise the row counts below would be vacuous.
+    assert "revenue_events" in tables, "the revenue register is missing"
+
+    with connection.cursor() as cursor:
+        for table in tables:
+            cursor.execute(f"SELECT count(*) FROM {table}")  # noqa: S608 - catalog-derived
+            assert cursor.fetchone()[0] == 0, f"a Won Deal produced a row in {table}"
 
 
 @pytest.mark.nc

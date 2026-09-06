@@ -438,9 +438,10 @@ def test_e2e_won_deal_is_still_not_recognized_revenue(workspace_actor, auth_clie
     body = auth_client(workspace_actor).get(f"/api/v1/deals/{won.public_id}").json()
     assert "recognized_revenue" not in body and "revenue" not in body
 
-    # No Wave 2 domain created a revenue row either — none of them can.
-    from django.apps import apps as django_apps
+    # No domain created a revenue row either — none of them can. Wave 3 adds
+    # the register, so this asserts emptiness rather than absence: a Won Deal
+    # reaching the one writer would be caught here, and previously could not be.
+    from apps.revenue.models import RevenueAttribution, RevenueEvent
 
-    assert not django_apps.is_installed("apps.revenue"), (
-        "revenue is a Wave 3 domain; Wave 2 must not have introduced it"
-    )
+    assert RevenueEvent.objects.count() == 0, "a Won Deal reached the revenue register"
+    assert RevenueAttribution.objects.count() == 0

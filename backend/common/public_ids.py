@@ -60,6 +60,8 @@ PREFIX_REGISTRY: dict[str, str] = {
     # is why prefix matching below is longest-match rather than first-segment.
     "INV-BILL": "billing.Invoice",
     "REV": "revenue.RevenueEvent",
+    # Additive under the named controlled amendment `B9-AM-002`.
+    "REVR": "revenue.RevenueReversal",
     "ATT": "revenue.AttributionTouchpoint",
     "TAX": "tax.TaxInvoice",
     "TKT": "support.Ticket",

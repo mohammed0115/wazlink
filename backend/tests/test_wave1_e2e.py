@@ -229,13 +229,21 @@ def test_wave1_end_to_end(delivered):
     assert keys == sorted(keys, reverse=True)
 
     # ---- 11. a Won Deal created NO recognized revenue ---------------------
+    # The register exists from Wave 3 onward, so the assertion is on ROWS, not
+    # on the table's absence — a strictly stronger statement.
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT table_name FROM information_schema.tables
             WHERE table_schema = 'public'
               AND (table_name LIKE '%%revenue%%' OR table_name LIKE '%%attribution%%')
+            ORDER BY table_name
         """)
-        assert cursor.fetchall() == [], "a Won Deal produced revenue truth"
+        tables = [row[0] for row in cursor.fetchall()]
+    assert "revenue_events" in tables, "the revenue register is missing"
+    with connection.cursor() as cursor:
+        for table in tables:
+            cursor.execute(f"SELECT count(*) FROM {table}")  # noqa: S608 - catalog-derived
+            assert cursor.fetchone()[0] == 0, f"a Won Deal produced revenue truth in {table}"
 
     # ---- 12. Workspace B cannot reach Workspace A -------------------------
     other_token = _register_and_login("intruder@wave1.test", delivered)

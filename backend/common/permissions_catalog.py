@@ -129,6 +129,17 @@ _M: Final[dict[str, tuple[str, str, str, str, str, str]]] = {
     "quote.update": (ALLOW, ALLOW, ALLOW, ALLOW, CONDITIONAL, DENY),
     "quote.send": (ALLOW, ALLOW, ALLOW, CONDITIONAL, CONDITIONAL, DENY),
     "quote.accept": (ALLOW, ALLOW, ALLOW, DENY, DENY, DENY),
+    # --- B9_RBAC_TENANCY §3 (6 additive codes), cells verbatim ---------------
+    # Recognition and reversal STOP AT ADMIN: `manager` may see and investigate
+    # everything and may create or destroy no financial truth. `member` and
+    # `viewer` get nothing financial at all — both hold `analytics.view`, and
+    # §2a is what keeps that from becoming a monetary grant.
+    "revenue.view": (ALLOW, ALLOW, ALLOW, CONDITIONAL, DENY, DENY),
+    "revenue.recognize": (ALLOW, ALLOW, DENY, DENY, DENY, DENY),
+    "revenue.reverse": (ALLOW, ALLOW, DENY, DENY, DENY, DENY),
+    "attribution.manage": (ALLOW, ALLOW, ALLOW, DENY, DENY, DENY),
+    "finance.reconciliation.view": (ALLOW, ALLOW, ALLOW, DENY, DENY, DENY),
+    "finance.reconciliation.resolve": (ALLOW, ALLOW, DENY, DENY, DENY, DENY),
 }
 
 PERMISSION_MATRIX: Final = _M

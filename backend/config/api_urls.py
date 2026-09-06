@@ -116,6 +116,15 @@ from apps.pipeline.api.views import (
     DealStageView,
     PipelineListView,
 )
+from apps.revenue.api.views import (
+    AttributionTouchpointView,
+    AttributionView,
+    RevenueEventListCreateView,
+    RevenueEventReverseView,
+    RevenueReversalListView,
+    RevenueSummaryView,
+)
+from apps.tax.api.views import TaxInvoiceListView, TaxProfileView
 from apps.workspaces.api.views import (
     InvitationAcceptView,
     InvitationCreateView,
@@ -230,6 +239,15 @@ urlpatterns = [
     path("billing/checkout", BillingCheckoutView.as_view()),
     path("billing/invoices", BillingInvoiceListView.as_view()),
     path("billing/payments", BillingPaymentListView.as_view()),
+    # --- I10: revenue / attribution / tax ---
+    path("revenue/events", RevenueEventListCreateView.as_view()),
+    path("revenue/events/<str:event_ref>/reverse", RevenueEventReverseView.as_view()),
+    path("revenue/reversals", RevenueReversalListView.as_view()),
+    path("revenue", RevenueSummaryView.as_view()),
+    path("revenue/touchpoints", AttributionTouchpointView.as_view()),
+    path("attribution", AttributionView.as_view()),
+    path("tax/profile", TaxProfileView.as_view()),
+    path("tax/invoices", TaxInvoiceListView.as_view()),
     # --- diagnostics ---
     path("_composition", RegisteredSectionsView.as_view()),
 ]

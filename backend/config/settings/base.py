@@ -112,10 +112,12 @@ LOCAL_APPS = [
     "apps.assignment",  # L4
     "apps.knowledge",  # L4
     "apps.crm",  # L5
+    "apps.tax",  # L5
     "apps.customers",  # L6
     "apps.intelligence",  # L6
     "apps.messaging",  # L6
     "apps.pipeline",  # L7
+    "apps.revenue",  # L7
     "apps.imports",  # L8
     "apps.aiagent",  # L8
     "apps.automation",  # L9
