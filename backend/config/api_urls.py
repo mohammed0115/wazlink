@@ -70,6 +70,13 @@ from apps.discovery.api.views import (
     DiscoverySourceStatusView,
 )
 from apps.entitlements.api.views import EntitlementView
+from apps.files.api.views import (
+    FileAttachmentView,
+    FileContentView,
+    FileDetailView,
+    FileDownloadView,
+    FileUploadIntentView,
+)
 from apps.identity_access.api.views import (
     LoginView,
     LogoutView,
@@ -248,6 +255,12 @@ urlpatterns = [
     path("attribution", AttributionView.as_view()),
     path("tax/profile", TaxProfileView.as_view()),
     path("tax/invoices", TaxInvoiceListView.as_view()),
+    # --- I11: files / storage ---
+    path("files/upload-intent", FileUploadIntentView.as_view()),
+    path("files/<str:file_ref>", FileDetailView.as_view()),
+    path("files/<str:file_ref>/content", FileContentView.as_view()),
+    path("files/<str:file_ref>/download", FileDownloadView.as_view()),
+    path("files/<str:file_ref>/attachments", FileAttachmentView.as_view()),
     # --- diagnostics ---
     path("_composition", RegisteredSectionsView.as_view()),
 ]

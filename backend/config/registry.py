@@ -152,6 +152,11 @@ def register_tasks() -> None:
     senders["billing.sweep_pending_payments"] = sweep_pending_payments_task
     senders["billing.sweep_subscription_periods"] = sweep_subscription_periods_task
 
+    # I11 — files.
+    from apps.files.tasks import orphan_file_sweep_task
+
+    senders["files.orphan_file_sweep"] = orphan_file_sweep_task
+
     mode = getattr(settings, "TASK_EXECUTION", "celery")
 
     def make_sender(task):
