@@ -237,3 +237,22 @@ LOGGING = {
     },
     "root": {"handlers": ["console"], "level": "INFO"},
 }
+
+
+# --------------------------------------------------------------------------
+# Provider adapter selection (B14_16 §1, B14_14 §8, B14_15).
+#
+# CONFIGURATION, not a test flag. `config/registry.py` reads this to decide
+# which implementation to bind behind each provider port. A domain service never
+# asks whether it is running under test — that would be exactly the
+# `if TESTING:` business logic the SOLID/LSP requirement forbids.
+#
+# Deliberately DEFAULT FALSE: a deployment that forgets to configure a provider
+# gets `not_configured` and a degraded feature, never a stub silently answering
+# as though it were a real provider.
+# --------------------------------------------------------------------------
+USE_STUB_PROVIDERS = env_bool("USE_STUB_PROVIDERS", False)
+
+# How a registered task NAME is delivered: 'celery' (deployed) | 'recorded'
+# (tests enqueue through the real command path and drive the worker explicitly).
+TASK_EXECUTION = env_str("TASK_EXECUTION", "celery")

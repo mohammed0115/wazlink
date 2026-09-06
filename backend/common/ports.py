@@ -34,6 +34,40 @@ class SessionPort(Protocol):
     def resolve(self, raw_token: str) -> Any | None: ...
 
 
+class WebhookReceiptPort(Protocol):
+    """Durable webhook ingestion (B12_WEBHOOK_GATEWAY).
+
+    `record` is the FIRST idempotency defence: it returns `created=False` when
+    `(provider, external_id)` was already receipted, so a redelivered callback
+    is recognised before any domain processing begins. The second defence lives
+    in the domain's own status/message identity — frozen B5 requires both, and
+    neither is a substitute for the other.
+    """
+
+    def record(
+        self, *, provider: str, external_id: str, payload_digest: str, signature_verified: bool
+    ) -> tuple[Any, bool]: ...
+
+
+class ProviderAttemptPort(Protocol):
+    """`provider_request_attempts`, written BEFORE the call (B12-D-A021).
+
+    Writing first is what leaves evidence when a process dies mid-call — the
+    difference between an outcome that is `unknown` and an outcome that is
+    invisible.
+    """
+
+    def open(self, *, provider: str, operation: str) -> Any: ...
+
+    def settle(self, *, attempt: Any, outcome: str, status_code: int | None = None) -> None: ...
+
+
+class ReconciliationPort(Protocol):
+    """Opens a platform reconciliation case. NEVER auto-repairs (B14_09 §4)."""
+
+    def open_case(self, *, case_class: str, subject_ref: str, detail: dict[str, Any]) -> Any: ...
+
+
 class CredentialDeliveryPort(Protocol):
     """The out-of-band credential delivery boundary (B1_COMMAND_EVENT_CATALOG §3.3).
 
@@ -58,6 +92,9 @@ class _Bindings:
     entitlement: EntitlementPort | None = None
     session: SessionPort | None = None
     credential_delivery: CredentialDeliveryPort | None = None
+    webhook_receipts: WebhookReceiptPort | None = None
+    provider_attempts: ProviderAttemptPort | None = None
+    reconciliation: ReconciliationPort | None = None
 
     def bind(self, **ports: Any) -> None:
         for name, port in ports.items():

@@ -215,17 +215,40 @@ def test_ca01_track_a_conversion_writes_provenance(actor):
 
 
 @pytest.mark.nc
-def test_mig_6_no_discovery_job_port_or_adapter_is_reachable():
-    """T-MIG-6 (NC): the Discovery SCHEMA exists; the Discovery FEATURE does not."""
+def test_mig_6_the_discovery_feature_owns_no_port_or_adapter_of_its_own():
+    """`T-MIG-6`, at its I3 successor state.
+
+    Through I2 this asserted that the Discovery FEATURE did not exist — schema
+    only. I3 is the slice that ships the feature (`B14_18` I3), so the original
+    form has been satisfied and retired rather than deleted: what it was really
+    protecting is that Discovery never grows a vendor seam of its OWN.
+
+    That half is asserted here and still holds. The port lives in `common/`
+    (L0), every adapter lives under `adapters/`, and `apps/discovery` declares
+    neither — which is why swapping the provider touches no domain file.
+    """
     import pathlib
 
-    discovery = pathlib.Path(__file__).resolve().parent.parent / "apps" / "discovery"
+    root = pathlib.Path(__file__).resolve().parent.parent
+    discovery = root / "apps" / "discovery"
+
+    # No private port and no private adapter inside the domain.
     assert not (discovery / "ports.py").exists()
     assert not (discovery / "adapters").exists()
-    assert not (discovery / "tasks.py").exists()
 
-    adapters = pathlib.Path(__file__).resolve().parent.parent / "adapters"
-    assert not adapters.exists(), "no provider adapter ships in Wave 1"
+    # The seam it uses is the SHARED one, declared below every app.
+    assert (root / "common" / "provider_ports.py").exists()
+    assert (root / "adapters" / "places").exists()
+
+    # And the domain reaches it only through common/ — never by importing an
+    # adapter package directly, which would rebuild the coupling from the
+    # other side.
+    offenders = [
+        path.name
+        for path in discovery.rglob("*.py")
+        if "from adapters" in path.read_text() or "import adapters" in path.read_text()
+    ]
+    assert offenders == [], f"the domain imported an adapter directly: {offenders}"
 
 
 @pytest.mark.nc

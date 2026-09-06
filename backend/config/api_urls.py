@@ -12,6 +12,7 @@ from apps.analytics.api.views import (
 )
 from apps.crm.api.views import (
     AppointmentListCreateView,
+    BusinessConvertView,
     ContactDetailView,
     ContactListView,
     LeadArchiveView,
@@ -37,6 +38,15 @@ from apps.customers.api.views import (
 from apps.customfields.api.views import (
     FieldDefinitionArchiveView,
     FieldDefinitionListCreateView,
+)
+from apps.discovery.api.views import (
+    BusinessDetailView,
+    DiscoveryJobCancelView,
+    DiscoveryJobDetailView,
+    DiscoveryJobListCreateView,
+    DiscoveryJobResultsView,
+    DiscoveryJobRetryView,
+    DiscoverySourceStatusView,
 )
 from apps.entitlements.api.views import EntitlementView
 from apps.identity_access.api.views import (
@@ -119,6 +129,15 @@ urlpatterns = [
     path("imports/<str:batch_ref>/dry-run", ImportDryRunView.as_view()),
     path("imports/<str:batch_ref>/commit", ImportCommitView.as_view()),
     path("imports/<str:batch_ref>/errors.csv", ImportErrorsCsvView.as_view()),
+    # --- I3: discovery features ---
+    path("discovery/jobs", DiscoveryJobListCreateView.as_view()),
+    path("discovery/jobs/<str:job_ref>", DiscoveryJobDetailView.as_view()),
+    path("discovery/jobs/<str:job_ref>/cancel", DiscoveryJobCancelView.as_view()),
+    path("discovery/jobs/<str:job_ref>/retry", DiscoveryJobRetryView.as_view()),
+    path("discovery/jobs/<str:job_ref>/results", DiscoveryJobResultsView.as_view()),
+    path("discovery/sources", DiscoverySourceStatusView.as_view()),
+    path("businesses/<str:business_ref>", BusinessDetailView.as_view()),
+    path("businesses/<str:business_ref>/convert", BusinessConvertView.as_view()),
     # --- I7: pipeline ---
     path("pipelines", PipelineListView.as_view()),
     path("deals", DealListCreateView.as_view()),

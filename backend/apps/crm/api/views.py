@@ -19,6 +19,7 @@ from ..services import (
     add_tag,
     archive_lead,
     complete_task,
+    convert_business_to_lead,
     create_appointment,
     create_lead,
     create_task,
@@ -277,7 +278,28 @@ class LeadNoteView(WazlinkAPIView):
         return Response({"note_ref": note.public_id, "body": note.body}, status=201)
 
 
+class BusinessConvertView(WazlinkAPIView):
+    """POST /businesses/{id}/convert — a discovered Business becomes a Lead.
+
+    The route addresses a Business, but the COMMAND is CRM's: `crm`(L5) reads
+    `discovery`(L4) downward, which is the legal direction. Serving it from
+    `discovery` would require `discovery` to reach UP into `crm`, and the layer
+    walk refuses that (`B14_03` §5c).
+    """
+
+    permission_code = "business.convert"
+
+    def post(self, request, business_ref: str):
+        from apps.discovery.models import Business
+
+        context = self.context(request)
+        business = resolve_in_workspace(Business.objects.all(), context, public_id=business_ref)
+        lead = convert_business_to_lead(context=context, business=business)
+        return Response(lead_list_item(lead, role=context.role), status=201)
+
+
 __all__ = [
+    "BusinessConvertView",
     "LeadListCreateView",
     "LeadStatusView",
     "LeadPriorityView",

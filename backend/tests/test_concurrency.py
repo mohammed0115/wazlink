@@ -624,3 +624,100 @@ def test_imp_16_four_workers_contending_on_one_batch_import_each_row_once(owner)
     assert duplicated == {}, f"rows imported more than once: {duplicated}"
     assert after - before == rows, f"{after - before} customers for {rows} source rows"
     assert set(ImportBatch.objects.get(pk=batch.pk).rows.values_list("outcome", flat=True)) == {"created"}
+
+
+# --------------------------------------------------------------------------
+# I3 — Discovery. The execution claim and the Business identity, under real
+# concurrency on separate connections. Two workers receiving the same job (a
+# redelivery, a duplicated Celery message, or a retry racing a late worker) must
+# not double-spend the provider or double-count results.
+# --------------------------------------------------------------------------
+
+
+def _discovery_job(owner, terms, locations=("Riyadh",)):
+    from apps.discovery.services import create_discovery_job
+
+    return create_discovery_job(
+        context=owner.context, terms=list(terms), locations=list(locations)
+    )
+
+
+def test_imp_disc_1_two_workers_on_one_job_execute_each_query_exactly_once(owner):
+    """The execution claim decided in PostgreSQL, not in Python.
+
+    Both workers see every execution as `pending` when they start. Only one may
+    own each: the claim BLOCKS the competitor, and under READ COMMITTED the
+    competitor then re-reads the committed row, finds it terminal and skips.
+    """
+    from apps.discovery.models import Business, DiscoveryQueryExecution, DiscoveryResult
+    from apps.discovery.services import run_discovery_job
+    from common.provider_ports import providers
+
+    terms = [f"term{i}" for i in range(12)]
+    job = _discovery_job(owner, terms)
+    stub = providers.require("place_search")
+    before = Business.objects.filter(workspace=owner.workspace).count()
+
+    def worker():
+        try:
+            return run_discovery_job(job_id=job.id)
+        finally:
+            connections.close_all()
+
+    for result in _run_concurrently([worker, worker]):
+        assert not isinstance(result, Exception), f"a worker raised: {result!r}"
+
+    executions = DiscoveryQueryExecution.objects.filter(job=job, attempt_no=1)
+    # ONE execution per planned query — never two, on any interleaving.
+    assert executions.count() == len(terms)
+    assert not executions.filter(outcome="pending").exists(), "an execution was left claimed"
+
+    # 12 terms x 3 stub results, each a distinct external identity.
+    after = Business.objects.filter(workspace=owner.workspace).count()
+    assert after - before == len(terms) * 3
+    assert DiscoveryResult.objects.filter(job=job, execution__attempt_no=1).count() == len(terms) * 3
+    # The provider was called once per query, not twice.
+    assert len(stub.calls) == len(terms)
+
+    final = job.__class__.objects.get(pk=job.pk)
+    assert final.status == "completed"
+    assert final.found_count - final.duplicate_count == final.deduplicated_count
+
+
+def test_imp_disc_2_concurrent_upserts_of_one_external_record_yield_one_business(owner):
+    """B3-INV-4 under contention: the UNIQUE CONSTRAINT is the arbiter.
+
+    Six workers upsert the same `(workspace, provider_external_id)` at once. An
+    `if exists()` guard would let several through; the constraint cannot.
+    """
+    from datetime import UTC, datetime
+
+    from apps.discovery.models import Business
+    from apps.discovery.services import upsert_business
+    from common.provider_ports import NormalizedBusinessResult
+
+    record = NormalizedBusinessResult(
+        provider_external_id="shared-external-id",
+        name="Contended Cafe",
+        source_provider="place_search",
+        observed_at=datetime.now(UTC),
+    )
+
+    def worker():
+        try:
+            business, created = upsert_business(workspace=owner.workspace, result=record)
+            return (business.pk, created)
+        finally:
+            connections.close_all()
+
+    results = _run_concurrently([worker] * 6)
+    for result in results:
+        assert not isinstance(result, Exception), f"an upsert raised: {result!r}"
+
+    rows = Business.objects.filter(
+        workspace=owner.workspace, provider_external_id="shared-external-id"
+    )
+    assert rows.count() == 1, "the same external record became two Businesses"
+    # Every worker converged on the SAME row, and exactly one created it.
+    assert len({pk for pk, _ in results}) == 1
+    assert sum(1 for _, created in results if created) == 1

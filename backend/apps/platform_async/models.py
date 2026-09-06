@@ -7,6 +7,7 @@ by REGISTERED NAME through common/dispatch.py (B14_03 §6 rule 13).
 from __future__ import annotations
 
 from django.db import models
+from django.db.models import Q
 
 from common.models import PublicIdModel, TimestampedModel
 
@@ -80,13 +81,37 @@ class ProviderRequestAttempt(TimestampedModel):
 
 
 class WebhookReceipt(TimestampedModel):
+    """The FIRST of frozen B5's two independent duplicate defences.
+
+    `(provider, external_id)` is UNIQUE, so a redelivered callback resolves to
+    the existing receipt rather than opening a second one — decided by the
+    database, not by an `if exists()` that a concurrent delivery could slip
+    between. The constraint is partial because a payload carrying no provider
+    identity has nothing to dedup on; such a receipt is recorded and never
+    claimed to be new.
+    """
+
+    STATUS_CHOICES = [
+        ("queued", "queued"),
+        ("processed", "processed"),
+        ("rejected", "rejected"),
+    ]
+
     provider = models.CharField(max_length=40)
     signature_verified = models.BooleanField(default=False)
     external_id = models.CharField(max_length=200, blank=True, db_index=True)
     payload_digest = models.CharField(max_length=128, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="queued")
 
     class Meta:
         db_table = "webhook_receipts"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider", "external_id"],
+                condition=~Q(external_id=""),
+                name="uq_webhook_receipt_identity",
+            ),
+        ]
 
 
 class IntegrationConnection(TimestampedModel):
