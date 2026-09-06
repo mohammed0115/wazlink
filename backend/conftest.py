@@ -20,6 +20,35 @@ def _registries_populated():
     yield
 
 
+@pytest.fixture(autouse=True)
+def _plan_catalog(db):
+    """Keep the frozen plan catalogue present for every test.
+
+    A `transaction=True` test truncates the tables the seed migration wrote, so
+    the catalogue has to be re-established per test rather than relied on from
+    migration state. The figures come from `apps.entitlements.catalog` — the
+    same module the migration uses — so a test can never assert against a
+    catalogue production does not have.
+    """
+    from apps.entitlements.catalog import seed_catalog
+    from apps.entitlements.models import (
+        Plan,
+        PlanCapability,
+        PlanVersion,
+        PlanVersionQuota,
+        QuotaDefinition,
+    )
+
+    seed_catalog(
+        Plan=Plan,
+        PlanVersion=PlanVersion,
+        PlanCapability=PlanCapability,
+        QuotaDefinition=QuotaDefinition,
+        PlanVersionQuota=PlanVersionQuota,
+    )
+    yield
+
+
 @pytest.fixture
 def delivered(_registries_populated):
     """Test-only sink bound to the out-of-band credential delivery boundary.

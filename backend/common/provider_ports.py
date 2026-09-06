@@ -354,6 +354,163 @@ class WhatsAppProviderPort(Protocol):
 
 
 # --------------------------------------------------------------------------
+# Payments — B8_PAYMENT_PROVIDER_PORT §2. Tap is ONE implementation; no Tap
+# id, status string or payload shape appears below or in any billing model.
+# Replacing the provider means writing a new adapter and nothing else.
+# --------------------------------------------------------------------------
+
+# The provider-neutral payment statuses (B8_PAYMENT_PROVIDER_PORT §3). A
+# domain reasons about THESE and never about a provider's own vocabulary.
+PAYMENT_CREATED = "created"
+PAYMENT_PENDING = "pending"
+PAYMENT_AUTHORIZED = "authorized"
+PAYMENT_CAPTURED = "captured"
+PAYMENT_FAILED = "failed"
+PAYMENT_CANCELLED = "cancelled"
+PAYMENT_PARTIALLY_REFUNDED = "partially_refunded"
+PAYMENT_REFUNDED = "refunded"
+
+PAYMENT_STATUSES = (
+    PAYMENT_CREATED,
+    PAYMENT_PENDING,
+    PAYMENT_AUTHORIZED,
+    PAYMENT_CAPTURED,
+    PAYMENT_FAILED,
+    PAYMENT_CANCELLED,
+    PAYMENT_PARTIALLY_REFUNDED,
+    PAYMENT_REFUNDED,
+)
+
+# Only `captured` may activate a subscription (B8_PAYMENT_PROVIDER_PORT §3).
+PAYMENT_TERMINAL = (PAYMENT_CAPTURED, PAYMENT_FAILED, PAYMENT_CANCELLED, PAYMENT_REFUNDED)
+
+
+@dataclass(frozen=True)
+class ChargeRequest:
+    """What the DOMAIN knows about a charge. Amount comes from a stored quote.
+
+    There is no field for a client-supplied amount because there is no path by
+    which one could arrive: `B8_CHECKOUT_PAYMENT_MODEL` §2 prices server-side
+    from the quote, and a DTO that could not carry a client price cannot leak
+    one.
+    """
+
+    payment_ref: str  # PAY-*, and the provider idempotency key (B8-X-006)
+    amount: str  # decimal STRING — never a float (ADR-011)
+    currency: str
+    customer_ref: str = ""
+    redirect_url: str = ""
+    webhook_url: str = ""
+    description: str = ""
+
+
+@dataclass(frozen=True)
+class ChargeResult:
+    """Normalized. `status` is one of PAYMENT_STATUSES, never a provider code.
+
+    `requires_reconciliation` is the fail-closed channel: an unrecognized
+    provider status maps to `pending` WITH this flag set, never silently to
+    `captured` or `failed` (B8_PAYMENT_PROVIDER_PORT §3, fail-closed row).
+    """
+
+    provider_payment_ref: str
+    status: str
+    requires_reconciliation: bool = False
+    amount: str = ""
+    currency: str = ""
+
+
+@dataclass(frozen=True)
+class RefundResult:
+    provider_refund_ref: str
+    status: str  # 'pending' | 'refunded' | 'failed'
+    amount: str = ""
+    currency: str = ""
+
+
+@dataclass(frozen=True)
+class PaymentWebhookEvent:
+    """One normalized provider callback.
+
+    It carries NO workspace id: `B8_WEBHOOK_MODEL` §3 forbids trusting a
+    tenant identifier out of a provider payload, so the field a naive
+    implementation would read simply does not exist here. The workspace is
+    resolved by looking the opaque refs up against WazLink's own rows.
+    """
+
+    provider_event_identity: str
+    provider_payment_ref: str = ""
+    provider_customer_ref: str = ""
+    status: str = ""
+    amount: str = ""
+    currency: str = ""
+    requires_reconciliation: bool = False
+    unsupported: bool = False
+
+
+@runtime_checkable
+class PaymentProviderPort(Protocol):
+    """The ONE payment seam (frozen name, BACKEND_INTEGRATION_BOUNDARIES).
+
+    `verify_webhook` returns a BOOLEAN plus a normalized event: the signature
+    scheme is the provider's business and stops in the adapter, exactly as the
+    WhatsApp port already does for its own scheme.
+    """
+
+    provider_name: str
+
+    def status(self) -> ProviderStatus: ...
+
+    def ensure_customer(self, *, workspace_ref: str, email: str = "", name: str = "") -> str: ...
+
+    def create_charge(self, request: ChargeRequest) -> ChargeResult: ...
+
+    def retrieve_charge(self, provider_payment_ref: str) -> ChargeResult: ...
+
+    def create_refund(
+        self, *, provider_payment_ref: str, amount: str, currency: str, reason: str
+    ) -> RefundResult: ...
+
+    def verify_webhook(self, *, raw_body: bytes, headers: dict[str, str]) -> bool: ...
+
+    def parse_webhook(self, raw_body: bytes) -> PaymentWebhookEvent: ...
+
+
+# --------------------------------------------------------------------------
+# Storage — B11_STORAGE_PROVIDER_BOUNDARY. The VENDOR IS CONFIGURATION
+# (`ID-10`): object storage, S3-compatible or local, all behind this one port.
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class StoredObject:
+    storage_key: str
+    size_bytes: int
+    checksum: str = ""
+
+
+@runtime_checkable
+class StoragePort(Protocol):
+    """Bytes in, bytes out, addressed by a SERVER-COMPUTED key.
+
+    There is no method taking a client-supplied path, which is what makes
+    traversal unreachable rather than merely filtered (B13_FILE_SECURITY).
+    """
+
+    provider_name: str
+
+    def status(self) -> ProviderStatus: ...
+
+    def put(self, *, storage_key: str, content: bytes, content_type: str) -> StoredObject: ...
+
+    def get(self, *, storage_key: str) -> bytes: ...
+
+    def delete(self, *, storage_key: str) -> None: ...
+
+    def exists(self, *, storage_key: str) -> bool: ...
+
+
+# --------------------------------------------------------------------------
 # Bindings. config/ supplies the implementations; common/ imports no adapter
 # and no app, so this file stays L0 (T-ARCH-8).
 # --------------------------------------------------------------------------
@@ -364,6 +521,8 @@ class _ProviderBindings:
     scraping: ScrapingProviderPort | None = None
     ai: AIProviderPort | None = None
     whatsapp: WhatsAppProviderPort | None = None
+    payments: PaymentProviderPort | None = None
+    storage: StoragePort | None = None
 
     def bind(self, **adapters: Any) -> None:
         for name, adapter in adapters.items():
@@ -418,5 +577,22 @@ __all__ = [
     "InboundStatus",
     "WebhookEnvelope",
     "WhatsAppProviderPort",
+    "PAYMENT_CREATED",
+    "PAYMENT_PENDING",
+    "PAYMENT_AUTHORIZED",
+    "PAYMENT_CAPTURED",
+    "PAYMENT_FAILED",
+    "PAYMENT_CANCELLED",
+    "PAYMENT_PARTIALLY_REFUNDED",
+    "PAYMENT_REFUNDED",
+    "PAYMENT_STATUSES",
+    "PAYMENT_TERMINAL",
+    "ChargeRequest",
+    "ChargeResult",
+    "RefundResult",
+    "PaymentWebhookEvent",
+    "PaymentProviderPort",
+    "StoredObject",
+    "StoragePort",
     "providers",
 ]

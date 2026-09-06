@@ -108,6 +108,7 @@ LOCAL_APPS = [
     "apps.customfields",  # L3
     "apps.identity",  # L4
     "apps.discovery",  # L4
+    "apps.billing",  # L4
     "apps.assignment",  # L4
     "apps.knowledge",  # L4
     "apps.crm",  # L5

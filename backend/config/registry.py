@@ -139,6 +139,19 @@ def register_tasks() -> None:
 
     senders["automation.evaluate_automation_event"] = evaluate_automation_event_task
 
+    # I9 — billing.
+    from apps.billing.tasks import (
+        charge_payment_task,
+        process_payment_webhook_task,
+        sweep_pending_payments_task,
+        sweep_subscription_periods_task,
+    )
+
+    senders["billing.process_payment_webhook"] = process_payment_webhook_task
+    senders["billing.charge_payment"] = charge_payment_task
+    senders["billing.sweep_pending_payments"] = sweep_pending_payments_task
+    senders["billing.sweep_subscription_periods"] = sweep_subscription_periods_task
+
     mode = getattr(settings, "TASK_EXECUTION", "celery")
 
     def make_sender(task):
@@ -285,6 +298,8 @@ def bind_providers() -> None:
     from adapters.openai import OpenAIAdapter, StubAIAdapter
     from adapters.places import GooglePlacesAdapter, StubPlaceSearchAdapter
     from adapters.scraping import UnselectedScrapingAdapter
+    from adapters.storage import LocalObjectStorageAdapter, StubStorageAdapter
+    from adapters.tap import StubTapAdapter, TapAdapter
     from adapters.whatsapp import MetaWhatsAppAdapter, StubWhatsAppAdapter
 
     use_stubs = getattr(settings, "USE_STUB_PROVIDERS", False)
@@ -295,6 +310,11 @@ def bind_providers() -> None:
         scraping=UnselectedScrapingAdapter(),
         ai=StubAIAdapter() if use_stubs else OpenAIAdapter(),
         whatsapp=StubWhatsAppAdapter() if use_stubs else MetaWhatsAppAdapter(),
+        # I9 — Tap behind PaymentProviderPort. Absent credentials are
+        # NOT_CONFIGURED, never a crash and never a fake key.
+        payments=StubTapAdapter() if use_stubs else TapAdapter(),
+        # I11 — the storage vendor is CONFIGURATION (`ID-10`).
+        storage=StubStorageAdapter() if use_stubs else LocalObjectStorageAdapter(),
     )
 
 

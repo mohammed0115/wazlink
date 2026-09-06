@@ -24,6 +24,13 @@ from apps.automation.api.views import (
     AutomationRunListView,
     AutomationRunRejectView,
 )
+from apps.billing.api.views import (
+    BillingCheckoutView,
+    BillingInvoiceListView,
+    BillingPaymentListView,
+    BillingSubscriptionView,
+    PlanCatalogView,
+)
 from apps.crm.api.views import (
     AppointmentListCreateView,
     BusinessConvertView,
@@ -217,6 +224,12 @@ urlpatterns = [
     path("deals/<str:deal_ref>", DealDetailView.as_view()),
     path("deals/<str:deal_ref>/stage", DealStageView.as_view()),
     path("deals/<str:deal_ref>/close", DealCloseView.as_view()),
+    # --- I9: billing / entitlements ---
+    path("plans", PlanCatalogView.as_view()),
+    path("billing/subscription", BillingSubscriptionView.as_view()),
+    path("billing/checkout", BillingCheckoutView.as_view()),
+    path("billing/invoices", BillingInvoiceListView.as_view()),
+    path("billing/payments", BillingPaymentListView.as_view()),
     # --- diagnostics ---
     path("_composition", RegisteredSectionsView.as_view()),
 ]

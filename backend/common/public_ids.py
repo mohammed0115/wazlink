@@ -50,7 +50,23 @@ PREFIX_REGISTRY: dict[str, str] = {
     "AGP": "aiagent.AgentProposal",
     "AUT": "automation.AutomationRule",
     "AGA": "automation.AutomationRun",
+    # --- Wave 3 (I9/I10/I11/I14). Every one is a frozen canonical prefix from
+    # BACKEND_PUBLIC_ID_REGISTRY §A; none is invented here.
+    "SUB": "billing.Subscription",
+    "UPQ": "billing.UpgradeQuote",
+    "PAY": "billing.Payment",
+    # COMPOUND, and deliberately distinct from `INV` (workspaces.Invitation).
+    # The registry names this exact lookalike as a collision to resolve, which
+    # is why prefix matching below is longest-match rather than first-segment.
+    "INV-BILL": "billing.Invoice",
+    "REV": "revenue.RevenueEvent",
+    "ATT": "revenue.AttributionTouchpoint",
+    "TAX": "tax.TaxInvoice",
+    "TKT": "support.Ticket",
 }
+
+# Longest first, so a compound prefix wins over the short prefix it starts with.
+_PREFIXES_LONGEST_FIRST: tuple[str, ...] = tuple(sorted(PREFIX_REGISTRY, key=len, reverse=True))
 
 
 class UnregisteredPrefixError(ValueError):
@@ -65,12 +81,28 @@ def generate_public_id(prefix: str) -> str:
     return f"{prefix}-{token}"
 
 
+def prefix_of(value: str) -> str:
+    """The registered prefix of a public ID, by LONGEST match.
+
+    First-segment matching would read `INV-BILL-...` as an `INV` invitation,
+    which the frozen registry names as a collision to resolve rather than a
+    theoretical one (SS B: "`INV-` is a team-invitation fixture while
+    `INV-BILL-` is the platform Invoice"). Matching longest-first is what makes
+    the two namespaces genuinely disjoint.
+    """
+    for candidate in _PREFIXES_LONGEST_FIRST:
+        if value.startswith(candidate + "-"):
+            return candidate
+    return ""
+
+
 def is_valid_public_id(value: str, prefix: str | None = None) -> bool:
     if not value or "-" not in value:
         return False
-    head, _, tail = value.partition("-")
-    if head not in PREFIX_REGISTRY:
+    head = prefix_of(value)
+    if not head:
         return False
     if prefix is not None and head != prefix:
         return False
+    tail = value[len(head) + 1 :]
     return len(tail) == TOKEN_LENGTH and all(c in ALPHABET for c in tail)
