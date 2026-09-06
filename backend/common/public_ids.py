@@ -48,6 +48,8 @@ PREFIX_REGISTRY: dict[str, str] = {
     "KBA": "knowledge.KnowledgeArticle",
     "AGS": "aiagent.AgentSession",
     "AGP": "aiagent.AgentProposal",
+    "AUT": "automation.AutomationRule",
+    "AGA": "automation.AutomationRun",
 }
 
 

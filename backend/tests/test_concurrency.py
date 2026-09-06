@@ -966,3 +966,121 @@ def test_imp_msg_4_two_workers_delivering_one_message_call_the_provider_once(own
 
     assert len(stub.sent) == before + 1, "the provider was called more than once"
     assert Message.objects.get(pk=message.pk).status == "sent"
+
+
+# --------------------------------------------------------------------------
+# I8 — Automation. One event, one execution, whatever the interleaving.
+# --------------------------------------------------------------------------
+
+
+def test_imp_auto_1_concurrent_delivery_of_one_event_runs_the_rule_once(owner):
+    """Two independent defences, tested where they actually compete.
+
+    The inbox constraint absorbs a redelivery; the per-rule run constraint
+    absorbs a genuine race, because the loser's inbox insert rolls back while
+    the winner's run has already committed.
+    """
+    from apps.automation.models import AutomationRun
+    from apps.automation.services import activate_revision, create_rule, evaluate_event
+
+    rule = create_rule(
+        context=owner.context,
+        name="concurrent-rule",
+        trigger_type="lead_created",
+        actions=[{"action_type": "create_task", "params": {"title": "Once only"}}],
+    )
+    activate_revision(context=owner.context, rule=rule)
+
+    def worker():
+        try:
+            return evaluate_event(
+                workspace=owner.workspace,
+                trigger_type="lead_created",
+                source_event_id="evt-concurrent",
+                payload={},
+            )
+        finally:
+            connections.close_all()
+
+    for result in _run_concurrently([worker] * 6):
+        assert not isinstance(result, Exception), f"a consumer raised: {result!r}"
+
+    assert AutomationRun.objects.filter(workspace=owner.workspace).count() == 1
+
+
+def test_imp_auto_2_concurrent_execution_of_one_run_performs_the_action_once(owner):
+    """The step claim: `(run, position)` under FOR UPDATE."""
+    from apps.automation.services import activate_revision, create_rule, evaluate_event, execute_run
+    from apps.crm.models import Task
+
+    rule = create_rule(
+        context=owner.context,
+        name="concurrent-exec",
+        trigger_type="lead_created",
+        actions=[{"action_type": "create_task", "params": {"title": "Exactly one task"}}],
+    )
+    activate_revision(context=owner.context, rule=rule)
+    run = evaluate_event(
+        workspace=owner.workspace,
+        trigger_type="lead_created",
+        source_event_id="evt-exec",
+        payload={},
+    )[0]
+
+    def worker():
+        try:
+            return execute_run(run_id=run.pk, actor_context=owner.context)
+        finally:
+            connections.close_all()
+
+    for result in _run_concurrently([worker] * 4):
+        assert not isinstance(result, Exception), f"a worker raised: {result!r}"
+
+    assert Task.objects.filter(workspace=owner.workspace, title="Exactly one task").count() == 1
+
+
+def test_imp_auto_3_concurrent_approvals_admit_exactly_one_decision(owner):
+    """Approving twice must not send twice."""
+    from apps.automation.models import AutomationRun
+    from apps.automation.services import activate_revision, approve_run, create_rule, evaluate_event
+    from apps.messaging.models import Conversation
+    from common.errors import DomainConflict
+
+    conversation = Conversation.objects.create(
+        workspace=owner.workspace, peer_address="+966500444555", last_inbound_at=timezone.now()
+    )
+    rule = create_rule(
+        context=owner.context,
+        name="concurrent-approve",
+        trigger_type="conversation_received",
+        actions=[
+            {
+                "action_type": "send_message",
+                "params": {"conversation_ref": conversation.public_id, "body": "Approved once"},
+            }
+        ],
+    )
+    activate_revision(context=owner.context, rule=rule)
+    run = evaluate_event(
+        workspace=owner.workspace,
+        trigger_type="conversation_received",
+        source_event_id="evt-approve-race",
+        payload={},
+    )[0]
+    assert run.status == "awaiting_approval"
+
+    def worker():
+        try:
+            fresh = AutomationRun.objects.get(pk=run.pk)
+            return approve_run(context=owner.context, run=fresh, reason="race")
+        finally:
+            connections.close_all()
+
+    results = _run_concurrently([worker] * 5)
+    winners = [r for r in results if not isinstance(r, Exception)]
+    conflicts = [r for r in results if isinstance(r, DomainConflict)]
+    unexpected = [r for r in results if isinstance(r, Exception) and not isinstance(r, DomainConflict)]
+
+    assert unexpected == [], f"unexpected exception: {unexpected}"
+    assert len(winners) == 1, f"{len(winners)} approvals were accepted"
+    assert len(conflicts) == 4

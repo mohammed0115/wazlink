@@ -41,7 +41,16 @@ def kb_retrieval(*, workspace, query: str, limit: int = MAX_RETRIEVED) -> list[d
     """
     queryset = articles_for(workspace).filter(status=STATUS_PUBLISHED)
 
-    terms = [term for term in (query or "").split() if len(term) > 2][:5]
+    # Strip punctuation before matching. A customer writes "how much is a
+    # website?", and "website?" would never match "website design" — the
+    # article would be silently unreachable exactly when it is most needed.
+    terms = [
+        cleaned
+        for cleaned in (
+            "".join(ch for ch in word if ch.isalnum()) for word in (query or "").split()
+        )
+        if len(cleaned) > 2
+    ][:5]
     if terms:
         from django.db.models import Q
 

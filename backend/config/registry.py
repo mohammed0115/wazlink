@@ -135,6 +135,10 @@ def register_tasks() -> None:
 
     senders["aiagent.generate_agent_proposal"] = generate_agent_proposal_task
 
+    from apps.automation.tasks import evaluate_automation_event_task
+
+    senders["automation.evaluate_automation_event"] = evaluate_automation_event_task
+
     mode = getattr(settings, "TASK_EXECUTION", "celery")
 
     def make_sender(task):

@@ -17,6 +17,13 @@ from apps.analytics.api.views import (
     RegisteredSectionsView,
 )
 from apps.assignment.api.views import AssignmentRuleDetailView, AssignmentRuleListCreateView
+from apps.automation.api.views import (
+    AutomationRuleDetailView,
+    AutomationRuleListCreateView,
+    AutomationRunApproveView,
+    AutomationRunListView,
+    AutomationRunRejectView,
+)
 from apps.crm.api.views import (
     AppointmentListCreateView,
     BusinessConvertView,
@@ -198,6 +205,12 @@ urlpatterns = [
     path("knowledge/articles/<str:article_ref>", ArticleDetailView.as_view()),
     path("knowledge/articles/<str:article_ref>/publish", ArticlePublishView.as_view()),
     path("knowledge/articles/<str:article_ref>/archive", ArticleArchiveView.as_view()),
+    # --- I8: automation ---
+    path("automation/rules", AutomationRuleListCreateView.as_view()),
+    path("automation/rules/<str:rule_ref>", AutomationRuleDetailView.as_view()),
+    path("automation/runs", AutomationRunListView.as_view()),
+    path("automation/runs/<str:run_ref>/approve", AutomationRunApproveView.as_view()),
+    path("automation/runs/<str:run_ref>/reject", AutomationRunRejectView.as_view()),
     # --- I7: pipeline ---
     path("pipelines", PipelineListView.as_view()),
     path("deals", DealListCreateView.as_view()),
