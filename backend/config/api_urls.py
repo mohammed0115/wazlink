@@ -4,6 +4,12 @@ analytics, and everything else to its owning domain."""
 from django.urls import path
 
 from apps.accounts.api.views import ChangePasswordView, RegisterView, VerifyEmailView
+from apps.aiagent.api.views import (
+    AgentProposalAcceptView,
+    AgentProposalListCreateView,
+    AgentProposalRejectView,
+    AgentSessionCreateView,
+)
 from apps.analytics.api.views import (
     Customer360View,
     Lead360View,
@@ -69,6 +75,12 @@ from apps.intelligence.api.views import (
     AnalysisDetailView,
     AnalysisListCreateView,
     AnalysisReanalyzeView,
+)
+from apps.knowledge.api.views import (
+    ArticleArchiveView,
+    ArticleDetailView,
+    ArticleListCreateView,
+    ArticlePublishView,
 )
 from apps.messaging.api.views import (
     ConversationArchiveView,
@@ -177,6 +189,15 @@ urlpatterns = [
     path("templates", TemplateListView.as_view()),
     path("assignment/rules", AssignmentRuleListCreateView.as_view()),
     path("assignment/rules/<str:rule_ref>", AssignmentRuleDetailView.as_view()),
+    # --- I13: AI agent and knowledge base ---
+    path("agent/sessions", AgentSessionCreateView.as_view()),
+    path("agent/proposals", AgentProposalListCreateView.as_view()),
+    path("agent/proposals/<str:proposal_ref>/accept", AgentProposalAcceptView.as_view()),
+    path("agent/proposals/<str:proposal_ref>/reject", AgentProposalRejectView.as_view()),
+    path("knowledge/articles", ArticleListCreateView.as_view()),
+    path("knowledge/articles/<str:article_ref>", ArticleDetailView.as_view()),
+    path("knowledge/articles/<str:article_ref>/publish", ArticlePublishView.as_view()),
+    path("knowledge/articles/<str:article_ref>/archive", ArticleArchiveView.as_view()),
     # --- I7: pipeline ---
     path("pipelines", PipelineListView.as_view()),
     path("deals", DealListCreateView.as_view()),

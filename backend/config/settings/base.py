@@ -109,12 +109,14 @@ LOCAL_APPS = [
     "apps.identity",  # L4
     "apps.discovery",  # L4
     "apps.assignment",  # L4
+    "apps.knowledge",  # L4
     "apps.crm",  # L5
     "apps.customers",  # L6
     "apps.intelligence",  # L6
     "apps.messaging",  # L6
     "apps.pipeline",  # L7
     "apps.imports",  # L8
+    "apps.aiagent",  # L8
     "apps.analytics",  # L10 — owns no table
 ]
 

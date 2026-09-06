@@ -131,6 +131,10 @@ def register_tasks() -> None:
         "messaging.apply_provider_status": apply_provider_status_task,
     }
 
+    from apps.aiagent.tasks import generate_agent_proposal_task
+
+    senders["aiagent.generate_agent_proposal"] = generate_agent_proposal_task
+
     mode = getattr(settings, "TASK_EXECUTION", "celery")
 
     def make_sender(task):

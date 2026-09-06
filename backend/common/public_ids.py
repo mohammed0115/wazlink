@@ -45,6 +45,9 @@ PREFIX_REGISTRY: dict[str, str] = {
     "CONV": "messaging.Conversation",
     "MSG": "messaging.Message",
     "TPL": "messaging.Template",
+    "KBA": "knowledge.KnowledgeArticle",
+    "AGS": "aiagent.AgentSession",
+    "AGP": "aiagent.AgentProposal",
 }
 
 
