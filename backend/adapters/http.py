@@ -29,6 +29,18 @@ from common.provider_ports import (
     ProviderTimeout,
 )
 
+
+def as_dict(value: Any) -> dict[str, Any]:
+    """Narrow an untrusted JSON value to a dict, or an empty one.
+
+    Provider payloads are `Any`, and `x.get(k) if isinstance(x.get(k), dict)`
+    reads correctly but narrows nothing — it calls `.get` twice, so the checker
+    still sees an Optional. Binding once and testing the binding is what makes
+    the guard real rather than decorative.
+    """
+    return value if isinstance(value, dict) else {}
+
+
 DEFAULT_TIMEOUT_SECONDS = 20.0
 # A provider answer larger than this is refused unread rather than buffered.
 MAX_RESPONSE_BYTES = 2_000_000

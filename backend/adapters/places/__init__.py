@@ -26,7 +26,7 @@ from __future__ import annotations
 import os
 from datetime import UTC, datetime
 
-from adapters.http import DEFAULT_TIMEOUT_SECONDS, post_json
+from adapters.http import DEFAULT_TIMEOUT_SECONDS, as_dict, post_json
 from common.provider_ports import (
     CONFIGURED,
     NOT_CONFIGURED,
@@ -159,13 +159,13 @@ class GooglePlacesAdapter:
                 continue
             external_id = _text(raw.get("id"))
             display = raw.get("displayName")
-            name = _text(display.get("text")) if isinstance(display, dict) else _text(display)
+            name = _text(as_dict(display).get("text")) if isinstance(display, dict) else _text(display)
             # Identity and a name are the two things WazLink cannot invent. A
             # record missing either is SKIPPED, never persisted half-formed.
             if not external_id or not name:
                 continue
 
-            location = raw.get("location") if isinstance(raw.get("location"), dict) else {}
+            location = as_dict(raw.get("location"))
             types = raw.get("types")
             address = _text(raw.get("formattedAddress"))
             review_count = raw.get("userRatingCount")

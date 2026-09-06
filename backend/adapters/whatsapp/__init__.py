@@ -31,7 +31,7 @@ import json
 import os
 from datetime import UTC, datetime
 
-from adapters.http import DEFAULT_TIMEOUT_SECONDS, post_json
+from adapters.http import DEFAULT_TIMEOUT_SECONDS, as_dict, post_json
 from common.provider_ports import (
     CONFIGURED,
     NOT_CONFIGURED,
@@ -69,6 +69,97 @@ def _timestamp(raw) -> datetime | None:
         return datetime.fromtimestamp(int(raw), tz=UTC)
     except (TypeError, ValueError):
         return None
+
+
+def normalize_callback(raw_body: bytes) -> WebhookEnvelope:
+    """Normalize ONE provider callback body into WazLink's own envelope.
+
+    Module level rather than a method, because EVERY implementation of the port
+    needs the identical normalization: the real adapter and the stub differ only
+    in credentials and transport, never in contract, and a stub that
+    reimplemented this could silently drift from the thing it stands in for.
+
+    It never raises on unsupported content. An unrecognised payload yields
+    `unsupported=True`, because frozen B12 requires a `200` for it — telling the
+    provider to redeliver what WazLink will never understand is an infinite loop.
+    """
+    try:
+        payload = json.loads(raw_body.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        raise ProviderInvalidResponse(
+            "The callback body was not valid JSON.", provider=PROVIDER_NAME
+        ) from None
+    if not isinstance(payload, dict):
+        raise ProviderInvalidResponse("The callback body was not an object.", provider=PROVIDER_NAME)
+
+    messages: list[InboundMessage] = []
+    statuses: list[InboundStatus] = []
+    account_ids: set[str] = set()
+
+    for entry in payload.get("entry") or []:
+        if not isinstance(entry, dict):
+            continue
+        for change in entry.get("changes") or []:
+            if not isinstance(change, dict):
+                continue
+            value = as_dict(change.get("value"))
+            if not value:
+                continue
+            account_id = str(as_dict(value.get("metadata")).get("phone_number_id") or "")[:60]
+            if account_id:
+                account_ids.add(account_id)
+
+            profiles: dict[str, str] = {}
+            for contact in value.get("contacts") or []:
+                if isinstance(contact, dict):
+                    profiles[str(contact.get("wa_id") or "")] = str(
+                        as_dict(contact.get("profile")).get("name") or ""
+                    )[:120]
+
+            for message in value.get("messages") or []:
+                if not isinstance(message, dict):
+                    continue
+                provider_id = str(message.get("id") or "")[:200]
+                sender = str(message.get("from") or "")[:40]
+                if not provider_id or not sender:
+                    continue
+                messages.append(
+                    InboundMessage(
+                        provider_message_id=provider_id,
+                        from_phone=sender,
+                        body=str(as_dict(message.get("text")).get("body") or "")[:4000],
+                        kind=str(message.get("type") or "text")[:30],
+                        occurred_at=_timestamp(message.get("timestamp")),
+                        profile_name=profiles.get(sender, ""),
+                        provider_account_id=account_id,
+                    )
+                )
+
+            for status in value.get("statuses") or []:
+                if not isinstance(status, dict):
+                    continue
+                provider_id = str(status.get("id") or "")[:200]
+                mapped = STATUS_MAP.get(str(status.get("status") or "").lower())
+                if not provider_id or mapped is None:
+                    continue
+                statuses.append(
+                    InboundStatus(
+                        provider_message_id=provider_id,
+                        status=mapped,
+                        occurred_at=_timestamp(status.get("timestamp")),
+                        recipient_phone=str(status.get("recipient_id") or "")[:40],
+                    )
+                )
+
+    return WebhookEnvelope(
+        provider_event_identity=hashlib.sha256(raw_body).hexdigest(),
+        # Exactly one account, or none: a callback spanning two accounts is not
+        # routable to one tenant and must never be guessed onto either.
+        provider_account_id=account_ids.pop() if len(account_ids) == 1 else "",
+        messages=tuple(messages),
+        statuses=tuple(statuses),
+        unsupported=not messages and not statuses,
+    )
 
 
 class MetaWhatsAppAdapter:
@@ -121,96 +212,10 @@ class MetaWhatsAppAdapter:
         return challenge if hmac.compare_digest(expected, token or "") else None
 
     def parse_webhook(self, raw_body: bytes) -> WebhookEnvelope:
-        """Normalize ONE callback body. Never raises on unsupported content.
-
-        An unsupported or unrecognised payload yields `unsupported=True` rather
-        than an exception, because frozen B12 requires `200` for it — the
-        provider must not be told to redeliver something WazLink will never
-        understand.
-        """
-        try:
-            payload = json.loads(raw_body.decode("utf-8"))
-        except (ValueError, UnicodeDecodeError):
-            raise ProviderInvalidResponse(
-                "The callback body was not valid JSON.", provider=PROVIDER_NAME
-            ) from None
-        if not isinstance(payload, dict):
-            raise ProviderInvalidResponse("The callback body was not an object.", provider=PROVIDER_NAME)
-
-        messages: list[InboundMessage] = []
-        statuses: list[InboundStatus] = []
-        account_ids: set[str] = set()
-
-        for entry in payload.get("entry") or []:
-            if not isinstance(entry, dict):
-                continue
-            for change in entry.get("changes") or []:
-                if not isinstance(change, dict):
-                    continue
-                value = change.get("value")
-                if not isinstance(value, dict):
-                    continue
-                metadata = value.get("metadata") if isinstance(value.get("metadata"), dict) else {}
-                account_id = str(metadata.get("phone_number_id") or "")[:60]
-                if account_id:
-                    account_ids.add(account_id)
-
-                profiles = {}
-                for contact in value.get("contacts") or []:
-                    if isinstance(contact, dict):
-                        profile = contact.get("profile")
-                        profiles[str(contact.get("wa_id") or "")] = (
-                            str(profile.get("name") or "")[:120] if isinstance(profile, dict) else ""
-                        )
-
-                for message in value.get("messages") or []:
-                    if not isinstance(message, dict):
-                        continue
-                    provider_id = str(message.get("id") or "")[:200]
-                    sender = str(message.get("from") or "")[:40]
-                    if not provider_id or not sender:
-                        continue
-                    kind = str(message.get("type") or "text")[:30]
-                    text = message.get("text")
-                    messages.append(
-                        InboundMessage(
-                            provider_message_id=provider_id,
-                            from_phone=sender,
-                            body=(str(text.get("body") or "")[:4000] if isinstance(text, dict) else ""),
-                            kind=kind,
-                            occurred_at=_timestamp(message.get("timestamp")),
-                            profile_name=profiles.get(sender, ""),
-                            provider_account_id=account_id,
-                        )
-                    )
-
-                for status in value.get("statuses") or []:
-                    if not isinstance(status, dict):
-                        continue
-                    provider_id = str(status.get("id") or "")[:200]
-                    mapped = STATUS_MAP.get(str(status.get("status") or "").lower())
-                    if not provider_id or mapped is None:
-                        continue
-                    statuses.append(
-                        InboundStatus(
-                            provider_message_id=provider_id,
-                            status=mapped,
-                            occurred_at=_timestamp(status.get("timestamp")),
-                            recipient_phone=str(status.get("recipient_id") or "")[:40],
-                        )
-                    )
-
-        return WebhookEnvelope(
-            provider_event_identity=hashlib.sha256(raw_body).hexdigest(),
-            # Exactly one account, or none: a callback spanning two accounts is
-            # not routable to one tenant and must not be guessed.
-            provider_account_id=account_ids.pop() if len(account_ids) == 1 else "",
-            messages=tuple(messages),
-            statuses=tuple(statuses),
-            unsupported=not messages and not statuses,
-        )
+        return normalize_callback(raw_body)
 
     # -- outbound ----------------------------------------------------------
+
     def send(self, request: OutboundMessageRequest) -> OutboundMessageResult:
         token = _env("WHATSAPP_ACCESS_TOKEN")
         phone_number_id = _env("WHATSAPP_PHONE_NUMBER_ID")
@@ -314,9 +319,8 @@ class StubWhatsAppAdapter:
         return challenge if hmac.compare_digest(self.VERIFY_TOKEN, token or "") else None
 
     def parse_webhook(self, raw_body: bytes) -> WebhookEnvelope:
-        # Identical normalization: the stub differs only in credentials and
-        # transport, never in contract.
-        return MetaWhatsAppAdapter.parse_webhook(self, raw_body)
+        # The SAME normalizer the real adapter uses, so the stub cannot drift.
+        return normalize_callback(raw_body)
 
     def send(self, request: OutboundMessageRequest) -> OutboundMessageResult:
         if not self._configured:
@@ -331,6 +335,7 @@ class StubWhatsAppAdapter:
 
 __all__ = [
     "MetaWhatsAppAdapter",
+    "normalize_callback",
     "StubWhatsAppAdapter",
     "PROVIDER_NAME",
     "CREDENTIAL_REFS",

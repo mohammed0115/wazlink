@@ -32,7 +32,7 @@ import json
 import os
 from typing import Any
 
-from adapters.http import DEFAULT_TIMEOUT_SECONDS, post_json
+from adapters.http import DEFAULT_TIMEOUT_SECONDS, as_dict, post_json
 from common.provider_ports import (
     CONFIGURED,
     NOT_CONFIGURED,
@@ -194,7 +194,7 @@ class OpenAIAdapter:
             # The provider's own error text is DISCARDED here, not forwarded.
             raise ProviderInvalidResponse("The provider refused this request.", provider=PROVIDER_NAME)
 
-        raw_usage = payload.get("usage") if isinstance(payload.get("usage"), dict) else {}
+        raw_usage = as_dict(payload.get("usage"))
         usage = AIUsage(
             input_units=int(raw_usage.get("input_tokens") or 0),
             output_units=int(raw_usage.get("output_tokens") or 0),
