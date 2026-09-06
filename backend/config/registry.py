@@ -49,6 +49,12 @@ def register_party360_sections() -> None:
 
     section_registry.register(DealsSectionProvider())
 
+    # I4 — intelligence. The `intelligence` section flips unavailable -> present
+    # HERE and at no earlier slice (T-P360-2).
+    from apps.intelligence.party360 import IntelligenceSectionProvider
+
+    section_registry.register(IntelligenceSectionProvider())
+
 
 def register_timeline_contributors() -> None:
     """Each contributor activates at ITS OWN slice.
@@ -97,8 +103,12 @@ def register_tasks() -> None:
     from django.conf import settings
 
     from apps.discovery.tasks import run_discovery_job_task
+    from apps.intelligence.tasks import run_intelligence_analysis_task
 
-    senders: dict[str, object] = {"discovery.run_discovery_job": run_discovery_job_task}
+    senders: dict[str, object] = {
+        "discovery.run_discovery_job": run_discovery_job_task,
+        "intelligence.run_intelligence_analysis": run_intelligence_analysis_task,
+    }
 
     mode = getattr(settings, "TASK_EXECUTION", "celery")
 

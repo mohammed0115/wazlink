@@ -63,6 +63,12 @@ from apps.imports.api.views import (
     ImportListCreateView,
     ImportMappingView,
 )
+from apps.intelligence.api.views import (
+    AnalysisCancelView,
+    AnalysisDetailView,
+    AnalysisListCreateView,
+    AnalysisReanalyzeView,
+)
 from apps.pipeline.api.views import (
     DealCloseView,
     DealDetailView,
@@ -138,6 +144,11 @@ urlpatterns = [
     path("discovery/sources", DiscoverySourceStatusView.as_view()),
     path("businesses/<str:business_ref>", BusinessDetailView.as_view()),
     path("businesses/<str:business_ref>/convert", BusinessConvertView.as_view()),
+    # --- I4: AI lead intelligence ---
+    path("intelligence/analyses", AnalysisListCreateView.as_view()),
+    path("intelligence/analyses/<str:analysis_ref>", AnalysisDetailView.as_view()),
+    path("intelligence/analyses/<str:analysis_ref>/reanalyze", AnalysisReanalyzeView.as_view()),
+    path("intelligence/analyses/<str:analysis_ref>/cancel", AnalysisCancelView.as_view()),
     # --- I7: pipeline ---
     path("pipelines", PipelineListView.as_view()),
     path("deals", DealListCreateView.as_view()),

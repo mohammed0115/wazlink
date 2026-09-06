@@ -40,6 +40,7 @@ PREFIX_REGISTRY: dict[str, str] = {
     "PIPE": "pipeline.Pipeline",
     "STG": "pipeline.PipelineStage",
     "DEAL": "pipeline.Deal",
+    "ANL": "intelligence.IntelligenceRun",
 }
 
 

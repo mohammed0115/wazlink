@@ -721,3 +721,82 @@ def test_imp_disc_2_concurrent_upserts_of_one_external_record_yield_one_business
     # Every worker converged on the SAME row, and exactly one created it.
     assert len({pk for pk, _ in results}) == 1
     assert sum(1 for _, created in results if created) == 1
+
+
+# --------------------------------------------------------------------------
+# I4 — Intelligence. One analysis per snapshot, one worker per run.
+# --------------------------------------------------------------------------
+
+
+def test_imp_ai_1_concurrent_requests_for_one_snapshot_open_one_analysis(owner):
+    """The in-flight UNIQUE CONSTRAINT is the arbiter, not an `if exists()`.
+
+    Six simultaneous requests for the same unchanged Business must not become
+    six analyses — each of which would pay the provider for an identical answer.
+    """
+    from apps.discovery.models import Business
+    from apps.intelligence.models import IntelligenceRun
+    from apps.intelligence.services import request_analysis
+
+    business = Business.objects.create(
+        workspace=owner.workspace,
+        name="Contended Subject",
+        city="Riyadh",
+        category="retail",
+        phone="+966500000777",
+        provider_external_id="ext-contended",
+        source_provider="place_search",
+    )
+
+    def worker():
+        try:
+            run, created = request_analysis(context=owner.context, business=business)
+            return (run.pk, created)
+        finally:
+            connections.close_all()
+
+    results = _run_concurrently([worker] * 6)
+    for result in results:
+        assert not isinstance(result, Exception), f"a request raised: {result!r}"
+
+    assert IntelligenceRun.objects.filter(business=business).count() == 1
+    assert len({pk for pk, _ in results}) == 1, "requests diverged onto different runs"
+    assert sum(1 for _, created in results if created) == 1
+
+
+def test_imp_ai_2_two_workers_on_one_run_score_it_once(owner):
+    """The run claim: `status='queued'` under FOR UPDATE admits one worker."""
+    from apps.discovery.models import Business
+    from apps.intelligence.models import IntelligenceRun, IntelligenceSignal
+    from apps.intelligence.services import request_analysis, run_intelligence_analysis
+    from common.provider_ports import providers
+
+    business = Business.objects.create(
+        workspace=owner.workspace,
+        name="Raced Subject",
+        city="Jeddah",
+        category="cafe",
+        phone="+966500000888",
+        provider_external_id="ext-raced",
+        source_provider="place_search",
+    )
+    run, _ = request_analysis(context=owner.context, business=business)
+    stub = providers.require("ai")
+    calls_before = len(stub.requests)
+
+    def worker():
+        try:
+            return run_intelligence_analysis(run_id=run.id)
+        finally:
+            connections.close_all()
+
+    for result in _run_concurrently([worker, worker]):
+        assert not isinstance(result, Exception), f"a worker raised: {result!r}"
+
+    final = IntelligenceRun.objects.get(pk=run.pk)
+    assert final.status == "completed"
+    # Scored once: one version bump, one signal set, one provider call.
+    assert final.version == run.version + 1
+    assert len(stub.requests) == calls_before + 1
+    codes = list(IntelligenceSignal.objects.filter(run=final).values_list("signal_code", flat=True))
+    assert len(codes) == len(set(codes)), "a signal was written twice"
