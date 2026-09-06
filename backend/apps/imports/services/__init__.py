@@ -98,8 +98,10 @@ def _begin_commit(*, batch: ImportBatch, expected_version: int | None) -> None:
     """
     lock_aggregate(batch)
     # Frozen: `409` if already committed (`B14_06` §Imports). No other terminal
-    # state is refused here -- a re-commit of an in-flight batch is already a
-    # per-row no-op, because only `pending` rows are processed.
+    # state is refused here -- a re-commit of an in-flight batch imports nothing
+    # twice, because `_claim_row` decides row ownership in PostgreSQL. This lock
+    # governs the AGGREGATE only; it is released before the row loop, so it is
+    # the row claim, not this lock, that makes a concurrent re-commit safe.
     if batch.status == "completed":
         raise DomainConflict("This batch is already committed.")
     require_version(batch, expected_version, required=False)
@@ -130,24 +132,78 @@ def commit_batch(*, context, batch: ImportBatch, expected_version: int | None = 
     return batch
 
 
+def _claim_row(row: ImportRow) -> ImportRow | None:
+    """Take exclusive ownership of `row` for the CALLER'S transaction, or None.
+
+    This is the per-row half of the frozen identity `(batch_id, row_number)`
+    (`B14_04` §M13, `B14_09` `import_process_row`). `_begin_commit` serialises
+    the aggregate but releases that lock before the row loop -- deliberately, so
+    a long import never holds it -- which leaves the rows themselves unguarded.
+    A second commit arriving mid-loop with the freshly bumped version is
+    legitimately accepted, and both loops then read the same rows as `pending`.
+
+    PostgreSQL, not Python, resolves that: a competitor BLOCKS on this lock, and
+    when the holder commits, READ COMMITTED re-evaluates the `outcome='pending'`
+    predicate against the newly committed row, finds it terminal, and matches
+    nothing -- so the competitor skips the row instead of importing it twice. An
+    in-memory `if row.outcome == "pending"` cannot do this: it tests a snapshot
+    read before the competitor committed. Neither can a read followed by
+    `save()`: the two statements have no atomicity between them.
+
+    Nothing durable records the claim, so no `processing` state exists to get
+    stuck in. The claim lives exactly as long as the caller's transaction and
+    rolls back with it, returning the row to `pending` for a later attempt.
+    """
+    return ImportRow.objects.select_for_update().filter(pk=row.pk, outcome="pending").first()
+
+
+def _record_outcome(row: ImportRow, *, outcome: str, created_ref: str, error_message: str) -> None:
+    row.outcome = outcome
+    row.created_ref = created_ref
+    row.error_message = error_message
+    row.save(update_fields=["outcome", "created_ref", "error_message", "updated_at"])
+
+
 def _commit_row(*, context, batch: ImportBatch, row: ImportRow) -> None:
-    """One row, one transaction. Its failure is recorded, not propagated."""
+    """One row, one transaction. Its failure is recorded, not propagated.
+
+    Claim, target mutation and terminal outcome share ONE transaction, so the
+    durable entity and the row that accounts for it commit together or not at
+    all -- there is no window in which the import happened but the row still
+    reads `pending`, which is what a later commit would re-execute. Sibling rows
+    keep their own transactions: a failed row still leaves an already-committed
+    row standing (`T-IMP-2`).
+    """
     fields = _mapped(row, batch.mapping)
     try:
         with transaction.atomic():
+            claimed = _claim_row(row)
+            if claimed is None:
+                # A concurrent worker owns this row. At most one may import it.
+                return
             created_ref = _create_target(context=context, batch=batch, fields=fields)
-        row.outcome = "created"
-        row.created_ref = created_ref
-        row.error_message = ""
+            _record_outcome(claimed, outcome="created", created_ref=created_ref, error_message="")
     except ValidationFailed as exc:
-        row.outcome = "failed"
-        row.error_message = str(exc.message)[:400]
+        _record_failure(row, outcome="failed", message=str(exc.message)[:400])
     except Exception as exc:  # noqa: BLE001
         # An indeterminate outcome is recorded as `unknown` and surfaced to a
         # human. It is NEVER re-executed automatically (B12-D-A020).
-        row.outcome = "unknown"
-        row.error_message = type(exc).__name__[:400]
-    row.save(update_fields=["outcome", "created_ref", "error_message", "updated_at"])
+        _record_failure(row, outcome="unknown", message=type(exc).__name__[:400])
+
+
+def _record_failure(row: ImportRow, *, outcome: str, message: str) -> None:
+    """Record a terminal failure in a transaction of its own.
+
+    The attempt rolled back, so its claim rolled back with it and the row reads
+    `pending` again. Re-claiming keeps the failure at-most-once as well: if a
+    competitor has taken the row meanwhile -- and possibly imported it -- this
+    write finds a terminal outcome and stands down rather than overwriting it.
+    """
+    with transaction.atomic():
+        claimed = _claim_row(row)
+        if claimed is None:
+            return
+        _record_outcome(claimed, outcome=outcome, created_ref="", error_message=message)
 
 
 def _create_target(*, context, batch: ImportBatch, fields: dict) -> str:
