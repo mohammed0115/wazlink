@@ -139,6 +139,7 @@ class MetaWhatsAppAdapter:
 
         messages: list[InboundMessage] = []
         statuses: list[InboundStatus] = []
+        account_ids: set[str] = set()
 
         for entry in payload.get("entry") or []:
             if not isinstance(entry, dict):
@@ -151,6 +152,8 @@ class MetaWhatsAppAdapter:
                     continue
                 metadata = value.get("metadata") if isinstance(value.get("metadata"), dict) else {}
                 account_id = str(metadata.get("phone_number_id") or "")[:60]
+                if account_id:
+                    account_ids.add(account_id)
 
                 profiles = {}
                 for contact in value.get("contacts") or []:
@@ -199,6 +202,9 @@ class MetaWhatsAppAdapter:
 
         return WebhookEnvelope(
             provider_event_identity=hashlib.sha256(raw_body).hexdigest(),
+            # Exactly one account, or none: a callback spanning two accounts is
+            # not routable to one tenant and must not be guessed.
+            provider_account_id=account_ids.pop() if len(account_ids) == 1 else "",
             messages=tuple(messages),
             statuses=tuple(statuses),
             unsupported=not messages and not statuses,

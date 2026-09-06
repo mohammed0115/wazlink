@@ -800,3 +800,169 @@ def test_imp_ai_2_two_workers_on_one_run_score_it_once(owner):
     assert len(stub.requests) == calls_before + 1
     codes = list(IntelligenceSignal.objects.filter(run=final).values_list("signal_code", flat=True))
     assert len(codes) == len(set(codes)), "a signal was written twice"
+
+
+# --------------------------------------------------------------------------
+# I6 — Messaging and assignment under real contention.
+# --------------------------------------------------------------------------
+
+
+def _conversation_for(owner, address="+966500999888"):
+    from apps.messaging.models import Conversation
+
+    return Conversation.objects.create(
+        workspace=owner.workspace, peer_address=address, last_inbound_at=timezone.now()
+    )
+
+
+def test_imp_msg_1_a_takeover_race_resolves_to_exactly_one_holder(owner):
+    """`T-CA02-3`. A row-locked compare-and-set, not an in-memory check.
+
+    Six agents grabbing one conversation at the same instant must produce one
+    holder and five refusals. An `if takeover_by is None` test would let several
+    through, and each would believe they owned the customer.
+    """
+    from apps.accounts.models import User
+    from apps.messaging.models import Conversation
+    from apps.messaging.services import start_human_takeover
+    from apps.workspaces.models import Membership
+    from common.authz import AuthorizationContext
+    from common.errors import DomainConflict
+    from common.permissions_catalog import permissions_for_role
+
+    conversation = _conversation_for(owner)
+    contexts = []
+    for index in range(6):
+        user = User.objects.create_user(email=f"grab{index}@example.test", password="correct-horse-x")
+        membership = Membership.objects.create(
+            workspace=owner.workspace, user=user, role="sales", status="active"
+        )
+        contexts.append(
+            AuthorizationContext(
+                user=user,
+                session=None,
+                workspace=owner.workspace,
+                membership=membership,
+                role="sales",
+                permissions=permissions_for_role("sales"),
+            )
+        )
+
+    def grab(context):
+        def _go():
+            try:
+                fresh = Conversation.objects.get(pk=conversation.pk)
+                return start_human_takeover(context=context, conversation=fresh)
+            finally:
+                connections.close_all()
+
+        return _go
+
+    results = _run_concurrently([grab(context) for context in contexts])
+    winners = [r for r in results if not isinstance(r, Exception)]
+    conflicts = [r for r in results if isinstance(r, DomainConflict)]
+    unexpected = [r for r in results if isinstance(r, Exception) and not isinstance(r, DomainConflict)]
+
+    assert unexpected == [], f"unexpected exception: {unexpected}"
+    assert len(winners) == 1, f"{len(winners)} agents believed they held the takeover"
+    assert len(conflicts) == 5
+
+    final = Conversation.objects.get(pk=conversation.pk)
+    assert final.takeover_by_id is not None
+    assert final.handling_mode == "ai_paused"
+
+
+def test_imp_msg_2_round_robin_never_hands_two_conversations_to_the_same_agent(owner):
+    """CRM-INV-11 under contention. The counter is a locked PostgreSQL row."""
+    from apps.accounts.models import User
+    from apps.assignment.services import next_assignee_ref, upsert_assignment_rule
+    from apps.workspaces.models import Membership
+
+    refs = [owner.membership.public_id]
+    for index in range(3):
+        user = User.objects.create_user(email=f"rr{index}@example.test", password="correct-horse-x")
+        refs.append(
+            Membership.objects.create(
+                workspace=owner.workspace, user=user, role="sales", status="active"
+            ).public_id
+        )
+    upsert_assignment_rule(context=owner.context, name="contended", member_refs=refs)
+
+    def draw():
+        try:
+            with transaction.atomic():
+                return next_assignee_ref(workspace=owner.workspace)
+        finally:
+            connections.close_all()
+
+    # Two full cycles drawn all at once.
+    results = _run_concurrently([draw] * (len(refs) * 2))
+    for result in results:
+        assert not isinstance(result, Exception), f"a draw raised: {result!r}"
+
+    counts = {ref: results.count(ref) for ref in refs}
+    # Perfectly fair: every member drawn exactly twice, no matter the interleaving.
+    assert counts == dict.fromkeys(refs, 2), f"round robin was unfair under contention: {counts}"
+
+
+def test_imp_msg_3_concurrent_ingestion_of_one_callback_yields_one_message(owner):
+    """The message identity constraint under a genuine race.
+
+    Six workers ingesting the same provider message id — the shape a redelivery
+    storm takes — must produce one Message and one Conversation.
+    """
+    from apps.messaging.models import Conversation, Message
+    from apps.messaging.services import ingest_inbound
+    from common.provider_ports import InboundMessage
+
+    inbound = InboundMessage(
+        provider_message_id="wamid.race.1",
+        from_phone="+966500777666",
+        body="Raced inbound",
+        occurred_at=timezone.now(),
+    )
+
+    def worker():
+        try:
+            return ingest_inbound(workspace=owner.workspace, inbound=inbound)
+        finally:
+            connections.close_all()
+
+    results = _run_concurrently([worker] * 6)
+    for result in results:
+        assert not isinstance(result, Exception), f"an ingest raised: {result!r}"
+
+    assert Message.objects.filter(workspace=owner.workspace).count() == 1
+    assert Conversation.objects.filter(workspace=owner.workspace).count() == 1
+    assert len({m.pk for m in results if m is not None}) == 1
+
+
+def test_imp_msg_4_two_workers_delivering_one_message_call_the_provider_once(owner):
+    """The send claim. A duplicate WhatsApp message is unrecoverable."""
+    from apps.messaging.models import Message
+    from apps.messaging.services import deliver_outbound
+    from common.provider_ports import providers
+
+    conversation = _conversation_for(owner, address="+966500555444")
+    message = Message.objects.create(
+        workspace=owner.workspace,
+        conversation=conversation,
+        direction="outbound",
+        status="queued",
+        body="Exactly once",
+        sent_by=owner.membership,
+    )
+    stub = providers.require("whatsapp")
+    before = len(stub.sent)
+
+    def worker():
+        try:
+            return deliver_outbound(message_id=message.pk)
+        finally:
+            connections.close_all()
+
+    for result in _run_concurrently([worker] * 4):
+        assert not isinstance(result, Exception), f"a worker raised: {result!r}"
+
+    assert len(stub.sent) == before + 1, "the provider was called more than once"
+    assert Message.objects.get(pk=message.pk).status == "sent"

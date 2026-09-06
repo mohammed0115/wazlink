@@ -10,6 +10,7 @@ from apps.analytics.api.views import (
     LeadTimelineView,
     RegisteredSectionsView,
 )
+from apps.assignment.api.views import AssignmentRuleDetailView, AssignmentRuleListCreateView
 from apps.crm.api.views import (
     AppointmentListCreateView,
     BusinessConvertView,
@@ -68,6 +69,19 @@ from apps.intelligence.api.views import (
     AnalysisDetailView,
     AnalysisListCreateView,
     AnalysisReanalyzeView,
+)
+from apps.messaging.api.views import (
+    ConversationArchiveView,
+    ConversationAssignView,
+    ConversationDetailView,
+    ConversationHandlingModeView,
+    ConversationListView,
+    ConversationReadView,
+    ConversationReopenView,
+    ConversationTakeoverView,
+    MessageSendView,
+    TemplateListView,
+    TemplateMessageSendView,
 )
 from apps.pipeline.api.views import (
     DealCloseView,
@@ -149,6 +163,20 @@ urlpatterns = [
     path("intelligence/analyses/<str:analysis_ref>", AnalysisDetailView.as_view()),
     path("intelligence/analyses/<str:analysis_ref>/reanalyze", AnalysisReanalyzeView.as_view()),
     path("intelligence/analyses/<str:analysis_ref>/cancel", AnalysisCancelView.as_view()),
+    # --- I6: messaging, team inbox, assignment ---
+    path("conversations", ConversationListView.as_view()),
+    path("conversations/<str:conversation_ref>", ConversationDetailView.as_view()),
+    path("conversations/<str:conversation_ref>/assign", ConversationAssignView.as_view()),
+    path("conversations/<str:conversation_ref>/read", ConversationReadView.as_view()),
+    path("conversations/<str:conversation_ref>/archive", ConversationArchiveView.as_view()),
+    path("conversations/<str:conversation_ref>/reopen", ConversationReopenView.as_view()),
+    path("conversations/<str:conversation_ref>/handling-mode", ConversationHandlingModeView.as_view()),
+    path("conversations/<str:conversation_ref>/takeover", ConversationTakeoverView.as_view()),
+    path("messages", MessageSendView.as_view()),
+    path("messages/template", TemplateMessageSendView.as_view()),
+    path("templates", TemplateListView.as_view()),
+    path("assignment/rules", AssignmentRuleListCreateView.as_view()),
+    path("assignment/rules/<str:rule_ref>", AssignmentRuleDetailView.as_view()),
     # --- I7: pipeline ---
     path("pipelines", PipelineListView.as_view()),
     path("deals", DealListCreateView.as_view()),

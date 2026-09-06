@@ -318,9 +318,15 @@ class InboundStatus:
 
 @dataclass(frozen=True)
 class WebhookEnvelope:
-    """The normalized result of parsing ONE provider callback body."""
+    """The normalized result of parsing ONE provider callback body.
+
+    `provider_account_id` lives HERE rather than only on each message because a
+    delivery-status callback carries no messages at all — reading the account
+    from the message list would leave every status callback unroutable.
+    """
 
     provider_event_identity: str
+    provider_account_id: str = ""
     messages: tuple[InboundMessage, ...] = ()
     statuses: tuple[InboundStatus, ...] = ()
     unsupported: bool = False

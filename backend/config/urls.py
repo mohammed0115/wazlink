@@ -5,9 +5,15 @@ permitted to import upward, and it is excluded from the layering walk.
 from django.contrib import admin
 from django.urls import include, path
 
+from apps.messaging.webhooks import whatsapp_webhook
+
 from .health import health, ready
 
 urlpatterns = [
+    # Webhooks are B12-owned and deliberately NOT under /api/v1/: they are a
+    # provider surface with their own authentication (signature verification),
+    # not a tenant API surface with session authentication.
+    path("webhooks/whatsapp", whatsapp_webhook, name="whatsapp-webhook"),
     path("health", health, name="health"),
     path("ready", ready, name="ready"),
     path("admin/", admin.site.urls),

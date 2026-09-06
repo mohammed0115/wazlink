@@ -103,6 +103,23 @@ class WebhookReceipt(TimestampedModel):
     payload_digest = models.CharField(max_length=128, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="queued")
 
+    # The tenant this callback routed to, or NULL when routing failed. A NULL
+    # here is quarantined and reported as reconciliation class P-7 — never
+    # guessed (B14_15 §5).
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.RESTRICT,
+        null=True,
+        blank=True,
+        related_name="webhook_receipts",
+    )
+    # WazLink's OWN normalized envelope — not the provider's raw body, which
+    # stays off by default (B12-D-B004) and would carry the signature with it.
+    # Storing this is what lets the task payload be a single receipt reference
+    # that the worker re-reads, rather than domain state passed through a queue
+    # (FI-B12-05).
+    normalized = models.JSONField(default=dict)
+
     class Meta:
         db_table = "webhook_receipts"
         constraints = [
@@ -141,9 +158,20 @@ class IntegrationConnection(TimestampedModel):
     # REFERENCE NAMES only. Never a credential value.
     credential_refs = models.JSONField(default=list)
     configuration_valid = models.BooleanField(default=False)
+    # The provider-side account this connection owns (for WhatsApp, the phone
+    # number id). It is how an inbound callback is routed to ONE tenant, and it
+    # is UNIQUE per provider so a callback can never be delivered to two.
+    provider_account_id = models.CharField(max_length=120, blank=True, db_index=True)
 
     class Meta:
         db_table = "integration_connections"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider", "provider_account_id"],
+                condition=~Q(provider_account_id=""),
+                name="uq_integration_provider_account",
+            ),
+        ]
 
 
 class IntegrationHealthSnapshot(TimestampedModel):

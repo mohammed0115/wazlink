@@ -55,6 +55,12 @@ def register_party360_sections() -> None:
 
     section_registry.register(IntelligenceSectionProvider())
 
+    # I6 — messaging. The `conversations` section flips unavailable -> present
+    # HERE and at no earlier slice (T-P360-3).
+    from apps.messaging.party360 import ConversationsSectionProvider
+
+    section_registry.register(ConversationsSectionProvider())
+
 
 def register_timeline_contributors() -> None:
     """Each contributor activates at ITS OWN slice.
@@ -70,6 +76,13 @@ def register_timeline_contributors() -> None:
     from apps.pipeline.party360 import PipelineTimelineContributor
 
     timeline_contributor_registry.register(PipelineTimelineContributor())
+
+    # I6 — messaging joins the merged timeline HERE. From this slice the
+    # timeline carries CRM + AUTHORIZED messaging entries, and `crm` still
+    # imports no `messaging` symbol (T-P360-14).
+    from apps.messaging.party360 import MessagingTimelineContributor
+
+    timeline_contributor_registry.register(MessagingTimelineContributor())
 
 
 def register_commands() -> None:
@@ -104,10 +117,18 @@ def register_tasks() -> None:
 
     from apps.discovery.tasks import run_discovery_job_task
     from apps.intelligence.tasks import run_intelligence_analysis_task
+    from apps.messaging.tasks import (
+        apply_provider_status_task,
+        process_webhook_receipt_task,
+        send_outbound_message_task,
+    )
 
     senders: dict[str, object] = {
         "discovery.run_discovery_job": run_discovery_job_task,
         "intelligence.run_intelligence_analysis": run_intelligence_analysis_task,
+        "messaging.send_outbound_message": send_outbound_message_task,
+        "messaging.process_webhook_receipt": process_webhook_receipt_task,
+        "messaging.apply_provider_status": apply_provider_status_task,
     }
 
     mode = getattr(settings, "TASK_EXECUTION", "celery")
