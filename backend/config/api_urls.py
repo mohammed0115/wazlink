@@ -55,6 +55,7 @@ from apps.customers.api.views import (
     CustomerContactsView,
     CustomerCustomFieldsView,
     CustomerListCreateView,
+    CustomerMergeView,
     CustomerUpdateView,
     LeadConvertView,
 )
@@ -201,6 +202,8 @@ urlpatterns = [
     path("customers/<str:customer_ref>/update", CustomerUpdateView.as_view()),
     path("customers/<str:customer_ref>/archive", CustomerArchiveView.as_view()),
     path("customers/<str:customer_ref>/contacts", CustomerContactsView.as_view()),
+    # I14 / CA-04 — governed, irreversible, human-only merge.
+    path("customers/<str:customer_ref>/merge", CustomerMergeView.as_view()),
     path("customers/<str:customer_ref>/contacts/<str:contact_ref>", CustomerContactsView.as_view()),
     path("customers/<str:customer_ref>/custom-fields", CustomerCustomFieldsView.as_view()),
     path("custom-fields", FieldDefinitionListCreateView.as_view()),

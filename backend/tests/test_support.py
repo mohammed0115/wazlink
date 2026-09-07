@@ -234,7 +234,17 @@ def test_t_merge_3_nc_no_immutable_finance_row_is_rewritten(actor):
 
 
 def test_t_merge_4_nc_there_is_no_automatic_merge():
-    """No automation action, no signal and no sweep reaches `MergeParties`."""
+    """No automation action, no signal, no task and no sweep reaches `MergeParties`.
+
+    The frozen contract requires a merge to be human-only (`CA-04`, `PD-006`),
+    and `B14_18` I14 requires `POST /customers/{id}/merge` to exist. So the
+    control cannot be "nothing outside `identity` may call merge" — that would
+    forbid the very endpoint the contract mandates, and a passing version of it
+    would only mean the capability had been left unreachable.
+
+    What must be unreachable is an AUTOMATIC caller. This asserts the caller's
+    KIND: merge may be invoked from a human request path and from nowhere else.
+    """
     from apps.automation.models import ACTION_TYPES
 
     for action in ACTION_TYPES:
@@ -244,17 +254,27 @@ def test_t_merge_4_nc_there_is_no_automatic_merge():
     import pathlib
 
     root = pathlib.Path(__file__).resolve().parent.parent / "apps"
-    offenders = []
+    # A human request path. Anything else — a worker, a signal receiver, a
+    # Party360 composer, a domain service reacting to an event — is automatic
+    # by definition, whatever it happens to be named.
+    human_request_paths = {("customers", "api", "views.py")}
+    callers = []
     for path in root.rglob("*.py"):
-        module = path.relative_to(root).parts[0]
-        if module == "identity":
+        parts = path.relative_to(root).parts
+        if parts[0] == "identity":
             continue
         for node in ast.walk(ast.parse(path.read_text())):
             if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("apps.identity"):
-                names = [alias.name for alias in node.names]
-                if "merge_parties" in names:
-                    offenders.append(module)
-    assert offenders == [], f"a module outside identity invokes merge: {offenders}"
+                if "merge_parties" in [alias.name for alias in node.names]:
+                    callers.append(parts)
+
+    for caller in callers:
+        assert caller in human_request_paths, f"a non-human path invokes merge: {'/'.join(caller)}"
+
+    # And the automatic surfaces carry no merge call at all.
+    for suspect in ("tasks.py", "party360.py"):
+        for path in root.rglob(suspect):
+            assert "merge_parties" not in path.read_text(), f"{path} reaches merge"
 
 
 def test_a_merged_party_cannot_be_merged_twice(actor):
@@ -420,3 +440,158 @@ def test_a_viewer_cannot_create_a_ticket(actor, auth_client):
     viewer = actor(email="tv@example.test", role="viewer", workspace_name="Tv")
     response = auth_client(viewer).post("/api/v1/tickets", {"subject": "x"}, format="json")
     assert response.status_code == 403
+
+
+# ------------------------------------------- POST /customers/{id}/merge
+#
+# `B14_18` I14 lists this endpoint and `B14_05` binds it to `CA-04`. The route
+# was missing: the command, the `customer.merge` permission cell and the
+# lineage table all existed, but nothing reachable consumed them.
+def _two_customers(a):
+    from apps.customers.services import create_customer
+
+    survivor = create_customer(context=a.context, party_kind="organization", name="Acme Ltd")
+    loser = create_customer(context=a.context, party_kind="organization", name="ACME Limited")
+    return survivor, loser
+
+
+def test_the_merge_endpoint_merges_and_archives_the_loser(actor, auth_client):
+    """`CA-04` — lineage written, loser ARCHIVED, never deleted."""
+    from apps.customers.models import Customer
+    from apps.identity.models import MergeRecord
+
+    a = actor()
+    survivor, loser = _two_customers(a)
+    response = auth_client(a).post(
+        f"/api/v1/customers/{survivor.public_id}/merge",
+        {"losing_ref": loser.public_id, "reason": "duplicate created by import"},
+        format="json",
+    )
+    assert response.status_code == 201
+    assert response.data["surviving_ref"] == survivor.public_id
+    assert response.data["merged_ref"] == loser.public_id
+    assert response.data["reason"] == "duplicate created by import"
+
+    loser = Customer.objects.get(pk=loser.pk)
+    assert loser.status == "archived"
+    assert loser.archived_at is not None
+    assert Customer.objects.filter(pk=loser.pk).exists(), "the loser was deleted, not archived"
+    assert MergeRecord.objects.filter(
+        workspace=a.workspace, surviving_id=survivor.pk, merged_id=loser.pk
+    ).count() == 1
+
+
+def test_the_merge_endpoint_requires_a_reason(actor, auth_client):
+    from apps.identity.models import MergeRecord
+
+    a = actor()
+    survivor, loser = _two_customers(a)
+    response = auth_client(a).post(
+        f"/api/v1/customers/{survivor.public_id}/merge",
+        {"losing_ref": loser.public_id, "reason": "   "},
+        format="json",
+    )
+    assert response.status_code == 422
+    assert not MergeRecord.objects.filter(workspace=a.workspace).exists()
+
+
+def test_the_merge_endpoint_refuses_a_self_merge(actor, auth_client):
+    a = actor()
+    survivor, _ = _two_customers(a)
+    response = auth_client(a).post(
+        f"/api/v1/customers/{survivor.public_id}/merge",
+        {"losing_ref": survivor.public_id, "reason": "same row"},
+        format="json",
+    )
+    assert response.status_code == 422
+
+
+def test_the_merge_endpoint_cannot_reach_another_workspace(actor, auth_client):
+    """A foreign customer resolves 404 — never 422, never a merge."""
+    from apps.identity.models import MergeRecord
+
+    one = actor(email="mg1@example.test", workspace_name="MG1")
+    two = actor(email="mg2@example.test", workspace_name="MG2")
+    survivor, _ = _two_customers(one)
+    foreign, _ = _two_customers(two)
+
+    response = auth_client(one).post(
+        f"/api/v1/customers/{survivor.public_id}/merge",
+        {"losing_ref": foreign.public_id, "reason": "looks the same"},
+        format="json",
+    )
+    assert response.status_code == 404
+    assert not MergeRecord.objects.filter(workspace=one.workspace).exists()
+    assert not MergeRecord.objects.filter(workspace=two.workspace).exists()
+
+
+def test_the_merge_endpoint_refuses_an_already_merged_party(actor, auth_client):
+    a = actor()
+    survivor, loser = _two_customers(a)
+    api = auth_client(a)
+    body = {"losing_ref": loser.public_id, "reason": "duplicate"}
+    assert api.post(f"/api/v1/customers/{survivor.public_id}/merge", body, format="json").status_code == 201
+    again = api.post(f"/api/v1/customers/{survivor.public_id}/merge", body, format="json")
+    assert again.status_code == 409
+
+
+@pytest.mark.parametrize("role,expected", [("owner", 201), ("admin", 201), ("member", 403),
+                                           ("agent", 403), ("viewer", 403)])
+def test_the_merge_endpoint_honours_the_frozen_permission_cells(actor, auth_client, role, expected):
+    """`customer.merge` is ALLOW for owner/admin and DENY for everyone else."""
+    a = actor(email=f"mrg-{role}@example.test", role=role, workspace_name=f"MRG{role}")
+    survivor, loser = _two_customers(a)
+    response = auth_client(a).post(
+        f"/api/v1/customers/{survivor.public_id}/merge",
+        {"losing_ref": loser.public_id, "reason": "duplicate"},
+        format="json",
+    )
+    assert response.status_code == expected
+
+
+def test_concurrent_merges_write_exactly_one_lineage_row(actor, auth_client):
+    """Six workers, one irreversible action."""
+    import threading
+
+    from django.db import connections
+
+    from apps.identity.models import MergeRecord
+
+    a = actor()
+    survivor, loser = _two_customers(a)
+    codes: list[int] = []
+    lock = threading.Lock()
+
+    def worker() -> None:
+        try:
+            client = auth_client(a)
+            response = client.post(
+                f"/api/v1/customers/{survivor.public_id}/merge",
+                {"losing_ref": loser.public_id, "reason": "duplicate"},
+                format="json",
+            )
+            with lock:
+                codes.append(response.status_code)
+        finally:
+            connections.close_all()
+
+    threads = [threading.Thread(target=worker) for _ in range(6)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert codes.count(201) == 1
+    assert MergeRecord.objects.filter(workspace=a.workspace, merged_id=loser.pk).count() == 1
+
+
+def test_no_merge_logic_lives_in_the_view():
+    """The view is thin: it resolves, delegates and serialises. Nothing else."""
+    import inspect
+
+    from apps.customers.api.views import CustomerMergeView
+
+    source = inspect.getsource(CustomerMergeView.post)
+    for forbidden in ("MergeRecord", "PartyIdentifier", "archived_at", "write_audit", "publish_event"):
+        assert forbidden not in source, f"merge business logic leaked into the view: {forbidden}"
+    assert "merge_parties" in source

@@ -164,3 +164,53 @@ class CustomerCustomFieldsView(WazlinkAPIView):
             values=(request.data or {}).get("values", {}),
         )
         return Response({"customer_ref": customer.public_id, "written": len(rows)})
+
+
+class CustomerMergeView(WazlinkAPIView):
+    """`POST /customers/{id}/merge` — `CA-04` / `GAP-007`.
+
+    Thin by construction: it resolves two customers in the active workspace and
+    hands them to `identity.merge_parties`. Every rule — human-only actor,
+    mandatory reason, single-workspace, already-merged, survivor/loser
+    invariants, identifier re-pointing and `CA-04` archival — lives in that
+    command, because a merge is irreversible (`PD-006`) and its guards must
+    hold for every caller, not only for this one.
+
+    The URL names the SURVIVOR and the body names the party merged into it, so
+    the request reads the way the operation does.
+    """
+
+    permission_code = "customer.merge"
+
+    def post(self, request, customer_ref: str):
+        from apps.identity.services import merge_parties
+
+        context = self.context(request)
+        data = request.data or {}
+        surviving = resolve_in_workspace(
+            Customer.objects.all(), context, public_id=customer_ref
+        )
+        losing = resolve_in_workspace(
+            Customer.objects.all(), context, public_id=data.get("losing_ref", "")
+        )
+        record = merge_parties(
+            context=context,
+            party_type="customer",
+            surviving=surviving,
+            losing=losing,
+            reason=data.get("reason", ""),
+        )
+        losing.refresh_from_db()
+        return Response(
+            {
+                "merge_ref": str(record.pk),
+                "surviving_ref": surviving.public_id,
+                "merged_ref": losing.public_id,
+                "reason": record.reason,
+                "merged_at": record.created_at,
+                # `CA-04`: archived, never deleted — visible in the response so
+                # a caller can see the loser survived as a record.
+                "merged_status": losing.status,
+            },
+            status=201,
+        )

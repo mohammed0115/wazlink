@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from django.db import transaction
+from django.utils import timezone
 
 from common.audit import write_audit
 from common.concurrency import lock_aggregate
@@ -88,6 +89,33 @@ def resolve_party(*, workspace, identifier_kind: str, identifier_value: str) -> 
 MERGEABLE_PARTY_TYPES = ("customer", "lead", "contact")
 
 
+def _archive_losing_party(losing) -> None:
+    """`CA-04` — archive the loser, never delete it.
+
+    Every mergeable party model carries `archived_at`, so that is set
+    unconditionally. `status` is set to `archived` ONLY where the model's own
+    choices declare that value: `Customer` does, `Lead`'s status vocabulary is
+    a sales stage set with no `archived` member, and writing one would put a
+    value in the column that the model says cannot be there. The model's
+    declaration decides — nothing here guesses.
+    """
+    updated = ["archived_at"]
+    losing.archived_at = timezone.now()
+    choices = dict(losing._meta.get_field("status").choices or ()) if _has_status(losing) else {}
+    if "archived" in choices:
+        losing.status = "archived"
+        updated.append("status")
+    losing.save(update_fields=updated)
+
+
+def _has_status(party) -> bool:
+    try:
+        party._meta.get_field("status")
+    except Exception:  # noqa: BLE001 - a model without the field simply has none
+        return False
+    return True
+
+
 @transaction.atomic
 def merge_parties(*, context, party_type: str, surviving, losing, reason: str) -> MergeRecord:
     """Merge two parties within ONE workspace.
@@ -138,6 +166,11 @@ def merge_parties(*, context, party_type: str, surviving, losing, reason: str) -
             identifier.delete()
         else:
             PartyIdentifier.objects.filter(pk=identifier.pk).update(party_id=surviving.pk)
+
+    # `CA-04`: the losing party is ARCHIVED, never deleted. Deleting it would
+    # break every historical reference that still legitimately points at it —
+    # and the lineage row exists precisely so those references stay readable.
+    _archive_losing_party(losing)
 
     record = MergeRecord.objects.create(
         workspace=context.workspace,
