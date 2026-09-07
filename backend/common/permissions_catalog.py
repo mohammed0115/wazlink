@@ -140,6 +140,14 @@ _M: Final[dict[str, tuple[str, str, str, str, str, str]]] = {
     "attribution.manage": (ALLOW, ALLOW, ALLOW, DENY, DENY, DENY),
     "finance.reconciliation.view": (ALLOW, ALLOW, ALLOW, DENY, DENY, DENY),
     "finance.reconciliation.resolve": (ALLOW, ALLOW, DENY, DENY, DENY, DENY),
+    # --- B13 PLATFORM namespace (B14_08 §6) ---------------------------------
+    # Platform Operator is NOT a workspace role and appears in no cell above.
+    # These two codes gate the operations surface for the workspace principals
+    # who may reach it: `replay` is Owner-allow / Admin-conditional, and the
+    # condition — never a billing/finance-owning record — is evaluated in the
+    # command, because it depends on the RECORD and not on the role alone.
+    "platform.operations.view": (ALLOW, ALLOW, DENY, DENY, DENY, DENY),
+    "platform.operations.replay": (ALLOW, CONDITIONAL, DENY, DENY, DENY, DENY),
 }
 
 PERMISSION_MATRIX: Final = _M

@@ -9,7 +9,7 @@ from typing import Any
 from common.masking import mask_email, mask_name, mask_phone
 from common.permissions_catalog import ROLE_VIEWER
 
-from ..models import Contact, Lead, LeadContact
+from ..models import Appointment, Contact, Lead, LeadContact, Task
 
 
 def primary_contact_for(lead: Lead) -> Contact | None:
@@ -138,3 +138,53 @@ __all__ = [
     "lead_queryset",
     "filter_leads",
 ]
+
+
+# --------------------------------------------------------------------------
+# Calendar (I14) — the union of tasks and appointments, one ordered stream.
+# --------------------------------------------------------------------------
+def calendar_entries(workspace, *, start=None, end=None) -> list[dict]:
+    """One ordered stream over both activity kinds.
+
+    A union rather than two lists, because "what is on my calendar" is one
+    question; answering it with two lists pushes the interleaving onto every
+    caller and guarantees they each do it slightly differently.
+    """
+    entries: list[dict] = []
+
+    tasks = Task.objects.filter(workspace=workspace)
+    if start is not None:
+        tasks = tasks.filter(due_at__gte=start)
+    if end is not None:
+        tasks = tasks.filter(due_at__lte=end)
+    for task in tasks.exclude(due_at__isnull=True):
+        entries.append(
+            {
+                "entry_id": task.public_id,
+                "kind": "task",
+                "title": task.title,
+                "occurs_at": task.due_at,
+                "status": task.status,
+            }
+        )
+
+    appointments = Appointment.objects.filter(workspace=workspace)
+    if start is not None:
+        appointments = appointments.filter(starts_at__gte=start)
+    if end is not None:
+        appointments = appointments.filter(starts_at__lte=end)
+    for appointment in appointments:
+        entries.append(
+            {
+                "entry_id": appointment.public_id,
+                "kind": "appointment",
+                "title": appointment.title,
+                "occurs_at": appointment.starts_at,
+                "status": appointment.status,
+            }
+        )
+
+    # Deterministic: the timestamp, then the public id as the tiebreak, so two
+    # entries at the same instant never swap order between requests.
+    entries.sort(key=lambda e: (e["occurs_at"], e["entry_id"]))
+    return entries

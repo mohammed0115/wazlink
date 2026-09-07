@@ -552,6 +552,23 @@ def _dispatch(*, context, run: AutomationRun, action) -> str:
         task = create_task(context=context, title=str(title)[:200])
         return task.public_id
 
+    if kind == "create_ticket":
+        # `CA-12`. Like every other branch, this calls the owning domain's
+        # ordinary command with the human's context and its own permission
+        # check — automation grants no authority it did not already have.
+        if not context.has("ticket.create"):
+            raise PermissionDeniedError("This operation is not permitted.")
+        from apps.support.services import create_ticket
+
+        ticket = create_ticket(
+            context=context,
+            subject=str(params.get("subject") or "Automated ticket")[:250],
+            body=str(params.get("body") or ""),
+            priority=str(params.get("priority") or "normal"),
+            subject_ref=str(payload.get("entity_ref") or "")[:60],
+        )
+        return ticket.public_id
+
     if kind in ("change_lead_status", "change_lead_priority", "assign_lead_owner"):
         if not context.has("lead.update"):
             raise PermissionDeniedError("This operation is not permitted.")

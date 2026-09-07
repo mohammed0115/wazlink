@@ -44,6 +44,12 @@ TRIGGER_TYPES = (
     "deal_won",
     "deal_lost",
     "conversation_received",
+    # `CA-12` (I14). A ticket's own lifecycle becomes automatable, and an SLA
+    # breach becomes a trigger — reporting one is support's job, reacting to
+    # one is the operator's rule.
+    "customer_created",
+    "ticket_created",
+    "sla_breached",
     "manual",
 )
 
@@ -66,6 +72,10 @@ ACTION_TIERS: dict[str, str] = {
     # MANDATORY, never auto_safe, not configurable per rule (T-AUTO-1).
     "send_message": TIER_APPROVAL_REQUIRED,
     "stop_execution": TIER_AUTO_SAFE,
+    # `CA-12` (I14). `auto_safe` because creating a ticket reaches no customer,
+    # spends no money and sends nothing — it schedules internal work, which is
+    # the same class of act as `create_task`.
+    "create_ticket": TIER_AUTO_SAFE,
 }
 ACTION_TYPES = tuple(ACTION_TIERS)
 

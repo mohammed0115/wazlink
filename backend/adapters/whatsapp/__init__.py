@@ -53,7 +53,16 @@ CREDENTIAL_REFS = (
     "WHATSAPP_APP_SECRET",
     "WHATSAPP_VERIFY_TOKEN",
 )
-DEFAULT_GRAPH_VERSION = "v21.0"
+# Re-verified against Meta's own Graph API changelog on 2026-09-06 (the
+# `B14_33` §5 provider re-verification this wave owes). `v21.0` — the previous
+# default — was released 2024-10-02 and EXPIRES 2027-01-21, inside the horizon
+# of a production wave, so it is not an appropriate default to ship on. `v25.0`
+# (released 2026-02-18, expires 2028-07-29) is chosen over the newest `v26.0`
+# deliberately: it carries a nearly two-year support window and has been in the
+# field long enough to be boring, which is what a default should be. The
+# environment override below is unchanged, so a deployment can still pin any
+# version Meta supports without a code change.
+DEFAULT_GRAPH_VERSION = "v25.0"
 
 # Provider status vocabulary -> WazLink's. `sent` is deliberately included so a
 # provider that reports acceptance separately from delivery still maps cleanly.

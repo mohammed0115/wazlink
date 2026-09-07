@@ -61,6 +61,12 @@ def register_party360_sections() -> None:
 
     section_registry.register(ConversationsSectionProvider())
 
+    # I14 — support. The `tickets` section flips unavailable -> present HERE
+    # and at no earlier slice (T-P360-5).
+    from apps.support.party360 import TicketsSectionProvider
+
+    section_registry.register(TicketsSectionProvider())
+
 
 def register_timeline_contributors() -> None:
     """Each contributor activates at ITS OWN slice.
@@ -156,6 +162,17 @@ def register_tasks() -> None:
     from apps.files.tasks import orphan_file_sweep_task
 
     senders["files.orphan_file_sweep"] = orphan_file_sweep_task
+
+    # I12 — platform operations.
+    from apps.platform_async.tasks import integration_health_check_task, reconciliation_sweep_task
+
+    senders["platform.reconciliation_sweep"] = reconciliation_sweep_task
+    senders["platform.integration_health_check"] = integration_health_check_task
+
+    # I14 — support.
+    from apps.support.tasks import sla_breach_sweep_task
+
+    senders["support.sla_breach_sweep"] = sla_breach_sweep_task
 
     mode = getattr(settings, "TASK_EXECUTION", "celery")
 

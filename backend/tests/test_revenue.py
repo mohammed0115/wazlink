@@ -100,26 +100,38 @@ def test_at_fw_nc_a_platform_billing_ref_is_refused_as_a_source(actor):
 
 
 def test_t_rev_4_nc_no_module_other_than_revenue_writes_revenue_events():
-    """`T-REV-4` **(NC)**, asserted structurally over every app."""
+    """`T-REV-4` **(NC)**: no module but `revenue` can WRITE the register.
+
+    Reading is not the same as writing, and the frozen contract requires the
+    reading: `B14_18` I14 says the report sections "read `revenue_events` for
+    every revenue figure", so `analytics` importing `revenue.selectors` is the
+    contract being satisfied, not violated. What must be unreachable is the
+    WRITE path — `revenue.services` and the model managers behind it.
+    """
     import ast
     import pathlib
 
     root = pathlib.Path(__file__).resolve().parent.parent / "apps"
+    write_surfaces = ("apps.revenue.services", "apps.revenue.models")
     offenders = []
     for path in root.rglob("*.py"):
         module = path.relative_to(root).parts[0]
         if module == "revenue":
             continue
         for node in ast.walk(ast.parse(path.read_text())):
-            if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("apps.revenue"):
-                offenders.append(f"{module}: {node.module}")
+            name = ""
+            if isinstance(node, ast.ImportFrom):
+                name = node.module or ""
             elif isinstance(node, ast.Import):
-                offenders += [
-                    f"{module}: {alias.name}"
-                    for alias in node.names
-                    if alias.name.startswith("apps.revenue")
-                ]
-    assert offenders == [], f"a non-revenue module imports revenue: {offenders}"
+                name = " ".join(alias.name for alias in node.names)
+            if any(surface in name for surface in write_surfaces):
+                offenders.append(f"{module}: {name}")
+    assert offenders == [], f"a non-revenue module reaches the revenue write path: {offenders}"
+
+    # And the one command that writes is exported from `revenue` alone.
+    from apps.revenue.services import record_revenue_event
+
+    assert record_revenue_event.__module__.startswith("apps.revenue")
 
 
 def test_b9_declares_no_event_consumer():

@@ -11,10 +11,12 @@ from apps.aiagent.api.views import (
     AgentSessionCreateView,
 )
 from apps.analytics.api.views import (
+    CalendarView,
     Customer360View,
     Lead360View,
     LeadTimelineView,
     RegisteredSectionsView,
+    ReportSectionView,
 )
 from apps.assignment.api.views import AssignmentRuleDetailView, AssignmentRuleListCreateView
 from apps.automation.api.views import (
@@ -123,6 +125,17 @@ from apps.pipeline.api.views import (
     DealStageView,
     PipelineListView,
 )
+from apps.platform_async.api.views import (
+    DeadLetterAbandonView,
+    DeadLetterListView,
+    DeadLetterReplayView,
+    IntegrationCheckView,
+    IntegrationDisableView,
+    IntegrationEnableView,
+    IntegrationListView,
+    ReconciliationCaseListView,
+    ReconciliationCaseResolveView,
+)
 from apps.revenue.api.views import (
     AttributionTouchpointView,
     AttributionView,
@@ -130,6 +143,13 @@ from apps.revenue.api.views import (
     RevenueEventReverseView,
     RevenueReversalListView,
     RevenueSummaryView,
+)
+from apps.support.api.views import (
+    TicketAssignView,
+    TicketDetailView,
+    TicketListCreateView,
+    TicketReopenView,
+    TicketResolveView,
 )
 from apps.tax.api.views import TaxInvoiceListView, TaxProfileView
 from apps.workspaces.api.views import (
@@ -261,6 +281,24 @@ urlpatterns = [
     path("files/<str:file_ref>/content", FileContentView.as_view()),
     path("files/<str:file_ref>/download", FileDownloadView.as_view()),
     path("files/<str:file_ref>/attachments", FileAttachmentView.as_view()),
+    # --- I12: platform operations ---
+    path("operations/dead-letters", DeadLetterListView.as_view()),
+    path("operations/dead-letters/<str:record_id>/replay", DeadLetterReplayView.as_view()),
+    path("operations/dead-letters/<str:record_id>/abandon", DeadLetterAbandonView.as_view()),
+    path("operations/reconciliation-cases", ReconciliationCaseListView.as_view()),
+    path("operations/reconciliation-cases/<str:case_id>/resolve", ReconciliationCaseResolveView.as_view()),
+    path("integrations", IntegrationListView.as_view()),
+    path("integrations/<str:provider>/check", IntegrationCheckView.as_view()),
+    path("integrations/<str:provider>/enable", IntegrationEnableView.as_view()),
+    path("integrations/<str:provider>/disable", IntegrationDisableView.as_view()),
+    # --- I14: support / SLA ---
+    path("tickets", TicketListCreateView.as_view()),
+    path("tickets/<str:ticket_ref>", TicketDetailView.as_view()),
+    path("tickets/<str:ticket_ref>/assign", TicketAssignView.as_view()),
+    path("tickets/<str:ticket_ref>/resolve", TicketResolveView.as_view()),
+    path("tickets/<str:ticket_ref>/reopen", TicketReopenView.as_view()),
+    path("activities/calendar", CalendarView.as_view()),
+    path("analytics/<str:section>", ReportSectionView.as_view()),
     # --- diagnostics ---
     path("_composition", RegisteredSectionsView.as_view()),
 ]

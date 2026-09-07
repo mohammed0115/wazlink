@@ -140,3 +140,32 @@ __all__ = [
     "RegisteredSectionsView",
     "ValidationFailed",
 ]
+
+
+class ReportSectionView(WazlinkAPIView):
+    """One report section by name.
+
+    A monetary section needs `revenue.view` CONJUNCTIVELY with
+    `analytics.view`: `analytics.view` is granted to `member` and `viewer`, and
+    a revenue figure must never ride in on it.
+    """
+
+    def get(self, request, section: str):
+        from ..selectors import MONETARY_SECTIONS, report_section
+
+        context = self.context(request, "analytics.view")
+        if section in MONETARY_SECTIONS:
+            self.context(request, "revenue.view")
+        return Response(report_section(context.workspace, section, actor=context))
+
+
+class CalendarView(WazlinkAPIView):
+    """The union of tasks and appointments, in one deterministic order."""
+
+    permission_code = "task.view"
+
+    def get(self, request):
+        from apps.crm.selectors import calendar_entries
+
+        context = self.context(request)
+        return Response({"items": calendar_entries(context.workspace)})

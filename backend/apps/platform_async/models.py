@@ -200,9 +200,28 @@ class PlatformDeadLetter(TimestampedModel):
     reason = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="dead")
     resolved_at = models.DateTimeField(null=True, blank=True)
+    # I12. `replay_eligible` is COMPUTED from the operation's own idempotency,
+    # never set by an operator: replay is not a universal admin superpower, and
+    # a non-idempotent operation with an unresolved `unknown` outcome must go
+    # through the unknown-outcome procedure first (`FI-B12-06`).
+    replay_eligible = models.BooleanField(default=False)
+    # Which domain owns the underlying intent. `billing`/`finance` records are
+    # Owner-only to replay (`FI-B9-02`).
+    owning_domain = models.CharField(max_length=40, blank=True)
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.RESTRICT,
+        related_name="dead_letters",
+        null=True,
+        blank=True,
+    )
+    replay_of = models.ForeignKey(
+        "self", on_delete=models.RESTRICT, related_name="replays", null=True, blank=True
+    )
 
     class Meta:
         db_table = "platform_dead_letters"
+        indexes = [models.Index(fields=["status", "created_at"])]
 
 
 class PlatformReconciliationCase(TimestampedModel):
@@ -212,6 +231,19 @@ class PlatformReconciliationCase(TimestampedModel):
     subject_ref = models.CharField(max_length=120, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="open")
     detail = models.JSONField(default=dict)
+    # I12 — the operator resolution trail. A case is NEVER auto-repaired
+    # (`B14_09` §4); these columns record which human closed it and why.
+    resolution_note = models.TextField(blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    owning_domain = models.CharField(max_length=40, blank=True)
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.RESTRICT,
+        related_name="reconciliation_cases",
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         db_table = "platform_reconciliation_cases"
+        indexes = [models.Index(fields=["status", "created_at"])]
