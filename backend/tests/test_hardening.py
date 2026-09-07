@@ -13,6 +13,7 @@ from __future__ import annotations
 import ast
 import json
 import pathlib
+import sys
 
 import pytest
 
@@ -370,11 +371,14 @@ def test_t_sup_adapters_introduce_no_new_dependency():
                 names = [node.module.split(".")[0]]
             third_party.update(names)
 
-    stdlib_and_local = {
-        "__future__", "hashlib", "hmac", "json", "os", "urllib", "datetime", "typing",
-        "dataclasses", "pathlib", "re", "time", "adapters", "common", "django", "secrets",
-    }
-    unexpected = third_party - stdlib_and_local - runtime
+    # The standard library is taken from the interpreter rather than from a
+    # hand-maintained list. A curated list has to be edited every time an
+    # adapter reaches for another stdlib module, and that edit looks exactly
+    # like the edit someone would make to smuggle a real dependency past this
+    # control. `sys.stdlib_module_names` cannot be widened by accident, so the
+    # only thing left in `unexpected` is a genuine third-party import.
+    local = {"__future__", "adapters", "common", "config", "apps", "django"}
+    unexpected = third_party - sys.stdlib_module_names - local - runtime
     assert unexpected == set(), f"an adapter introduced a new dependency: {unexpected}"
 
 
@@ -527,3 +531,79 @@ def test_the_vendor_shape_detector_is_not_vacuous():
         raw = f"provider call failed with {secret} at the boundary"
         assert secret in raw
         assert redact_text(raw) != raw
+
+
+# ------------------------------------------- T-CSP-BUILD-1 (ID-14)
+#
+# `B14_19` §5.10 requires the inline-style check to run against a REAL
+# production frontend build, and says `CSP_INLINE_STYLE_BUILD_CHECK` may never
+# be marked verified without that evidence. These tests cover the checker's
+# own behaviour; the bundle it inspects is produced by the `csp-build` CI job,
+# which is where the frontend toolchain lives.
+def _csp_check(*args):
+    import subprocess
+    import sys
+
+    script = pathlib.Path(__file__).resolve().parent.parent / "scripts" / "csp_inline_style_check.py"
+    return subprocess.run(
+        [sys.executable, str(script), *args], capture_output=True, text=True, check=False
+    )
+
+
+def test_t_csp_build_1_refuses_to_verify_without_a_real_bundle(tmp_path):
+    """The false green the frozen requirement forbids.
+
+    A missing or empty directory must read as UNVERIFIED, never as "no inline
+    styles found" — otherwise a pipeline that skipped the build would report a
+    clean CSP determination it never made.
+    """
+    missing = _csp_check(str(tmp_path / "never-built"))
+    assert missing.returncode == 2
+    assert "UNVERIFIED" in missing.stderr
+
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert _csp_check(str(empty)).returncode == 2
+
+
+def test_t_csp_build_1_retains_unsafe_inline_only_when_the_build_emits_it(tmp_path):
+    bundle = tmp_path / "public"
+    bundle.mkdir()
+    (bundle / "index.html").write_text('<html><body><div style="color:red">x</div></body></html>')
+    (bundle / "app.js").write_text("console.log(1);")
+
+    result = _csp_check(str(bundle), "--evidence", str(tmp_path / "evidence.json"))
+    assert result.returncode == 0
+    evidence = json.loads((tmp_path / "evidence.json").read_text())
+    assert evidence["inline_styles_present"] is True
+    assert evidence["style_src"] == "'self' 'unsafe-inline'"
+    assert evidence["check"] == "T-CSP-BUILD-1"
+
+
+def test_t_csp_build_1_drops_unsafe_inline_for_a_clean_bundle(tmp_path):
+    bundle = tmp_path / "public"
+    bundle.mkdir()
+    (bundle / "index.html").write_text('<html><body><div class="a">x</div></body></html>')
+    (bundle / "app.js").write_text("console.log(1);")
+
+    result = _csp_check(str(bundle), "--evidence", str(tmp_path / "evidence.json"))
+    assert result.returncode == 0
+    evidence = json.loads((tmp_path / "evidence.json").read_text())
+    assert evidence["inline_styles_present"] is False
+    assert evidence["style_src"] == "'self'"
+
+
+def test_t_csp_build_1_sees_runtime_style_injection(tmp_path):
+    """A scan that reads only the HTML would miss the way an SPA actually does
+    it — and CSP blocks the runtime path just the same."""
+    bundle = tmp_path / "public"
+    bundle.mkdir()
+    (bundle / "index.html").write_text("<html><body></body></html>")
+    (bundle / "app.js").write_text('var e=document.createElement("style");e.style.cssText="a";')
+
+    result = _csp_check(str(bundle), "--evidence", str(tmp_path / "evidence.json"))
+    assert result.returncode == 0
+    evidence = json.loads((tmp_path / "evidence.json").read_text())
+    assert evidence["inline_styles_present"] is True
+    kinds = {finding["kind"] for finding in evidence["findings"]}
+    assert "document.createElement('style')" in kinds

@@ -1,0 +1,199 @@
+# I15 Definition of Done: "the negative-control suite is a permanent CI gate".
+#
+# Every job here runs against the SAME infrastructure the application requires
+# — real PostgreSQL and real Redis. SQLite is never substituted: the financial
+# and concurrency invariants this suite exists to protect are enforced by
+# PostgreSQL partial unique indexes, CHECK constraints and `SELECT ... FOR
+# UPDATE`, none of which SQLite reproduces. A green run on SQLite would prove
+# nothing and would be worse than no gate, because it would look like one.
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths: ['backend/**', '.github/workflows/backend-ci.yml']
+  pull_request:
+    paths: ['backend/**', '.github/workflows/backend-ci.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: backend
+
+env:
+  ENVIRONMENT: test
+  DJANGO_SETTINGS_MODULE: config.settings.test
+  DJANGO_DEBUG: 'False'
+  # CI-only, non-production, and not a credential for anything that exists.
+  DJANGO_SECRET_KEY: ci-only-insecure-key-not-used-by-any-deployment-0123456789
+  DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+  DATABASE_URL: postgres://wazlink:wazlink_ci_pw@127.0.0.1:5432/wazlink
+  REDIS_URL: redis://127.0.0.1:6379/0
+  CELERY_BROKER_URL: redis://127.0.0.1:6379/0
+  BROWSER_TOPOLOGY: cross_site
+  FRONTEND_ORIGINS: http://localhost:5173
+  TRUSTED_PROXY_COUNT: '0'
+
+jobs:
+  quality:
+    name: Lint, types and Django checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+
+      - name: Ruff
+        run: uv run ruff check .
+
+      - name: mypy (baseline held, never widened)
+        # The repository carries exactly two long-standing findings, both in
+        # files this wave does not own. The gate is NEW errors, not zero
+        # errors — and it is enforced by counting rather than by relaxing the
+        # mypy configuration, so a suppression cannot quietly become the fix.
+        run: |
+          set -o pipefail
+          uv run mypy . 2>&1 | tee mypy.log || true
+          found=$(grep -cE '^[^ ].*: error:' mypy.log || true)
+          echo "mypy errors: ${found} (baseline 2)"
+          if [ "${found}" -gt 2 ]; then
+            echo "::error::mypy regressed: ${found} errors, baseline is 2"
+            grep -E '^[^ ].*: error:' mypy.log
+            exit 1
+          fi
+
+      - name: Django system checks
+        run: uv run python manage.py check
+
+      - name: Django deploy checks (production settings)
+        env:
+          ENVIRONMENT: production
+          DJANGO_SETTINGS_MODULE: config.settings.production
+          BROWSER_TOPOLOGY: same_origin
+          FRONTEND_ORIGINS: https://app.example.test
+          TRUSTED_PROXY_COUNT: '1'
+          DJANGO_ALLOWED_HOSTS: app.example.test
+        run: uv run python manage.py check --deploy --fail-level WARNING
+
+      - name: Migration drift
+        run: uv run python manage.py makemigrations --check --dry-run
+
+  tests:
+    name: Full suite and negative-control gate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: wazlink
+          POSTGRES_PASSWORD: wazlink_ci_pw
+          POSTGRES_DB: wazlink
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U wazlink"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:8-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+
+      - name: Assert the test database is PostgreSQL
+        # The one thing that must never silently degrade. If this suite ever
+        # runs on SQLite the financial gates stop testing what they claim to.
+        run: |
+          uv run python - <<'PY'
+          import os, django
+          os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.test")
+          django.setup()
+          from django.conf import settings
+          engine = settings.DATABASES["default"]["ENGINE"]
+          assert "postgresql" in engine, f"refusing to run the gates on {engine}"
+          print("database engine:", engine)
+          PY
+
+      - name: Negative-control suite (permanent gate)
+        # I15's DoD names this explicitly. It runs FIRST and separately so a
+        # failure here is unmistakable, and the collection count is asserted:
+        # a gate that silently selects zero tests is not a gate.
+        run: |
+          set -o pipefail
+          uv run pytest -m "security or nc" -q --no-header | tee nc.log
+          collected=$(uv run pytest -m "security or nc" -q --no-header --collect-only 2>/dev/null | grep -cE '::test_' || true)
+          echo "negative-control tests collected: ${collected}"
+          if [ "${collected}" -lt 100 ]; then
+            echo "::error::negative-control suite collected ${collected} tests; it must not shrink"
+            exit 1
+          fi
+
+      - name: Full backend suite
+        run: uv run pytest -q --no-header
+
+  csp-build:
+    name: T-CSP-BUILD-1 — CSP inline-style build check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: .
+
+      - name: Build the production bundle
+        run: pnpm exec vite build
+        working-directory: .
+        env:
+          VITE_APP_ENV: production
+          VITE_API_BASE_URL: ''
+
+      - name: Inspect the emitted bundle for inline styles (ID-14)
+        working-directory: .
+        run: python3 backend/scripts/csp_inline_style_check.py dist/public
+
+      - name: Publish the build evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: csp-inline-style-evidence
+          path: dist/csp-inline-style-evidence.json
+          if-no-files-found: warn
