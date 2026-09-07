@@ -8,3 +8,5 @@ dist/
 # Local toolchain scratch (containerised node, audit snapshots, pnpm store).
 .devtools/
 .pnpm-store/
+__pycache__/
+*.pyc
