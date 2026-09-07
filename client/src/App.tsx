@@ -27,7 +27,6 @@ import { Checkout } from "./features/settings/Checkout";
 const Landing = lazy(() => import("./features/landing/Landing").then(({ Landing: Component }) => ({ default: Component })));
 const Login = lazy(() => import("./features/auth/Login").then(({ Login: Component }) => ({ default: Component })));
 const Onboarding = lazy(() => import("./features/auth/Onboarding").then(({ Onboarding: Component }) => ({ default: Component })));
-const Dashboard = lazy(() => import("./features/dashboard/Dashboard").then(({ Dashboard: Component }) => ({ default: Component })));
 // --- Live CRM (real API + PostgreSQL). These replace the mock CRM screens. ---
 const CrmDashboardPage = lazy(() => import("./features/crm/CrmDashboardPage").then(({ CrmDashboardPage: Component }) => ({ default: Component })));
 const LeadsPage = lazy(() => import("./features/crm/LeadsPage").then(({ LeadsPage: Component }) => ({ default: Component })));
@@ -61,7 +60,6 @@ const productPlaceholders = new Set(["contacts", "companies", "calls"]);
 
 function Page({ path, query }: { path: string; query: URLSearchParams }) {
   if (path === "dashboard") return <RequireAuth><CrmDashboardPage /></RequireAuth>;
-  if (path === "dashboard/demo") return <Dashboard />;
   if (path === "ui-kit") return <UiKit />;
 
   // S3 — الاكتشاف، مع aliases التاريخية من ROUTES.md
