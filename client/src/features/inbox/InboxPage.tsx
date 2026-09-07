@@ -22,6 +22,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   agentApi,
+  authApi,
   conversationsApi,
   isApiError,
   messagesApi,
@@ -243,6 +244,14 @@ export function InboxPage({ conversationId }: { conversationId?: string }) {
   const takeover = useApiAction((version: number) =>
     conversationsApi.startTakeover(activeRef, version),
   );
+  // Ownership is a server-side change with its own audit trail. The UI sends
+  // the intent and re-reads the result; it never mutates an owner locally.
+  const assign = useApiAction((membershipRef: string, version: number) =>
+    conversationsApi.assign(activeRef, membershipRef, version),
+  );
+  const members = useApiResource((signal) => authApi.members(signal), [], {
+    enabled: can("member.view"),
+  });
   const releaseTakeover = useApiAction((version: number) =>
     conversationsApi.endTakeover(activeRef, version),
   );
@@ -335,6 +344,28 @@ export function InboxPage({ conversationId }: { conversationId?: string }) {
                       {Object.entries(MODE_LABELS).map(([key, label]) => (
                         <option value={key} key={key}>
                           {label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
+                  {can("member.view") ? (
+                    <select
+                      aria-label="إسناد المحادثة"
+                      value={conversation.assigned_to_ref || ""}
+                      disabled={assign.pending}
+                      onChange={async (event) => {
+                        if (!event.target.value) return;
+                        const result = await assign.run(event.target.value, conversation.version);
+                        if (!result) return;
+                        toast("أُسندت المحادثة.", "success");
+                        detail.reload();
+                        list.reload();
+                      }}
+                    >
+                      <option value="">غير مسندة</option>
+                      {(members.data?.items ?? []).map((member) => (
+                        <option value={member.membership_ref} key={member.membership_ref}>
+                          {member.email || member.membership_ref}
                         </option>
                       ))}
                     </select>
