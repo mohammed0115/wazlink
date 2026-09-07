@@ -25,7 +25,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from common.audit import write_audit
-from common.errors import DomainConflict, EntityNotFound, ValidationFailed
+from common.errors import DomainConflict, DuplicateRecognition, EntityNotFound, ValidationFailed
 from common.outbox import publish_event
 
 from ..models import (
@@ -137,29 +137,46 @@ def record_revenue_event(
         return existing  # replay returns the original, never a second row
 
     try:
-        event = RevenueEvent.objects.create(
-            workspace=context.workspace,
-            source_type=source_type,
-            source_entity_type=entity_type,
-            source_public_id=public_id,
-            gross_amount=gross_amount,
-            net_amount=net_amount,
-            currency=code,
-            recognized_at=when,
-            status=STATUS_RECOGNIZED,
-            recognized_by_membership=membership,
-            idempotency_key=key,
-            note=note or "",
-        )
+        # The INSERT gets its OWN SAVEPOINT. A constraint violation inside the
+        # enclosing transaction would otherwise poison it, and the recovery
+        # query below — the whole point of catching this — could not run: the
+        # connection would raise `TransactionManagementError` instead, turning
+        # the frozen `409 DUPLICATE_RECOGNITION` into a 500. The savepoint
+        # rolls back only the failed INSERT, leaving the transaction usable for
+        # deterministic conflict classification (`B9-AF-002`/`B9-AF-003`).
+        with transaction.atomic():
+            event = RevenueEvent.objects.create(
+                workspace=context.workspace,
+                source_type=source_type,
+                source_entity_type=entity_type,
+                source_public_id=public_id,
+                gross_amount=gross_amount,
+                net_amount=net_amount,
+                currency=code,
+                recognized_at=when,
+                status=STATUS_RECOGNIZED,
+                recognized_by_membership=membership,
+                idempotency_key=key,
+                note=note or "",
+            )
     except IntegrityError:
         # Either the idempotency key or the source guard fired. Both mean the
         # recognition already exists; a duplicate is never created.
+        #
+        # The KEY guard resolves to a replay: the caller asked for the same
+        # recognition twice and receives the original row. The SOURCE guard is
+        # a genuine conflict: a DIFFERENT key naming an already-recognized
+        # source is `B9-AF-002`, which is precisely what keeps a payment or
+        # webhook retry safe when it generates a fresh key
+        # (`B9_IDEMPOTENCY_CONCURRENCY` §3).
         duplicate = RevenueEvent.objects.filter(
             workspace=context.workspace, idempotency_key=key
         ).first()
         if duplicate is not None:
             return duplicate
-        raise DomainConflict("This source already has recognized revenue.") from None
+        raise DuplicateRecognition(
+            "Revenue for this source has already been recognized."
+        ) from None
 
     _resolve_attribution(event=event)
 

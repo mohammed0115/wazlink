@@ -29,7 +29,7 @@ from apps.revenue.models import (
     RevenueReversal,
 )
 from apps.revenue.services import record_revenue_event, record_touchpoint, reverse_revenue_event
-from common.errors import ValidationFailed
+from common.errors import DuplicateRecognition, ValidationFailed
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -173,13 +173,110 @@ def test_recognition_writes_exactly_one_event_and_one_outbox_row(actor):
     assert OutboxEvent.objects.filter(event_type="RevenueRecognized").count() == 1
 
 
-def test_the_same_source_cannot_be_recognized_twice(actor):
-    """The duplicate-recognition guard, released only by FULL reversal."""
+def test_at_idem_3_the_same_source_cannot_be_recognized_twice(actor):
+    """`AT-IDEM-3` (NC) — a FRESH key against a live source is `B9-AF-002`.
+
+    Asserted as the EXACT frozen failure, not as "something was raised". A bare
+    `pytest.raises(Exception)` passed equally for the contracted conflict and
+    for a `TransactionManagementError` 500 caused by a missing savepoint — it
+    could not tell the contract from the bug it was supposed to catch.
+    """
     a = actor()
     _recognize(a.context, source="DEAL-ONCE000001")
-    with pytest.raises(Exception):  # noqa: B017 - DomainConflict or IntegrityError
+    with pytest.raises(DuplicateRecognition) as exc:
         _recognize(a.context, source="DEAL-ONCE000001", idempotency_key="different-key")
+    assert exc.value.error_code == "DUPLICATE_RECOGNITION"
+    assert exc.value.status_code == 409
     assert RevenueEvent.objects.filter(workspace=a.workspace).count() == 1
+
+
+def test_at_idem_3_duplicate_recognition_is_409_over_http(actor, auth_client):
+    """The same guard at the transport boundary: `409`, never `500`.
+
+    `POST /revenue/events` forwards a CLIENT-supplied `idempotency_key`, so a
+    retry that mints a fresh key reaches the source guard directly. Frozen
+    `B9_IDEMPOTENCY_CONCURRENCY` §3 calls this "what makes payment/webhook
+    replay safe even when the retry generates a fresh key".
+    """
+    a = actor()
+    client = auth_client(a)
+    body = {
+        "source_type": "deal",
+        "source_ref": {"entity_type": "deal", "public_id": "DEAL-HTTP409001"},
+        "gross": {"amount": "1000.0000", "currency": "SAR"},
+        "net": {"amount": "900.0000", "currency": "SAR"},
+    }
+    first = client.post("/api/v1/revenue/events", {**body, "idempotency_key": "k-1"}, format="json")
+    assert first.status_code == 201
+
+    second = client.post("/api/v1/revenue/events", {**body, "idempotency_key": "k-2"}, format="json")
+    assert second.status_code == 409
+    assert second.data["error"]["code"] == "DUPLICATE_RECOGNITION"
+    assert RevenueEvent.objects.filter(workspace=a.workspace).count() == 1
+
+
+def test_at_conc_1_concurrent_recognitions_of_one_source(actor):
+    """`AT-CONC-1` — eight workers, distinct keys, one source.
+
+    Frozen `B9_IDEMPOTENCY_CONCURRENCY` §5: *"exactly one succeeds; the other
+    gets `B9-AF-002`/`B9-AF-003`"*. The loser must receive the CONTRACTED
+    conflict — an internal error is not a conflict, and a caller cannot tell
+    from a 500 whether its money was recognized.
+    """
+    a = actor()
+    outcomes: list[str] = []
+    lock = threading.Lock()
+
+    def worker(index: int) -> None:
+        try:
+            _recognize(a.context, source="DEAL-RACE000001", idempotency_key=f"race-{index}")
+            result = "ok"
+        except DuplicateRecognition:
+            result = "conflict"
+        except Exception as exc:  # noqa: BLE001 - the point is to SEE anything else
+            result = f"unexpected:{type(exc).__name__}"
+        finally:
+            connections.close_all()
+        with lock:
+            outcomes.append(result)
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert outcomes.count("ok") == 1
+    assert outcomes.count("conflict") == 7
+    assert [o for o in outcomes if o.startswith("unexpected")] == []
+    assert (
+        RevenueEvent.objects.filter(
+            workspace=a.workspace, source_public_id="DEAL-RACE000001"
+        ).count()
+        == 1
+    )
+
+
+def test_nc_recognition_recovery_runs_inside_a_usable_transaction(actor):
+    """Negative control for the pre-fix defect.
+
+    The INSERT must sit on its OWN savepoint. Without one, PostgreSQL aborts
+    the enclosing transaction on the constraint violation and the recovery
+    query in the `except` block raises `TransactionManagementError` instead of
+    classifying the conflict. This asserts the recovery path actually RAN —
+    which is only possible if the transaction survived the violation.
+    """
+    from django.db import transaction as djtx
+
+    a = actor()
+    _recognize(a.context, source="DEAL-SAVEPOINT01")
+    with pytest.raises(DuplicateRecognition):
+        _recognize(a.context, source="DEAL-SAVEPOINT01", idempotency_key="fresh")
+    # The connection is still usable afterwards: a poisoned transaction would
+    # refuse this query outright.
+    assert RevenueEvent.objects.filter(workspace=a.workspace).count() == 1
+    with djtx.atomic():
+        assert RevenueEvent.objects.filter(workspace=a.workspace).exists()
 
 
 def test_recognition_replays_idempotently(actor):

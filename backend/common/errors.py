@@ -125,6 +125,22 @@ class DomainConflict(WazlinkError):
     error_code = "CONFLICT"
 
 
+class DuplicateRecognition(DomainConflict):
+    """`B9-AF-002` — a live RevenueEvent already exists for this source.
+
+    A distinct code rather than the generic `CONFLICT`, because frozen
+    `B9_FAILURE_CATALOG` §"Why a dedicated code" says so in terms: *"Generic
+    `CONFLICT` would not tell a caller that revenue for this source already
+    exists — the single most important thing to know before retrying."*
+
+    It subclasses `DomainConflict` so every existing handler that already
+    treats a domain conflict correctly keeps working unchanged.
+    """
+
+    status_code = status.HTTP_409_CONFLICT
+    error_code = "DUPLICATE_RECOGNITION"
+
+
 def build_envelope(
     code: str, message: str, details: dict[str, Any] | None = None, request_id: str = ""
 ) -> dict[str, Any]:
