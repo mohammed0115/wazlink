@@ -12,7 +12,7 @@ import { useAuth } from "../../shared/context/AuthProvider";
 import { go } from "../../shared/router/useHashRoute";
 import { PageHead } from "../../shared/components/PageHead";
 import { ApiErrorState, ApiLoadingState } from "../../shared/components/ApiStates";
-import { fmtNumber, formatIso } from "./components/primitives";
+import { LeadStatusBadge, fmtNumber, formatIso } from "./components/primitives";
 
 const PAGE = 100;
 
@@ -179,7 +179,9 @@ export function CrmDashboardPage() {
                         {lead.display_name || lead.lead_ref}
                       </button>
                     </td>
-                    <td>{lead.status}</td>
+                    <td>
+                      <LeadStatusBadge status={lead.status} />
+                    </td>
                     <td>
                       <small>{formatIso(lead.last_activity_at)}</small>
                     </td>
