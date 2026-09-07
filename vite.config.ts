@@ -228,6 +228,17 @@ export default defineConfig({
     port: 3000,
     strictPort: false, // Will find next available port if 3000 is busy
     host: true,
+    // The frozen production topology is BROWSER_TOPOLOGY=same_origin, which
+    // means no CORS and a SameSite=Lax session cookie. Proxying /api in dev
+    // keeps the browser on one origin, so development exercises the same
+    // cookie and origin rules production does instead of a CORS-only path
+    // that would never be enabled in staging or production.
+    proxy: {
+      "/api": {
+        target: process.env.WAZLINK_API_ORIGIN || "http://127.0.0.1:8000",
+        changeOrigin: false,
+      },
+    },
     allowedHosts: [
       ".manuspre.computer",
       ".manus.computer",

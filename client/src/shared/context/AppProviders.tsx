@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, useState, type PropsWithChildren } from "react";
 import { sessionService, themeService, workspaceService } from "@services";
+import { AuthProvider, useAuth } from "./AuthProvider";
 
 export interface WorkspaceSummary {
   companyName: string;
@@ -40,10 +41,14 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function WorkspaceProvider({ children }: PropsWithChildren) {
   const [workspace, setWorkspace] = useState<WorkspaceSummary>(() => workspaceService.getCurrent());
+  // The shell shows the REAL workspace name once a session resolves. The rest
+  // of this summary stays a presentation-only projection: nothing here is a
+  // security decision, and the server never reads it back.
+  const { activeWorkspace } = useAuth();
   const value = useMemo<WorkspaceContextValue>(() => ({
-    workspace,
+    workspace: activeWorkspace ? { ...workspace, companyName: activeWorkspace.name } : workspace,
     updateWorkspace: (patch) => setWorkspace((current) => workspaceService.update({ ...current, ...patch })),
-  }), [workspace]);
+  }), [workspace, activeWorkspace]);
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
 
@@ -73,7 +78,17 @@ export function ThemeProvider({ children }: PropsWithChildren) {
 }
 
 export function AppProviders({ children }: PropsWithChildren) {
-  return <SessionProvider><WorkspaceProvider><ThemeProvider>{children}</ThemeProvider></WorkspaceProvider></SessionProvider>;
+  // AuthProvider is outermost: the real session decides what the shell may
+  // show, and the legacy demo session below it is presentation only.
+  return (
+    <AuthProvider>
+      <SessionProvider>
+        <WorkspaceProvider>
+          <ThemeProvider>{children}</ThemeProvider>
+        </WorkspaceProvider>
+      </SessionProvider>
+    </AuthProvider>
+  );
 }
 
 export function useWorkspace() {

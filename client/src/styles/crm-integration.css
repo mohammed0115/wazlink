@@ -1,0 +1,90 @@
+/* CRM integration surface: the states and controls the live API added.
+   It reuses the existing tokens and card language rather than introducing a
+   second visual system — the only new shapes are the ones the mock never had
+   (a real failure state, a permission notice, a server-backed form). */
+
+.crm-state-card{display:grid;gap:10px;padding:22px;align-content:start}
+.crm-state-card h2{margin:0;font-size:16px;line-height:1.7}
+.crm-state-card p{margin:0;color:var(--text-secondary);font-size:12px;line-height:1.7}
+.crm-state-card code{font-family:var(--font-mono);font-size:11px}
+.crm-state-actions{display:flex;gap:8px;flex-wrap:wrap;margin-block-start:4px}
+
+.form-error{margin:0;padding:10px 12px;border-radius:var(--radius-sm);
+  background:var(--danger-pale,color-mix(in srgb,var(--danger) 12%,transparent));
+  border-inline-start:3px solid var(--danger);font-size:12px;line-height:1.7}
+.form-error b{display:block;margin-block-end:2px}
+.form-error[data-failure-kind="conflict"],
+.form-error[data-failure-kind="permission"],
+.form-error[data-failure-kind="entitlement"]{
+  background:var(--warning-pale);border-inline-start-color:var(--warning)}
+
+/* The manual-create panel: the Discovery-free entry point into CRM. */
+.crm-create-panel{display:grid;gap:12px;padding:16px}
+.crm-create-panel .form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.crm-create-panel .form-field{display:grid;gap:5px}
+.crm-create-panel label{font-size:11px;color:var(--text-secondary)}
+.crm-create-panel input,.crm-create-panel select,.crm-create-panel textarea{
+  border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px;
+  font:inherit;background:var(--surface);color:var(--text-primary);min-width:0}
+.crm-create-panel .crm-create-actions{display:flex;gap:8px;align-items:center}
+.crm-create-hint{margin:0;color:var(--text-secondary);font-size:11px;line-height:1.7}
+
+/* Origin chip — says where a party came from without implying Discovery. */
+.origin-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;
+  border:1px solid var(--border);background:var(--surface-elevated);font-size:10px;
+  color:var(--text-secondary)}
+.origin-chip.manual{border-color:color-mix(in srgb,var(--brand) 45%,var(--border));
+  background:var(--brand-pale);color:var(--brand-deep)}
+
+/* Pagination footer for cursor-paged collections. */
+.crm-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:11px 14px;border-block-start:1px solid var(--border);font-size:12px}
+
+/* Party 360 — reused by Lead 360 and Customer 360. */
+.party-360-grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,.9fr);gap:16px;margin-block-start:16px}
+.party-column{display:grid;align-content:start;gap:16px}
+.party-section{padding:0}
+.party-section>header{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:14px 16px;border-block-end:1px solid var(--border)}
+.party-section>header h3{margin:0;font-size:13px}
+.party-section .party-body{padding:14px 16px;display:grid;gap:10px}
+.party-empty{color:var(--text-secondary);font-size:12px;margin:0}
+
+/* A section the actor may not read is ABSENT, never faked as empty. */
+.party-restricted{display:flex;align-items:center;gap:8px;padding:12px 16px;
+  color:var(--text-secondary);font-size:12px;background:var(--surface-elevated);
+  border-radius:var(--radius-sm)}
+
+.party-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-block-end:1px solid var(--border)}
+.party-row:last-child{border-block-end:0}
+.party-row .grow{flex:1;display:grid;gap:3px;min-width:0}
+.party-row small{color:var(--text-secondary)}
+.party-row .ltr{direction:ltr;text-align:start;unicode-bidi:isolate}
+
+/* The human-send firewall, made visible. */
+.ai-draft-panel{display:grid;gap:10px;padding:12px;border-radius:var(--radius-sm);
+  border:1px dashed color-mix(in srgb,var(--brand) 55%,var(--border));background:var(--brand-pale)}
+.ai-draft-panel .ai-draft-label{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--brand-deep)}
+.ai-draft-panel textarea{min-height:88px;border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:9px;font:inherit;background:var(--surface);resize:vertical}
+.ai-send-notice{margin:0;font-size:11px;color:var(--text-secondary);line-height:1.7}
+.ai-send-notice b{color:var(--text-primary)}
+
+/* Won != recognized revenue. Stated in the UI, next to the action. */
+.revenue-boundary-note{margin:0;padding:9px 11px;border-radius:var(--radius-sm);
+  background:var(--surface-elevated);border-inline-start:3px solid var(--border);
+  font-size:11px;color:var(--text-secondary);line-height:1.7}
+
+.import-steps{display:grid;gap:12px;padding:16px}
+.import-steps ol{margin:0;padding-inline-start:18px;display:grid;gap:6px;font-size:12px;color:var(--text-secondary)}
+.import-outcomes{display:flex;gap:8px;flex-wrap:wrap}
+.import-outcomes span{padding:4px 9px;border-radius:999px;border:1px solid var(--border);font-size:11px}
+
+@media (max-width:1100px){
+  .party-360-grid{grid-template-columns:1fr}
+  .crm-create-panel .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:680px){
+  .crm-create-panel .form-grid{grid-template-columns:1fr}
+  .crm-pager{flex-direction:column;align-items:stretch;gap:8px}
+}

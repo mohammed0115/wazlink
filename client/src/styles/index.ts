@@ -30,4 +30,5 @@ import "./scraper-reference.css";
 import "./payment-checkout.css";
 import "./sidebar-semantic-icons.css";
 import "./wazlink-experience.css";
+import "./crm-integration.css";
 import "./responsive.css";

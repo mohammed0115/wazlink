@@ -1,25 +1,38 @@
 /**
- * تسجيل الدخول — دخول تجريبي محلي فقط.
- * لا مصادقة ولا حساب ولا جلسة دائمة؛ التحقق داخل الصفحة وفق قاعدة S1:
- * رسالة الخطأ مرتبطة بالحقل ولا تُستخدم تنبيهات المتصفح.
+ * Sign in — real Django session authentication.
+ *
+ * The credential goes to `POST /api/v1/auth/login`, which sets an HttpOnly
+ * `wazlink_session` cookie. The browser never sees the token, this component
+ * stores nothing, and "am I signed in?" is answered afterwards by asking the
+ * server. That is what makes a page refresh restore the true session rather
+ * than a remembered flag.
+ *
+ * Authorization is never decided here. A wrong password, a locked account, an
+ * unverified email and a rate limit all come back as the frozen error envelope
+ * and are rendered as-is.
  */
 import { useState, type FormEvent } from "react";
 import { go } from "../../shared/router/useHashRoute";
-import { useSession } from "../../shared/context/AppProviders";
+import { useAuth } from "../../shared/context/AuthProvider";
+import { useApiAction } from "../../api/hooks";
+import { FormError } from "../../shared/components/ApiStates";
 import { useToast } from "../../shared/store/toast";
 import { Brand } from "../../shared/shell/Brand";
 
 export function Login() {
   const toast = useToast();
-  const { onboardingDone, signInMock } = useSession();
+  const { login } = useAuth();
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const submit = useApiAction((email: string, password: string) => login(email, password));
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const email = String(data.get("email") || "").trim();
-    const password = String(data.get("password") || "").trim();
+    const password = String(data.get("password") || "");
 
+    // Shape checks only. Whether the credential is VALID is the server's call.
     const nextErrors: Record<string, string> = {};
     if (!email) nextErrors.email = "أدخل البريد الإلكتروني.";
     else if (!/^\S+@\S+\.\S+$/.test(email)) nextErrors.email = "أدخل بريدًا إلكترونيًا صحيحًا.";
@@ -28,9 +41,10 @@ export function Login() {
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
 
-    signInMock();
-    toast("تم التحقق محليًا من بيانات الدخول التجريبية.", "success");
-    go(onboardingDone ? "dashboard" : "onboarding");
+    const result = await submit.run(email, password);
+    if (result === null) return;
+    toast("تم تسجيل الدخول.", "success");
+    go("dashboard");
   }
 
   return (
@@ -38,9 +52,9 @@ export function Login() {
       <section className="auth-panel">
         <form className="auth-form" noValidate onSubmit={handleSubmit}>
           <Brand />
-          <p className="eyebrow">دخول تجريبي</p>
+          <p className="eyebrow">تسجيل الدخول</p>
           <h1>مرحبًا بعودتك</h1>
-          <p>ادخل إلى مساحة العمل لمتابعة العملاء والصفقات. لا توجد مصادقة أو حسابات حقيقية في هذا النموذج.</p>
+          <p>ادخل إلى مساحة العمل لمتابعة العملاء والصفقات.</p>
 
           <div className="form-grid">
             <div className={`form-field wide ${errors.email ? "has-error" : ""}`}>
@@ -50,6 +64,7 @@ export function Login() {
                 name="email"
                 className="ltr"
                 type="email"
+                autoComplete="username"
                 aria-invalid={Boolean(errors.email)}
                 aria-describedby="loginEmailError"
                 placeholder="name@company.sa"
@@ -65,6 +80,7 @@ export function Login() {
                 name="password"
                 className="ltr"
                 type="password"
+                autoComplete="current-password"
                 aria-invalid={Boolean(errors.password)}
                 aria-describedby="loginPasswordError"
                 placeholder="••••••••"
@@ -75,29 +91,11 @@ export function Login() {
             </div>
           </div>
 
-          <div className="auth-row">
-            <label className="check">
-              <input name="remember" type="checkbox" /> تذكرني في هذه الجلسة
-            </label>
-            <button
-              className="button ghost"
-              type="button"
-              onClick={() => toast("النموذج تجريبي محلي؛ لا توجد استعادة كلمة مرور حقيقية.", "info")}
-            >
-              نسيت كلمة المرور؟
-            </button>
-          </div>
+          <FormError error={submit.error} />
 
-          <button className="button primary auth-submit" type="submit">
-            تسجيل الدخول
+          <button className="button primary auth-submit" type="submit" disabled={submit.pending}>
+            {submit.pending ? "جارٍ التحقق…" : "تسجيل الدخول"}
           </button>
-
-          <p className="auth-helper">
-            ليس لديك إعداد تجريبي؟{" "}
-            <button className="button ghost inline-button" type="button" onClick={() => go("onboarding")}>
-              ابدأ الإعداد الآن
-            </button>
-          </p>
         </form>
       </section>
 
@@ -105,19 +103,19 @@ export function Login() {
         <div className="auth-story">
           <p className="eyebrow">منصة مبيعات ذكية</p>
           <h2>اكتشاف أذكى. متابعة أوضح. إيراد قابل للقياس.</h2>
-          <p>لا تبدأ من جدول معزول؛ ابدأ من فهم الشركة، ثم أبنِ سياق البيع حولها.</p>
+          <p>لا تبدأ من جدول معزول؛ ابدأ من فهم العميل، ثم أبنِ سياق البيع حوله.</p>
           <ul>
             <li>
               <i />
-              اكتشاف وإثراء العملاء المحتملين
+              إدارة عملاء كاملة دون الحاجة إلى الاكتشاف
             </li>
             <li>
               <i />
-              مساعد مبيعات ذكي داخل المحادثة
+              مساعد مبيعات يقترح ولا يرسل نيابة عنك
             </li>
             <li>
               <i />
-              نسبة الإيراد إلى مصدر الاكتشاف
+              سجل زمني موحد مبني في الخادم
             </li>
           </ul>
         </div>
