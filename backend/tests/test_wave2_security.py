@@ -271,6 +271,46 @@ def test_every_wave_2_provider_reports_not_configured_rather_than_crashing(monke
         assert all(ref.isupper() for ref in status.credential_refs)
 
 
+# The provider detail that must never reach a tenant. Every entry is a
+# DISTINCTIVE token: a bare status number like "403" is not, because a
+# timestamp's microseconds ("…244030Z") contains it about 4% of the time,
+# which made this assertion fail at random without any leak existing. The
+# invariant is unchanged and the substitute for the digits is stronger — the
+# structured assertions below check the response SHAPE, so a leak has nowhere
+# to hide rather than merely no digits to match.
+# The frozen `DiscoveryJob` DTO (`apps/discovery/api/views.job_payload`).
+ALLOWED_JOB_FIELDS = {
+    "job_ref",
+    "status",
+    "source",
+    "progress",
+    "attempt_no",
+    "result_limit",
+    "found_count",
+    "duplicate_count",
+    "deduplicated_count",
+    "failed_query_count",
+    "completion_kind",
+    "failure_code",
+    "failure_message",
+    "queries",
+    "started_at",
+    "completed_at",
+    "created_at",
+    "version",
+}
+
+PROVIDER_LEAK_TOKENS = (
+    "Traceback",
+    "urllib",
+    "HTTPError",
+    "provider.example",
+    "SENTINEL",
+    "https://",
+    "?key=",
+)
+
+
 def test_a_provider_failure_never_reaches_a_tenant_as_a_stack_trace(owner, auth_client):
     """§41. Provider failures map onto the frozen error envelope."""
     from apps.discovery.services import create_discovery_job, run_discovery_job
@@ -290,6 +330,30 @@ def test_a_provider_failure_never_reaches_a_tenant_as_a_stack_trace(owner, auth_
     finally:
         stub.search = original
 
-    body = auth_client(owner).get(f"/api/v1/discovery/jobs/{job.public_id}").content.decode()
-    for leak in ("Traceback", "urllib", "provider.example", "SENTINEL", "403"):
+    response = auth_client(owner).get(f"/api/v1/discovery/jobs/{job.public_id}")
+    body = response.content.decode()
+    payload = response.json()
+
+    # 1. No provider internals anywhere in the response.
+    for leak in PROVIDER_LEAK_TOKENS:
         assert leak not in body, f"provider detail leaked: {leak}"
+
+    # 2. Structural: the failure is reported from the CLOSED safe vocabulary,
+    #    never from the provider's own text (`B3-INV-3`). This is what the
+    #    "403" digit search was reaching for, stated directly.
+    from apps.discovery.services import _SAFE_FAILURE_MESSAGES
+
+    assert payload["failure_code"] in _SAFE_FAILURE_MESSAGES, (
+        f"failure_code is outside the closed vocabulary: {payload['failure_code']!r}"
+    )
+    assert payload["failure_message"] in _SAFE_FAILURE_MESSAGES.values(), (
+        f"failure_message is not a translated safe message: {payload['failure_message']!r}"
+    )
+
+    # 3. The response is the frozen DTO and nothing more: a field the contract
+    #    does not name is exactly where provider detail would smuggle itself
+    #    out, so an unexpected key fails even if its value looks innocuous.
+    assert set(payload) == ALLOWED_JOB_FIELDS, (
+        f"job DTO drifted: unexpected={set(payload) - ALLOWED_JOB_FIELDS} "
+        f"missing={ALLOWED_JOB_FIELDS - set(payload)}"
+    )
