@@ -134,9 +134,12 @@ def test_no_automation_path_writes_a_revenue_row(owner):
                 imports.update(a.name for a in node.names)
 
     assert not any(name.startswith("apps.revenue") for name in imports)
-    # And the module reaches only its four frozen governed action families.
+    # And the module reaches only its GOVERNED action families. `support`
+    # joins at I14 with `CA-12`'s `create_ticket`; like every other branch it
+    # calls that domain's ordinary command with the human's context and its own
+    # permission check, so the list grows by contract, never by convenience.
     app_edges = {name.split(".")[1] for name in imports if name.startswith("apps.")}
-    assert app_edges <= {"crm", "messaging", "pipeline", "workspaces", "automation"}
+    assert app_edges <= {"crm", "messaging", "pipeline", "workspaces", "support", "automation"}
 
 
 # --------------------------------------------------------------------------
