@@ -1,0 +1,53 @@
+{
+  "check": "CB-25 restore test",
+  "controls": [
+    "CB-23",
+    "CB-25",
+    "AT-B13BAK-1",
+    "AT-B13BAK-4"
+  ],
+  "started_at": "2026-09-07T13:22:35.406125+00:00",
+  "completed_at": "2026-09-07T13:25:56.132101+00:00",
+  "mechanism": "pg_dump --format=custom | pg_restore into a fresh database",
+  "backup_created": true,
+  "restore_target_fresh": true,
+  "restore_success": true,
+  "row_loss": {},
+  "financial_mismatch": {},
+  "financial_fingerprint_match": true,
+  "tenant_partition_match": true,
+  "schema_match": true,
+  "financial_row_counts": {
+    "revenue_events": 16,
+    "revenue_reversals": 0,
+    "revenue_attributions": 0,
+    "attribution_touchpoints": 0,
+    "payments": 8,
+    "payment_attempts": 0,
+    "invoices": 8,
+    "invoice_lines": 8,
+    "refunds": 0,
+    "subscriptions": 8
+  },
+  "tenant_row_counts": {
+    "workspaces": 8,
+    "memberships": 8,
+    "users": 8,
+    "contacts": 8,
+    "leads": 8,
+    "customers": 8,
+    "deals": 8,
+    "tickets": 0,
+    "file_assets": 0,
+    "audit_logs": 0,
+    "django_migrations": 51
+  },
+  "smoke_test": {
+    "ok": true,
+    "workspaces": 8,
+    "revenue_events": 16,
+    "customers": 8,
+    "revenue_net": "16808.0000"
+  },
+  "result": "PASS"
+}
