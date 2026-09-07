@@ -206,14 +206,41 @@ def test_e2e_7_ai_draft_sends_nothing_until_a_human_presses_send(page, inbound_c
 
     outbound_before = count("messages WHERE direction = 'outbound'")
 
-    # Ask the assistant for a draft and let any async generation settle.
+    # Ask the assistant for a draft. Generation is asynchronous (202 + the
+    # providers.slow queue), so a Celery worker must be running for the draft
+    # to arrive — the same contract production runs.
     page.click("button:has-text('اقترح ردًا')")
-    page.wait_for_timeout(6000)
+    page.wait_for_selector("button:has-text('استخدام المسودة')", timeout=30000)
 
-    outbound_after = count("messages WHERE direction = 'outbound'")
-    assert outbound_after == outbound_before, (
+    # A draft now EXISTS and still nothing has been sent to the customer.
+    assert count("agent_proposals WHERE status = 'pending'") >= 1
+    assert count("messages WHERE direction = 'outbound'") == outbound_before, (
         "AI assistance produced an outbound customer message with no human send"
     )
+
+    # Accepting the draft only fills the composer. It is still not a send.
+    page.click("button:has-text('استخدام المسودة')")
+    page.wait_for_timeout(1500)
+    composer = page.input_value("textarea[aria-label='نص الرسالة']")
+    assert composer.strip(), "accepting a draft did not put its text in the composer"
+    assert count("messages WHERE direction = 'outbound'") == outbound_before, (
+        "accepting an AI draft sent a customer message"
+    )
+
+    # Only the human's click moves the count.
+    page.click("button:has-text('إرسال')")
+    page.wait_for_timeout(3000)
+    assert count("messages WHERE direction = 'outbound'") == outbound_before + 1
+
+    # ...and it is recorded as human-sent, tagged as AI-assisted.
+    assert psql(
+        "SELECT ai_assisted::text FROM messages WHERE direction = 'outbound' "
+        "ORDER BY created_at DESC LIMIT 1"
+    ) == "true"
+    assert psql(
+        "SELECT (sent_by_id IS NOT NULL)::text FROM messages WHERE direction = 'outbound' "
+        "ORDER BY created_at DESC LIMIT 1"
+    ) == "true"
 
 
 def test_e2e_8_human_send_goes_through_the_messaging_boundary(page, inbound_conversation):

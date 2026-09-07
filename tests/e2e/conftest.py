@@ -176,6 +176,15 @@ message = ingest_inbound(
         profile_name="عميل واتساب",
     ),
 )
+
+# Drafting is gated on `ai_assisted` — the mode that authorises the assistant
+# to WRITE and nothing else. Set it through the domain command so the test
+# starts from the state the AI-assistance scenarios are actually about.
+conversation = message.conversation
+if conversation.handling_mode != "ai_assisted":
+    conversation.handling_mode = "ai_assisted"
+    conversation.takeover_by = None
+    conversation.save(update_fields=["handling_mode", "takeover_by", "updated_at"])
 print(json.dumps({{
     "phone": "{phone}",
     "conversation_ref": message.conversation.public_id if message else "",

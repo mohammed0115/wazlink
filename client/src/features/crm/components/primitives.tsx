@@ -8,12 +8,14 @@
 import type { ReactNode } from "react";
 import type { ContactPayload, LeadListItem, LeadPriority, LeadStatus } from "../../../api";
 
+/** `apps/crm/models.LEAD_STATUSES`, in order. Keep this set exact: the status
+ *  select posts these values straight to the API. */
 export const leadStatusLabels: Record<string, string> = {
   new: "جديد",
   contacted: "تم التواصل",
   qualified: "مؤهل",
   unqualified: "غير مؤهل",
-  converted: "محوّل",
+  nurturing: "قيد الرعاية",
 };
 
 export const leadPriorityLabels: Record<string, string> = {
@@ -40,7 +42,7 @@ const STATUS_TONE: Record<string, string> = {
   contacted: "neutral",
   qualified: "success",
   unqualified: "danger",
-  converted: "success",
+  nurturing: "warning",
 };
 
 export function LeadStatusBadge({ status }: { status: LeadStatus | string }) {

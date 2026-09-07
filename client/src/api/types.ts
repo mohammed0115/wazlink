@@ -8,7 +8,9 @@
  * is that drift becomes a TypeScript error.
  */
 
-export type LeadStatus = "new" | "contacted" | "qualified" | "unqualified" | "converted";
+/** `apps/crm/models.LEAD_STATUSES`. There is no "converted" status: a
+ *  converted lead is identified by `converted_at`, not by a status value. */
+export type LeadStatus = "new" | "contacted" | "qualified" | "unqualified" | "nurturing";
 export type LeadPriority = "low" | "medium" | "high";
 export type LeadOrigin = "manual" | "import" | "api" | "form" | "discovery";
 export type PartyKind = "organization" | "person";
@@ -114,7 +116,15 @@ export interface PipelinePayload {
   stages: DealStageRef[];
 }
 
-export type HandlingMode = "ai" | "human";
+/**
+ * The conversation's handling mode (`apps/messaging/models.HANDLING_MODES`).
+ *
+ * `ai_assisted` authorises DRAFTING and nothing more — no mode in this
+ * vocabulary authorises a send, which is why the send guard never consults it.
+ * `ai_paused` is set by the system when a human takes over; it is a state to
+ * display, not a mode a user picks.
+ */
+export type HandlingMode = "ai_assisted" | "human" | "ai_paused";
 
 export interface MessagePayload {
   message_ref: string;
@@ -160,12 +170,15 @@ export interface AgentSessionPayload {
   version: number;
 }
 
+/** `apps/aiagent/models` — a fresh proposal is `pending` until a human acts. */
+export type ProposalStatus = "pending" | "accepted" | "rejected" | "abandoned";
+
 export interface AgentProposalPayload {
   proposal_ref: string;
   session_ref: string;
   kind: string;
   tier: string;
-  status: string;
+  status: ProposalStatus;
   /** The DRAFT text. Carries no channel, recipient or send flag by design. */
   text: string;
   citations: unknown[];

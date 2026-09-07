@@ -43,7 +43,18 @@ import {
 import { useToast } from "../../shared/store/toast";
 import { Mono, formatIso } from "../crm/components/primitives";
 
-const MODE_LABELS: Record<HandlingMode, string> = { ai: "مساعدة آلية", human: "متابعة بشرية" };
+const MODE_LABELS: Record<HandlingMode, string> = {
+  ai_assisted: "مساعدة آلية (مسودات فقط)",
+  human: "متابعة بشرية",
+  ai_paused: "المساعد موقوف بعد الاستلام",
+};
+
+/**
+ * The modes a person may choose. `ai_paused` is deliberately absent: the system
+ * sets it when a human takes over, and offering it as a choice would suggest
+ * the AI can be resumed without ending the takeover.
+ */
+const SELECTABLE_MODES: HandlingMode[] = ["ai_assisted", "human"];
 
 function ConversationList({
   items,
@@ -133,7 +144,9 @@ function AssistancePanel({
       if (cancelled) return;
       attempts += 1;
       try {
-        const page = await agentApi.list({ status: "proposed", limit: 20 });
+        // `pending` is the status a freshly generated proposal carries
+        // (apps/aiagent/models.PROPOSAL_PENDING) — it is awaiting a human.
+        const page = await agentApi.list({ status: "pending", limit: 20 });
         const match = page.items.find((row) => row.session_ref === sessionRef);
         if (match) {
           setProposal(match);
@@ -341,9 +354,12 @@ export function InboxPage({ conversationId }: { conversationId?: string }) {
                         detail.reload();
                       }}
                     >
-                      {Object.entries(MODE_LABELS).map(([key, label]) => (
-                        <option value={key} key={key}>
-                          {label}
+                      {conversation.handling_mode === "ai_paused" ? (
+                        <option value="ai_paused">{MODE_LABELS.ai_paused}</option>
+                      ) : null}
+                      {SELECTABLE_MODES.map((mode) => (
+                        <option value={mode} key={mode}>
+                          {MODE_LABELS[mode]}
                         </option>
                       ))}
                     </select>
