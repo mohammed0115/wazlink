@@ -68,6 +68,32 @@ class ReconciliationPort(Protocol):
     def open_case(self, *, case_class: str, subject_ref: str, detail: dict[str, Any]) -> Any: ...
 
 
+class SingleUseTokenPort(Protocol):
+    """Short-lived, single-use tokens — B11's download tickets.
+
+    Deliberately NOT a durable store, and deliberately not a B11 table.
+    Frozen `B11_STORAGE_MODEL` §"what B11 never holds" is explicit: *"No table,
+    column, or JSONB key anywhere in B11 holds … a download ticket"*, and
+    `B11_DOMAIN_MODEL` classifies a ticket as *"a short-lived access
+    capability"* against *"a durable column, an event payload, a log line, a
+    business record"*. So the ticket may not be persisted as business truth.
+
+    It passes `B12-D-A014`'s flush test — *"if this Redis instance is flushed
+    right now, does the system remain correct after recovery from
+    PostgreSQL?"* — with a clear yes: a lost ticket is simply unredeemable, and
+    the holder asks for another through the full authorization chain. Nothing
+    committed is lost, and the failure direction is closed. It appears nowhere
+    in `B12_REDIS_BOUNDARY` §3's forbidden list.
+
+    `take` MUST be atomic: two concurrent redemptions of one token must not
+    both receive a payload, or "single-use" would hold only by luck.
+    """
+
+    def put(self, *, token: str, payload: dict[str, Any], ttl_seconds: int) -> None: ...
+
+    def take(self, *, token: str) -> dict[str, Any] | None: ...
+
+
 class CredentialDeliveryPort(Protocol):
     """The out-of-band credential delivery boundary (B1_COMMAND_EVENT_CATALOG §3.3).
 
@@ -95,6 +121,7 @@ class _Bindings:
     webhook_receipts: WebhookReceiptPort | None = None
     provider_attempts: ProviderAttemptPort | None = None
     reconciliation: ReconciliationPort | None = None
+    single_use_tokens: SingleUseTokenPort | None = None
 
     def bind(self, **ports: Any) -> None:
         for name, port in ports.items():

@@ -300,7 +300,28 @@ def bind_ports() -> None:
         entitlement=simple_port(evaluate_entitlement=evaluate_entitlement, evaluate_quota=evaluate_quota),
         session=simple_port(resolve=Session.objects.for_token),
         credential_delivery=DiscardingCredentialDelivery(),
+        single_use_tokens=_single_use_token_store(),
     )
+
+
+def _single_use_token_store():
+    """B11 download tickets — see `common.ports.SingleUseTokenPort`.
+
+    Selection is CONFIGURATION, exactly like every provider adapter: a
+    deployment gets Redis, and a settings module that names the stubs gets the
+    in-memory equivalent. No domain module asks which one it has.
+
+    Redis is the deployed choice because `B11_STORAGE_MODEL` forbids any B11
+    table from holding a download ticket, and because a process-local dict
+    cannot answer a redemption that lands on a different Gunicorn worker.
+    """
+    from django.conf import settings
+
+    from adapters.tokens import InMemorySingleUseTokenStore, RedisSingleUseTokenStore
+
+    if getattr(settings, "USE_STUB_PROVIDERS", False):
+        return InMemorySingleUseTokenStore()
+    return RedisSingleUseTokenStore()
 
 
 def bind_providers() -> None:

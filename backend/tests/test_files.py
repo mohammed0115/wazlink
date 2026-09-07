@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 
 import pytest
 
@@ -413,3 +414,146 @@ def test_detection_is_by_content_never_by_extension():
     assert detect_content_type(PDF) == "application/pdf"
     # Unidentifiable is NOT stored on anyone's say-so.
     assert detect_content_type(b"\x00\x01\x02\x03") == "application/octet-stream"
+
+
+# ------------------------------------------- DOWNLOAD TICKET STORE (M-2)
+#
+# The ticket lives behind `SingleUseTokenPort`, not in a module-level dict and
+# not in a B11 table. `B11_STORAGE_MODEL` forbids the table outright; a dict
+# was process-local, so a ticket issued by one Gunicorn worker could not be
+# redeemed by another. These exercise the DEPLOYED adapter against the real
+# Redis this repository already requires for `/ready`.
+@pytest.fixture
+def redis_store():
+    """The real deployed store, or a skip — never a silent pass."""
+    redis = pytest.importorskip("redis")
+    from django.conf import settings
+
+    from adapters.tokens import RedisSingleUseTokenStore
+
+    try:
+        client = redis.Redis.from_url(settings.REDIS_URL, socket_connect_timeout=2)
+        client.ping()
+    except Exception as exc:  # noqa: BLE001
+        pytest.skip(f"Redis is not reachable for the deployed-store test: {exc}")
+    return RedisSingleUseTokenStore
+
+
+def test_the_ticket_store_is_not_a_b11_table():
+    """`B11_STORAGE_MODEL`: no B11 table, column or JSONB key holds a ticket."""
+    from django.apps import apps as django_apps
+
+    for model in django_apps.get_app_config("files").get_models():
+        names = {field.name for field in model._meta.get_fields()}
+        assert not (names & {"ticket", "download_ticket", "ticket_token"}), (
+            f"{model.__name__} holds a download ticket"
+        )
+
+
+def test_a_ticket_issued_by_one_worker_is_redeemable_by_another(redis_store):
+    """The defect this replaced: two INDEPENDENT store instances, as two
+    Gunicorn workers are two independent processes."""
+    import uuid as uuidlib
+
+    worker_a, worker_b = redis_store(), redis_store()
+    token = f"probe-{uuidlib.uuid4().hex}"
+    worker_a.put(token=token, payload={"file_id": "F", "workspace_id": "W"}, ttl_seconds=60)
+
+    assert worker_b.take(token=token) == {"file_id": "F", "workspace_id": "W"}
+    # And it is still single-use ACROSS workers.
+    assert worker_a.take(token=token) is None
+
+
+def test_the_deployed_store_take_is_atomic_under_concurrency(redis_store):
+    """Single-use must hold when two workers redeem at once, not merely in
+    sequence. `GETDEL` decides on the server; a read-then-delete would not."""
+    import threading
+    import uuid as uuidlib
+
+    store = redis_store()
+    token = f"probe-{uuidlib.uuid4().hex}"
+    store.put(token=token, payload={"file_id": "F", "workspace_id": "W"}, ttl_seconds=60)
+
+    results: list[object] = []
+    lock = threading.Lock()
+
+    def worker() -> None:
+        got = redis_store().take(token=token)
+        with lock:
+            results.append(got)
+
+    threads = [threading.Thread(target=worker) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert len([r for r in results if r is not None]) == 1, results
+
+
+def test_the_deployed_store_expires_a_ticket(redis_store):
+    """Expiry is the STORE's TTL, so a wrong application clock cannot extend it."""
+    import time
+    import uuid as uuidlib
+
+    store = redis_store()
+    token = f"probe-{uuidlib.uuid4().hex}"
+    store.put(token=token, payload={"file_id": "F", "workspace_id": "W"}, ttl_seconds=1)
+    time.sleep(1.2)
+    assert store.take(token=token) is None
+
+
+def test_a_flushed_ticket_store_leaves_the_system_correct(actor):
+    """`B12-D-A014`'s flush test, executed rather than asserted.
+
+    Losing the store must cost a round trip, never a fact: the ticket stops
+    working (fails CLOSED) and a fresh one is obtainable through the full
+    authorization chain.
+    """
+    from common.ports import ports
+
+    a = actor()
+    asset = upload_content(context=a.context, asset=_intent(a.context), content=PNG)
+    ticket = issue_download_ticket(context=a.context, asset=asset)
+
+    # Simulate the flush by rebinding an empty store of the same kind.
+    from adapters.tokens import InMemorySingleUseTokenStore
+
+    ports.bind(single_use_tokens=InMemorySingleUseTokenStore())
+
+    with pytest.raises(EntityNotFound):
+        redeem_download_ticket(context=a.context, token=ticket)
+
+    # The file itself is untouched and a new ticket still works.
+    fresh = issue_download_ticket(context=a.context, asset=asset)
+    got, content = redeem_download_ticket(context=a.context, token=fresh)
+    assert got.pk == asset.pk
+    assert content
+
+
+def test_the_ticket_payload_carries_identities_only(actor):
+    """No filename, no storage key, no bytes travel in the ticket."""
+    from common.ports import ports
+
+    a = actor()
+    asset = upload_content(context=a.context, asset=_intent(a.context), content=PNG)
+    captured: dict = {}
+
+    class _Spy:
+        def put(self, *, token, payload, ttl_seconds):
+            captured.update(payload)
+
+        def take(self, *, token):
+            return None
+
+    previous = ports.single_use_tokens
+    ports.bind(single_use_tokens=_Spy())
+    try:
+        issue_download_ticket(context=a.context, asset=asset)
+    finally:
+        ports.bind(single_use_tokens=previous)
+
+    assert set(captured) == {"file_id", "workspace_id"}
+    blob = json.dumps(captured)
+    assert asset.original_filename not in blob
+    assert asset.storage_key not in blob

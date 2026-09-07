@@ -24,6 +24,7 @@ from django.utils import timezone
 
 from common.audit import write_audit
 from common.errors import DomainConflict, EntityNotFound, QuotaExhausted, ValidationFailed
+from common.ports import ports
 from common.provider_ports import providers
 
 from ..models import (
@@ -76,10 +77,21 @@ _MAGIC: tuple[tuple[bytes, str], ...] = (
     (b"\xff\xfb", "audio/mpeg"),
 )
 
-# Single-use download tickets, in memory with a durable re-authorization on
-# redemption. The ticket is NOT a capability: redeeming it re-runs the whole
-# authorization chain, so a leaked ticket grants nothing on its own.
-_TICKETS: dict[str, dict] = {}
+# Single-use download tickets, held behind `SingleUseTokenPort` with a durable
+# re-authorization on redemption. The ticket is NOT a capability: redeeming it
+# re-runs the whole authorization chain, so a leaked ticket grants nothing on
+# its own.
+#
+# The store is a PORT rather than a module-level dict because a dict is
+# process-local: a ticket issued by one Gunicorn worker could not be redeemed
+# by another, and every ticket outstanding at a restart became unredeemable.
+# That failed closed — the holder saw a 404 rather than a leak — but it broke
+# legitimate downloads in any deployment with more than one worker.
+#
+# It is not a B11 table either, and that is contract, not preference:
+# `B11_STORAGE_MODEL` states that no B11 table, column or JSONB key holds a
+# download ticket, and `B11_DOMAIN_MODEL` classes a ticket as a short-lived
+# access capability rather than a business record.
 
 
 # --------------------------------------------------------------------------
@@ -273,11 +285,13 @@ def issue_download_ticket(*, context, asset: FileAsset) -> str:
     if asset.lifecycle_state != LIFECYCLE_AVAILABLE:
         raise DomainConflict("This file is not available for download.")
     token = secrets.token_urlsafe(32)
-    _TICKETS[token] = {
-        "file_id": str(asset.id),
-        "workspace_id": str(context.workspace.id),
-        "expires_at": timezone.now() + timedelta(seconds=DOWNLOAD_TICKET_TTL_SECONDS),
-    }
+    ports.require("single_use_tokens").put(
+        token=token,
+        # Identities only. No filename, no storage key, no bytes — a ticket
+        # names WHICH file is being asked for and nothing about it.
+        payload={"file_id": str(asset.id), "workspace_id": str(context.workspace.id)},
+        ttl_seconds=DOWNLOAD_TICKET_TTL_SECONDS,
+    )
     return token
 
 
@@ -288,8 +302,11 @@ def redeem_download_ticket(*, context, token: str) -> tuple[FileAsset, bytes]:
     for deciding whether this actor may have it. That is why a leaked ticket
     is worth nothing, and why there is no signed public URL in Phase 1.
     """
-    record = _TICKETS.pop(token, None)  # single use: popped, not read
-    if record is None or record["expires_at"] <= timezone.now():
+    # Single use, and TAKEN rather than read: the store deletes atomically, so
+    # two concurrent redemptions cannot both succeed. Expiry is enforced by the
+    # store's own TTL, which is why no timestamp travels in the payload.
+    record = ports.require("single_use_tokens").take(token=token)
+    if not record:
         raise EntityNotFound("The requested file was not found.")
 
     asset = FileAsset.objects.filter(pk=record["file_id"]).first()
