@@ -43,6 +43,7 @@ from common.provider_ports import (
     PAYMENT_CAPTURED,
     PAYMENT_CREATED,
     PAYMENT_PENDING,
+    PAYMENT_TERMINAL,
     ChargeRequest,
     ProviderError,
     ProviderNotConfigured,
@@ -535,18 +536,115 @@ def reconcile_payment(*, payment: Payment) -> Payment:
     return payment
 
 
+# An attempt is SETTLED once it carries a conclusive outcome. `unknown` is
+# deliberately NOT settled: it is the whole reason `P-1` exists.
+UNSETTLED_ATTEMPT_OUTCOMES = ("", "unknown")
+
+
 def sweep_pending_payments(*, now=None) -> int:
-    """Scheduled sweep. Bounded window, then ASK rather than wait."""
+    """Scheduled sweep. Bounded window, then ASK rather than wait.
+
+    `B8_RECONCILIATION_MODEL` §7 defines the sweep as **two limbs**, and both
+    are implemented here:
+
+    1.  every `Payment` in `pending` or `authorized` for longer than the
+        window;
+    2.  **every `Payment` whose most recent `payment_attempts` row is older
+        than the window with no terminal status.**
+
+    Limb 2 is not a wider version of limb 1 — it catches a state limb 1 cannot
+    see. A process killed between `adapter.create_charge` returning and the
+    transaction that persists `provider_payment_ref` leaves a Payment in
+    `created` with an OPEN attempt and no provider reference. Tap may already
+    have taken the money. Limb 1 skips it forever (wrong status, no reference),
+    and the only other surface — the webhook — is bounded by Tap's three
+    delivery attempts. Limb 2 is what stops that from being invisible.
+
+    **UNKNOWN EXTERNAL EFFECT != FAILED EFFECT.** Nothing here creates a
+    charge, and nothing marks a payment failed. Where a provider reference
+    exists the remedy is a READ-ONLY lookup; where it does not, there is no
+    lookup capability, so the case is escalated to an operator exactly as
+    `B12_RECONCILIATION_MODEL` `P-1` requires: *"read-only status lookup where
+    the capability exists; else await callback; else escalate. Never a
+    mutating repeat."*
+    """
     now = now or timezone.now()
     cutoff = now - timedelta(minutes=PENDING_RECONCILE_MINUTES)
-    stale = Payment.objects.filter(
-        status__in=(PAYMENT_PENDING, "authorized"), created_at__lte=cutoff
-    ).exclude(provider_payment_ref="")
     count = 0
-    for payment in stale:
+    seen: set = set()
+
+    # --- limb 1: pending/authorized past the window -----------------------
+    for payment in (
+        Payment.objects.filter(status__in=(PAYMENT_PENDING, "authorized"), created_at__lte=cutoff)
+        .exclude(provider_payment_ref="")
+    ):
+        seen.add(payment.pk)
         reconcile_payment(payment=payment)
         count += 1
+
+    # --- limb 2: most recent attempt is old and not terminal --------------
+    for payment in _payments_with_stale_open_attempt(cutoff=cutoff, exclude=seen):
+        seen.add(payment.pk)
+        if payment.provider_payment_ref:
+            # The lookup capability exists. Read-only, never a repeat.
+            reconcile_payment(payment=payment)
+        else:
+            # No provider reference: the effect is genuinely unknown and no
+            # read-only lookup can resolve it. Escalate; never guess, never
+            # re-charge, never mark failed.
+            _flag_uncertain_effect(payment)
+        count += 1
     return count
+
+
+def _payments_with_stale_open_attempt(*, cutoff, exclude) -> list[Payment]:
+    """Payments whose MOST RECENT attempt is older than `cutoff` and unsettled.
+
+    "Most recent" is per payment, so a fresh retry after an old open attempt
+    correctly takes the payment out of scope. Terminal payments are excluded:
+    a captured payment with an untidy attempt row is bookkeeping, not risk.
+    """
+    from django.db.models import OuterRef, Subquery
+
+    # The LAST attempt, by the ordinal `uq_payment_attempt_number` already
+    # serialises. Its outcome and age are lifted onto the payment so the
+    # predicate reads as the contract states it: *the most recent attempt is
+    # older than the window and carries no terminal status.*
+    latest = PaymentAttempt.objects.filter(payment=OuterRef("pk")).order_by("-attempt_number")
+    return list(
+        Payment.objects.annotate(
+            last_outcome=Subquery(latest.values("outcome_status")[:1]),
+            last_attempt_at=Subquery(latest.values("occurred_at")[:1]),
+        )
+        .filter(last_outcome__in=UNSETTLED_ATTEMPT_OUTCOMES, last_attempt_at__lte=cutoff)
+        .exclude(status__in=PAYMENT_TERMINAL)
+        .exclude(pk__in=exclude)
+    )
+
+
+def _flag_uncertain_effect(payment: Payment) -> None:
+    """`P-1` with no lookup capability — operator-gated, and idempotent.
+
+    Re-running the sweep must not open a second case for the same payment, so
+    the flag on the row is the guard: it is set once, and a payment already
+    carrying it is not re-reported.
+    """
+    if payment.requires_reconciliation:
+        return
+    with transaction.atomic():
+        locked = Payment.objects.select_for_update().get(pk=payment.pk)
+        if locked.requires_reconciliation or locked.status in PAYMENT_TERMINAL:
+            return
+        locked.requires_reconciliation = True
+        locked.save(update_fields=["requires_reconciliation", "updated_at"])
+    _open_case(
+        "P-1",
+        payment,
+        detail={
+            "reason": "provider attempt open past its settlement window with no provider reference",
+            "remedy": "operator review; the external effect is unknown and must not be repeated",
+        },
+    )
 
 
 # --------------------------------------------------------------------------

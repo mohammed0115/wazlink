@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import threading
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -31,12 +32,14 @@ from apps.billing.models import (
     UpgradeQuote,
 )
 from apps.billing.services import (
+    _open_payment,
     bootstrap_workspace_subscription,
     cancel_subscription,
     create_upgrade_quote,
     process_payment_webhook,
     start_checkout,
     subscription_for,
+    sweep_pending_payments,
 )
 from apps.entitlements.models import WorkspacePlanAssignment
 from common.provider_ports import providers
@@ -510,3 +513,197 @@ def test_a_viewer_cannot_start_a_checkout(actor, auth_client):
     response = api.post("/api/v1/billing/checkout", {"plan_code": "PLAN-GROWTH"}, format="json")
     assert response.status_code == 403
     assert Payment.objects.filter(workspace=viewer.workspace).count() == 0
+
+
+# ------------------------------------------- RECONCILIATION SWEEP (B8 §7)
+#
+# `B8_RECONCILIATION_MODEL` §7 defines the sweep as TWO limbs:
+#
+#   1. every Payment in `pending`/`authorized` past the window;
+#   2. every Payment whose most recent `payment_attempts` row is older than the
+#      window with no terminal status.
+#
+# Limb 2 is what sees the state limb 1 cannot: a process killed between the
+# provider accepting a charge and the local commit of `provider_payment_ref`.
+def _age(payment, attempt=None, hours=3):
+    when = timezone.now() - timedelta(hours=hours)
+    Payment.objects.filter(pk=payment.pk).update(created_at=when)
+    if attempt is not None:
+        PaymentAttempt.objects.filter(pk=attempt.pk).update(occurred_at=when)
+    payment.refresh_from_db()
+
+
+def _crash_shaped(actor_obj):
+    """The hard-crash shape: durable Payment + OPEN attempt + NO provider ref.
+
+    Built through the real `_open_payment` step, so it is the exact state the
+    checkout leaves behind when the process dies after `create_charge` returns
+    and before the transaction that persists the reference commits.
+    """
+    quote = create_upgrade_quote(context=actor_obj.context, plan_code="PLAN-GROWTH")
+    payment = _open_payment(context=actor_obj.context, quote=quote)
+    attempt = PaymentAttempt.objects.create(
+        payment=payment, attempt_number=1, kind="create", outcome_status=""
+    )
+    _age(payment, attempt)
+    return payment, attempt
+
+
+def test_limb_1_a_stale_pending_payment_is_reconciled(actor, tap):
+    a = actor()
+    subscription_for(a.workspace)
+    tap.next_status = "PENDING"
+    tap.retrieve_status = "CAPTURED"
+    payment = start_checkout(context=a.context, plan_code="PLAN-GROWTH")
+    _age(payment)
+
+    assert sweep_pending_payments() >= 1
+    payment.refresh_from_db()
+    assert payment.status == "captured"
+
+
+def test_limb_2_a_stale_open_attempt_with_a_reference_is_looked_up(actor, tap):
+    """Limb 2, lookup branch: the capability exists, so it is used — read-only."""
+    a = actor()
+    subscription_for(a.workspace)
+    tap.next_status = "PENDING"
+    tap.retrieve_status = "CAPTURED"
+    payment = start_checkout(context=a.context, plan_code="PLAN-GROWTH")
+    # Out of limb 1's reach (wrong status) but squarely inside limb 2.
+    Payment.objects.filter(pk=payment.pk).update(status="created")
+    attempt = PaymentAttempt.objects.filter(payment=payment).first()
+    PaymentAttempt.objects.filter(pk=attempt.pk).update(outcome_status="")
+    _age(payment, attempt)
+
+    sweep_pending_payments()
+    payment.refresh_from_db()
+    assert payment.status == "captured"
+
+
+def test_limb_2_the_hard_crash_shape_is_detected_and_escalated(actor, tap):
+    """The defect this limb exists for.
+
+    Payment `created`, attempt open, no provider reference — Tap may already
+    have taken the money. It must be DETECTED, ESCALATED, and never repeated.
+    """
+    from apps.platform_async.models import PlatformReconciliationCase
+
+    a = actor()
+    subscription_for(a.workspace)
+    payment, _ = _crash_shaped(a)
+    charges_before = len(tap.charges)
+
+    assert sweep_pending_payments() >= 1
+
+    payment.refresh_from_db()
+    assert payment.requires_reconciliation is True
+    # UNKNOWN EXTERNAL EFFECT != FAILED EFFECT.
+    assert payment.status not in ("failed", "cancelled")
+    # Never a mutating repeat (`B12_RECONCILIATION_MODEL` P-1).
+    assert len(tap.charges) == charges_before
+    cases = PlatformReconciliationCase.objects.filter(
+        case_class="P-1", subject_ref=payment.public_id
+    )
+    assert cases.count() == 1
+
+
+def test_a_recent_open_attempt_is_not_swept_early(actor):
+    """The window is real: a checkout in flight must not be escalated."""
+    from apps.platform_async.models import PlatformReconciliationCase
+
+    a = actor()
+    subscription_for(a.workspace)
+    quote = create_upgrade_quote(context=a.context, plan_code="PLAN-GROWTH")
+    payment = _open_payment(context=a.context, quote=quote)
+    PaymentAttempt.objects.create(payment=payment, attempt_number=1, kind="create")
+
+    sweep_pending_payments()
+    payment.refresh_from_db()
+    assert payment.requires_reconciliation is False
+    assert not PlatformReconciliationCase.objects.filter(subject_ref=payment.public_id).exists()
+
+
+def test_a_terminal_payment_is_never_re_swept(actor, tap):
+    a = actor()
+    subscription_for(a.workspace)
+    tap.next_status = "CAPTURED"
+    payment = start_checkout(context=a.context, plan_code="PLAN-GROWTH")
+    attempt = PaymentAttempt.objects.filter(payment=payment).first()
+    PaymentAttempt.objects.filter(pk=attempt.pk).update(outcome_status="")
+    _age(payment, attempt)
+    invoices = Invoice.objects.filter(payments__pk=payment.pk).count()
+
+    sweep_pending_payments()
+    payment.refresh_from_db()
+    assert payment.status == "captured"
+    assert payment.requires_reconciliation is False
+    assert Invoice.objects.filter(payments__pk=payment.pk).count() == invoices
+
+
+def test_concurrent_sweeps_open_exactly_one_case(actor, tap):
+    """Six workers, one escalation. The flag on the row is the guard."""
+    from apps.platform_async.models import PlatformReconciliationCase
+
+    a = actor()
+    subscription_for(a.workspace)
+    payment, _ = _crash_shaped(a)
+    charges_before = len(tap.charges)
+
+    def worker() -> None:
+        try:
+            sweep_pending_payments()
+        finally:
+            connections.close_all()
+
+    threads = [threading.Thread(target=worker) for _ in range(6)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert (
+        PlatformReconciliationCase.objects.filter(
+            case_class="P-1", subject_ref=payment.public_id
+        ).count()
+        == 1
+    )
+    assert len(tap.charges) == charges_before
+
+
+def test_repeated_sweeps_are_idempotent(actor):
+    from apps.platform_async.models import PlatformReconciliationCase
+
+    a = actor()
+    subscription_for(a.workspace)
+    payment, _ = _crash_shaped(a)
+    for _ in range(5):
+        sweep_pending_payments()
+    assert (
+        PlatformReconciliationCase.objects.filter(
+            case_class="P-1", subject_ref=payment.public_id
+        ).count()
+        == 1
+    )
+
+
+def test_the_sweep_does_not_cross_tenants(actor):
+    from apps.platform_async.models import PlatformReconciliationCase
+
+    one = actor(email="s1@example.test", workspace_name="S1")
+    two = actor(email="s2@example.test", workspace_name="S2")
+    subscription_for(one.workspace)
+    subscription_for(two.workspace)
+    crashed, _ = _crash_shaped(one)
+    healthy = _open_payment(
+        context=two.context,
+        quote=create_upgrade_quote(context=two.context, plan_code="PLAN-GROWTH"),
+    )
+
+    sweep_pending_payments()
+
+    crashed.refresh_from_db()
+    healthy.refresh_from_db()
+    assert crashed.requires_reconciliation is True
+    assert healthy.requires_reconciliation is False
+    case = PlatformReconciliationCase.objects.get(case_class="P-1", subject_ref=crashed.public_id)
+    assert case.subject_ref == crashed.public_id
