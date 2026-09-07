@@ -64,19 +64,11 @@ jobs:
 
       - name: mypy (baseline held, never widened)
         # The repository carries exactly two long-standing findings, both in
-        # files this wave does not own. The gate is NEW errors, not zero
-        # errors — and it is enforced by counting rather than by relaxing the
-        # mypy configuration, so a suppression cannot quietly become the fix.
-        run: |
-          set -o pipefail
-          uv run mypy . 2>&1 | tee mypy.log || true
-          found=$(grep -cE '^[^ ].*: error:' mypy.log || true)
-          echo "mypy errors: ${found} (baseline 2)"
-          if [ "${found}" -gt 2 ]; then
-            echo "::error::mypy regressed: ${found} errors, baseline is 2"
-            grep -E '^[^ ].*: error:' mypy.log
-            exit 1
-          fi
+        # files this wave does not own. The helper accepts ONLY mypy's normal
+        # type-error exit and the exact two file/error-code fingerprints. It
+        # rejects a missing tool, config failure, malformed output, a new
+        # error, or a disappeared baseline without weakening mypy itself.
+        run: uv run python scripts/check_mypy_baseline.py .
 
       - name: Django system checks
         run: uv run python manage.py check
