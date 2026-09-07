@@ -21,6 +21,17 @@ VALUE_PATTERNS = [
     (re.compile(r"\bsk[-_][A-Za-z0-9_\-]{12,}"), "[REDACTED]"),
     (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[REDACTED]"),
     (re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}", re.IGNORECASE), "[REDACTED]"),
+    # The two credential shapes WazLink ACTUALLY carries that the patterns
+    # above miss. `WHATSAPP_ACCESS_TOKEN` is a Meta token (`EAA…`) and
+    # `GOOGLE_PLACES_API_KEY` is a Google key (`AIza…` + 35 chars); neither
+    # looks like `sk_`, `AKIA` or `xox`, so before this the last-resort net
+    # covered every vendor except the two in the `.env` contract.
+    #
+    # Both are anchored and length-bounded so ordinary business text cannot
+    # match: a 20+ character unbroken alphanumeric run beginning `EAA`, or
+    # Google's exact 39-character key shape.
+    (re.compile(r"\bEAA[A-Za-z0-9]{20,}"), "[REDACTED]"),
+    (re.compile(r"\bAIza[A-Za-z0-9_\-]{35}\b"), "[REDACTED]"),
     (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----"),
      "[REDACTED]"),
     (re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.]+\b"), "[REDACTED_EMAIL]"),
@@ -62,11 +73,34 @@ class RedactionFilter(logging.Filter):
         elif isinstance(message, str):
             redacted = redact_text(message)
         else:
-            return True
+            redacted = message
         # LogRecord.msg is annotated `str` in typeshed but accepts any object
         # at runtime, which structured logging relies on.
         setattr(record, "msg", redacted)  # noqa: B010
+
+        # `logger.info("... %s", secret)` — the idiomatic lazy form every lint
+        # rule pushes callers toward — keeps the secret in `record.args`, and
+        # interpolation happens in `getMessage()` LONG AFTER this filter runs.
+        # Redacting only `msg` therefore missed the single most likely way a
+        # credential reaches a log line. The arguments are redacted here, in
+        # place, so the interpolated result is already clean.
+        record.args = self._redact_args(record.args)
         return True
+
+    @staticmethod
+    def _redact_args(args: Any) -> Any:
+        if not args:
+            return args
+        if isinstance(args, dict):  # `logger.info(msg, {...})` mapping form
+            return redact_mapping(args)
+        return tuple(
+            redact_mapping(arg)
+            if isinstance(arg, dict)
+            else redact_text(arg)
+            if isinstance(arg, str)
+            else arg
+            for arg in args
+        )
 
 
 class JsonFormatter(logging.Formatter):

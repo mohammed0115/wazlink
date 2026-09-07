@@ -50,6 +50,47 @@ def test_t_sec_1_redaction_covers_keys_and_value_shapes():
     assert "ordinary text" in blob  # redaction is targeted, not indiscriminate
 
 
+# The credential SHAPES WazLink actually carries, per the `.env` contract.
+# Dummy values only — no real credential appears in this repository.
+VENDOR_CANARIES = {
+    "tap_secret_key": "sk_live_EXAMPLECANARY0123456789",
+    "openai_api_key": "sk-proj-EXAMPLECANARY0123456789",
+    "whatsapp_access_token": "EAAGEXAMPLECANARYabcdefghijklmnopqrstuvwxyz0123456789",
+    "google_places_api_key": "AIzaEXAMPLECANARYabcdefghijklmnopqrstuv",
+    "aws_key": "AKIAEXAMPLECANARY123",
+    "slack_token": "xoxb-EXAMPLECANARY-1234567890-abcdef",
+    "bearer": "Bearer EXAMPLE.CANARY-1234567890",
+}
+
+
+@pytest.mark.parametrize("name", sorted(VENDOR_CANARIES))
+def test_t_sec_1_value_shaped_redaction_covers_every_vendor_credential(name):
+    """Every credential in the `.env` contract, redacted WHOLE.
+
+    Meta (`EAA…`) and Google (`AIza…`) are the two the value-shaped net used to
+    miss, and they are exactly the two WazLink's own provider adapters carry.
+    A prefix-only redaction is not redaction: the assertion below rejects any
+    surviving twelve-character run of the secret, not merely the whole string.
+    """
+    secret = VENDOR_CANARIES[name]
+    redacted = redact_text(f"provider call failed with {secret} at the boundary")
+    assert secret not in redacted
+    fragments = [secret[i : i + 12] for i in range(0, max(1, len(secret) - 12))]
+    assert not any(fragment in redacted for fragment in fragments)
+
+
+def test_t_sec_1_redaction_does_not_swallow_ordinary_business_text():
+    """The widened patterns must stay targeted, not indiscriminate."""
+    for benign in (
+        "AIza",  # too short to be a key
+        "EAA",  # a bare acronym
+        "The customer said EAA was fine",
+        "Riyadh branch, order 12345, total 299.00 SAR",
+        "nothing sensitive here",
+    ):
+        assert redact_text(benign) == benign
+
+
 def test_t_sec_2_redaction_reaches_every_outbound_class(actor):
     """Logs, audit rows, outbox payloads and task payloads — all of them."""
     from apps.auditlog.models import AuditLog
@@ -418,3 +459,71 @@ def test_the_dependency_scanner_is_not_vacuous(tmp_path):
         for a in node.names
     ]
     assert "boto3" in found
+
+
+@pytest.mark.parametrize("name", sorted(VENDOR_CANARIES))
+def test_every_vendor_canary_is_absent_from_every_sink(actor, name):
+    """The widened patterns, exercised through the real sinks — not the regex.
+
+    Audit metadata, outbox payloads and the log handler each carry the canary
+    in a NON-sensitive key name, so only the value-shaped net can catch it.
+    """
+    import logging
+
+    from apps.auditlog.models import AuditLog
+    from apps.platform_async.models import OutboxEvent
+    from common.audit import write_audit
+    from common.logging import JsonFormatter, RedactionFilter
+    from common.outbox import publish_event
+
+    secret = VENDOR_CANARIES[name]
+    a = actor()
+
+    write_audit(
+        workspace=a.workspace,
+        actor_membership=a.membership,
+        action="test.vendor_canary",
+        target_type="probe",
+        target_ref="X",
+        metadata={"note": f"provider said {secret}"},
+    )
+    publish_event(
+        workspace=a.workspace,
+        event_type="VendorCanaryProbe",
+        aggregate_type="probe",
+        aggregate_ref="X",
+        payload={"note": f"provider said {secret}"},
+    )
+
+    captured: list[str] = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            captured.append(self.format(record))
+
+    handler = _Capture()
+    handler.setFormatter(JsonFormatter())
+    handler.addFilter(RedactionFilter())
+    logger = logging.getLogger("test.vendor_canary")
+    logger.handlers = [handler]
+    logger.propagate = False
+    logger.setLevel(logging.INFO)
+    logger.info("calling provider with %s", secret)
+    logger.info({"message": "structured", "detail": secret})
+
+    audit_blob = json.dumps([row.metadata for row in AuditLog.objects.filter(workspace=a.workspace)])
+    outbox_blob = json.dumps(
+        [row.payload for row in OutboxEvent.objects.filter(workspace=a.workspace)]
+    )
+    assert secret not in audit_blob
+    assert secret not in outbox_blob
+    assert secret not in "\n".join(captured)
+
+
+def test_the_vendor_shape_detector_is_not_vacuous():
+    """Negative control: an unredacted canary IS visible, so the sinks above
+    are proving redaction rather than proving the canary was never written."""
+    for secret in VENDOR_CANARIES.values():
+        raw = f"provider call failed with {secret} at the boundary"
+        assert secret in raw
+        assert redact_text(raw) != raw
