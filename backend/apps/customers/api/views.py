@@ -214,3 +214,36 @@ class CustomerMergeView(WazlinkAPIView):
             },
             status=201,
         )
+
+
+class CustomerFilesView(WazlinkAPIView):
+    """`POST /customers/{ref}/files` — the Customer counterpart of
+    `LeadFilesView`. customers (L6) -> files (L3) is downward."""
+
+    permission_code = "file.upload"
+
+    def post(self, request, customer_ref: str):
+        from apps.files.models import FileAsset
+        from apps.files.services import attach_file
+
+        context = self.context(request)
+        customer = resolve_in_workspace(Customer.objects.all(), context, public_id=customer_ref)
+        asset = resolve_in_workspace(
+            FileAsset.objects.all(), context, public_id=(request.data or {}).get("file_ref", "")
+        )
+        attachment = attach_file(
+            context=context,
+            asset=asset,
+            subject_type="customer",
+            subject_id=customer.id,
+            subject_ref=customer.public_id,
+        )
+        return Response(
+            {
+                "file_ref": asset.public_id,
+                "subject_type": attachment.subject_type,
+                "subject_ref": customer.public_id,
+                "state": attachment.state,
+            },
+            status=201,
+        )

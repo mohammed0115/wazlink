@@ -348,3 +348,49 @@ def test_e2e_12_all_mutations_survive_a_reload(page):
     page.wait_for_selector(".lead-360-hero", timeout=20000)
     page.wait_for_selector(f"text={note}", timeout=20000)
     assert name in page.inner_text(".lead-360-hero")
+
+
+# -------------------------------------------------------------------------
+# E2E-13 — a file uploaded from the browser reaches the party's 360.
+#
+# The whole three-step flow runs in the page: intent, base64 content, then
+# attach through the subject owner's route. It is here because the file's own
+# attach endpoint takes an internal id no browser can know, so this path is the
+# only one a user actually has.
+# -------------------------------------------------------------------------
+def test_e2e_13_file_upload_appears_on_the_party(page, tmp_path):
+    sign_in(page)
+    goto_route(page, "crm")
+
+    name = unique("ملف")
+    page.click("text=إضافة عميل محتمل")
+    page.fill("#leadContactName", name)
+    page.click("button:has-text('إنشاء عميل محتمل')")
+    wait_for_row(page, name)
+    open_lead(page, name)
+
+    # A minimal, genuinely valid PNG — the server sniffs the bytes and refuses
+    # a file whose content does not match its declared type.
+    png = bytes.fromhex(
+        "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753"
+        "de0000000f49444154789c6360f8cf000001010100fdd7d4a20000000049454e44ae426082"
+    )
+    upload = tmp_path / "عرض.png"
+    upload.write_bytes(png)
+
+    before = count("file_attachments WHERE subject_type = 'lead'")
+    page.locator("input[type=file]").set_input_files(str(upload))
+    page.wait_for_selector("text=عرض.png", timeout=25000)
+
+    assert count("file_attachments WHERE subject_type = 'lead'") == before + 1
+    lead_ref = psql(
+        "SELECT l.public_id FROM leads l JOIN lead_contacts lc ON lc.lead_id = l.id "
+        f"JOIN contacts c ON c.id = lc.contact_id WHERE c.full_name = '{name}'"
+    )
+    assert psql(
+        "SELECT count(*) FROM file_attachments fa JOIN leads l ON l.id = fa.subject_id "
+        f"WHERE l.public_id = '{lead_ref}' AND fa.state = 'active'"
+    ) == "1"
+
+    page.reload(wait_until="networkidle")
+    page.wait_for_selector("text=عرض.png", timeout=25000)

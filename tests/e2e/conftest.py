@@ -87,15 +87,45 @@ def page(browser):
     context.close()
 
 
-def sign_in(page, email: str = OWNER_EMAIL, password: str = PASSWORD) -> None:
-    """Sign in through the real form and wait for the session to resolve."""
+# Cookies from the first real sign-in per account, reused by later tests.
+#
+# Login is rate-limited to 10 attempts per 60 seconds — a real control that
+# exists to slow credential stuffing. A suite that signs in for every test
+# out-runs it and then reports a product failure that is really the suite
+# tripping a security feature. So the form is exercised for real ONCE per
+# account, and after that the session cookie is replayed into a fresh context,
+# which is also what a returning user's browser does.
+_SESSION_COOKIES: dict[str, list] = {}
+
+
+def _login_through_the_form(page, email: str, password: str) -> None:
     page.goto(f"{BASE_URL}/#/login", wait_until="domcontentloaded")
     page.fill("#loginEmail", email)
     page.fill("#loginPassword", password)
     page.click("button[type=submit]")
     page.wait_for_url("**/#/dashboard", timeout=20000)
-    # The dashboard only renders once /workspaces and /entitlements resolve.
-    page.wait_for_selector(".crm-summary-grid, .crm-state-card", timeout=20000)
+
+
+def sign_in(page, email: str = OWNER_EMAIL, password: str = PASSWORD) -> None:
+    """Establish an authenticated session and wait for the shell to resolve."""
+    cached = _SESSION_COOKIES.get(email)
+    if cached:
+        page.context.add_cookies(cached)
+        page.goto(f"{BASE_URL}/#/dashboard", wait_until="domcontentloaded")
+    else:
+        _login_through_the_form(page, email, password)
+        _SESSION_COOKIES[email] = page.context.cookies()
+
+    try:
+        # The dashboard only renders once /workspaces and /entitlements resolve.
+        page.wait_for_selector(".crm-summary-grid, .crm-state-card", timeout=20000)
+    except Exception:
+        # A replayed cookie can be revoked (another test signed the user out).
+        # Fall back to a real login once rather than failing the scenario.
+        _SESSION_COOKIES.pop(email, None)
+        _login_through_the_form(page, email, password)
+        _SESSION_COOKIES[email] = page.context.cookies()
+        page.wait_for_selector(".crm-summary-grid, .crm-state-card", timeout=20000)
 
 
 def goto_route(page, route: str) -> None:

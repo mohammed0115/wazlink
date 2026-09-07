@@ -23,12 +23,21 @@ export const filesApi = {
       body: { content: base64, ...(checksum ? { checksum } : {}) },
     }),
 
-  /** Step 3: attach to a CRM party so it appears in that party's 360. */
-  attach: (fileRef: string, subjectType: "lead" | "customer", subjectRef: string) =>
-    api.post<{ id: string; subject_type: string; state: string }>(
-      `/files/${encodeURIComponent(fileRef)}/attachments`,
-      { body: { subject_type: subjectType, subject_ref: subjectRef } },
-    ),
+  /**
+   * Step 3: attach to a CRM party so it appears in that party's 360.
+   *
+   * The request goes to the SUBJECT's endpoint, not to the file's. The file's
+   * own `/attachments` route takes the subject's internal database id, which
+   * the API never discloses; the subject owner resolves its own public id and
+   * delegates downward instead.
+   */
+  attach: (fileRef: string, subjectType: "lead" | "customer", subjectRef: string) => {
+    const collection = subjectType === "lead" ? "leads" : "customers";
+    return api.post<{ file_ref: string; subject_type: string; subject_ref: string; state: string }>(
+      `/${collection}/${encodeURIComponent(subjectRef)}/files`,
+      { body: { file_ref: fileRef } },
+    );
+  },
 
   get: (fileRef: string, signal?: AbortSignal) =>
     api.get<FilePayload>(`/files/${encodeURIComponent(fileRef)}`, { signal }),

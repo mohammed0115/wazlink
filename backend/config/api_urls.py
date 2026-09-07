@@ -42,6 +42,7 @@ from apps.crm.api.views import (
     LeadContactsView,
     LeadCustomFieldSearchView,
     LeadCustomFieldsView,
+    LeadFilesView,
     LeadListCreateView,
     LeadNoteView,
     LeadPriorityView,
@@ -54,6 +55,7 @@ from apps.customers.api.views import (
     CustomerArchiveView,
     CustomerContactsView,
     CustomerCustomFieldsView,
+    CustomerFilesView,
     CustomerListCreateView,
     CustomerMergeView,
     CustomerUpdateView,
@@ -190,6 +192,10 @@ urlpatterns = [
     path("leads/<str:lead_ref>/contacts", LeadContactsView.as_view()),
     path("leads/<str:lead_ref>/notes", LeadNoteView.as_view()),
     path("leads/<str:lead_ref>/custom-fields", LeadCustomFieldsView.as_view()),
+    # The subject owner resolves its own public id, then delegates downward to
+    # files (L3). files may not import crm, and a client never learns an
+    # internal id.
+    path("leads/<str:lead_ref>/files", LeadFilesView.as_view()),
     path("leads/<str:lead_ref>/convert-customer", LeadConvertView.as_view()),
     path("contacts", ContactListView.as_view()),
     path("contacts/<str:contact_ref>", ContactDetailView.as_view()),
@@ -206,6 +212,7 @@ urlpatterns = [
     path("customers/<str:customer_ref>/merge", CustomerMergeView.as_view()),
     path("customers/<str:customer_ref>/contacts/<str:contact_ref>", CustomerContactsView.as_view()),
     path("customers/<str:customer_ref>/custom-fields", CustomerCustomFieldsView.as_view()),
+    path("customers/<str:customer_ref>/files", CustomerFilesView.as_view()),
     path("custom-fields", FieldDefinitionListCreateView.as_view()),
     path("custom-fields/<str:field_ref>/archive", FieldDefinitionArchiveView.as_view()),
     path("leads/custom-fields/search", LeadCustomFieldSearchView.as_view()),

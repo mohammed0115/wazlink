@@ -363,3 +363,46 @@ class LeadCustomFieldSearchView(WazlinkAPIView):
                 "count": leads.count(),
             }
         )
+
+
+class LeadFilesView(WazlinkAPIView):
+    """`POST /leads/{ref}/files` — attach an uploaded file to a Lead.
+
+    The subject owner delegates DOWNWARD (crm L5 -> files L3), the same shape
+    `CustomerCustomFieldsView` uses, because files (L3) may not import crm.
+
+    It exists because `POST /files/{ref}/attachments` takes the subject's
+    INTERNAL id, which no client can ever learn: the API exposes public ids
+    only. Resolving the subject here from its public id is both the usable
+    contract and the safer one — the internal id is derived after
+    `resolve_in_workspace` has already proved the caller may see the subject,
+    instead of being accepted from the request body.
+    """
+
+    permission_code = "file.upload"
+
+    def post(self, request, lead_ref: str):
+        from apps.files.models import FileAsset
+        from apps.files.services import attach_file
+
+        context = self.context(request)
+        lead = resolve_in_workspace(Lead.objects.all(), context, public_id=lead_ref)
+        asset = resolve_in_workspace(
+            FileAsset.objects.all(), context, public_id=(request.data or {}).get("file_ref", "")
+        )
+        attachment = attach_file(
+            context=context,
+            asset=asset,
+            subject_type="lead",
+            subject_id=lead.id,
+            subject_ref=lead.public_id,
+        )
+        return Response(
+            {
+                "file_ref": asset.public_id,
+                "subject_type": attachment.subject_type,
+                "subject_ref": lead.public_id,
+                "state": attachment.state,
+            },
+            status=201,
+        )
