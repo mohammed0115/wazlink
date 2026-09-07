@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .logging import redact_mapping
 from .ports import ports
 
 PII_KEYS = frozenset(
@@ -16,8 +17,20 @@ PII_KEYS = frozenset(
 
 
 def _safe_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
-    """Strip PII VALUES from an audit payload; keep the key as evidence."""
-    return {key: ("[REDACTED]" if key.lower() in PII_KEYS else value) for key, value in metadata.items()}
+    """Strip PII values, THEN redact credential-shaped keys and values.
+
+    Two passes, because they catch different things and neither subsumes the
+    other: the PII pass is key-name-driven and deliberately keeps the key as
+    evidence that a field changed, while the credential pass is shape-driven
+    and reaches a secret pasted into an otherwise-innocent field such as a free
+    text `note`. Doing only the first is how a live provider key reached an
+    audit row — the audit path is an outbound sink like any other, and
+    `B13_LOGGING_REDACTION` covers all of them, not just log lines.
+    """
+    stripped = {
+        key: ("[REDACTED]" if key.lower() in PII_KEYS else value) for key, value in metadata.items()
+    }
+    return redact_mapping(stripped)
 
 
 def write_audit(

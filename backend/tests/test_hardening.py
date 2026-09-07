@@ -93,13 +93,24 @@ def test_t_sec_3_no_credential_value_is_stored_in_any_column():
                       OR column_name ILIKE '%%password%%')"""
         )
         found = cursor.fetchall()
-    allowed_suffixes = ("_secret_ref", "_refs")
-    offenders = [
-        (t, c)
-        for t, c in found
-        if not c.endswith(allowed_suffixes) and (t, c) != ("users", "password")
-    ]
+    # Three shapes are legitimate, and each for a different reason:
+    #   `*_secret_ref` / `*_refs` — a reference NAME resolved from the
+    #        environment at call time (B14_13), which is the opposite of a
+    #        stored credential;
+    #   `*_hash`                  — a one-way digest, not a recoverable value;
+    #   `users.password`          — Django's own column, which stores a hash.
+    # Anything else matching is a real leak.
+    def permitted(table: str, column: str) -> bool:
+        return (
+            column.endswith(("_secret_ref", "_refs", "_hash"))
+            or (table, column) == ("users", "password")
+        )
+
+    offenders = [(t, c) for t, c in found if not permitted(t, c)]
     assert offenders == [], f"a credential-shaped column exists: {offenders}"
+
+    # And the control is not vacuous: it really did see the columns it allowed.
+    assert found, "the credential-column scan matched nothing at all"
 
 
 def test_t_sec_4_no_secret_appears_on_any_operator_surface(actor, monkeypatch):
@@ -207,14 +218,39 @@ def test_security_headers_are_set(actor, auth_client):
     assert response.status_code == 200
 
 
-def test_t_proxy_a_forged_forwarded_header_influences_nothing():
-    from django.conf import settings
+def test_t_proxy_a_forged_forwarded_header_influences_nothing(settings):
+    """`B14_31` §5, exercised rather than grepped."""
+    from common.net import client_ip
 
-    # The safe default is to trust NO forwarded header.
-    assert settings.TRUSTED_PROXY_COUNT == 0
-    source = (BACKEND / "common" / "middleware.py").read_text()
-    if "HTTP_X_FORWARDED_FOR" in source:
-        assert "TRUSTED_PROXY_COUNT" in source, "a forwarded header is read without a trust bound"
+    class FakeRequest:
+        def __init__(self, meta):
+            self.META = meta
+
+    forged = FakeRequest(
+        {"REMOTE_ADDR": "10.0.0.9", "HTTP_X_FORWARDED_FOR": "1.2.3.4, 5.6.7.8"}
+    )
+
+    # The safe default trusts NO hop, so the forged header decides nothing.
+    settings.TRUSTED_PROXY_COUNT = 0
+    assert client_ip(forged) == "10.0.0.9"
+
+    # With one hop trusted, the RIGHTMOST hop is taken — never the leftmost,
+    # which is the value an attacker controls.
+    settings.TRUSTED_PROXY_COUNT = 1
+    assert client_ip(forged) == "5.6.7.8"
+    assert client_ip(forged) != "1.2.3.4"
+
+
+def test_only_one_forwarded_header_parser_exists():
+    """A second parser is a second place to get the trust bound wrong."""
+    parsers = [
+        str(path.relative_to(BACKEND))
+        for path in list((BACKEND / "common").rglob("*.py"))
+        + list((BACKEND / "apps").rglob("*.py"))
+        + list((BACKEND / "config").rglob("*.py"))
+        if "HTTP_X_FORWARDED_FOR" in path.read_text()
+    ]
+    assert parsers == ["common/net.py"], f"more than one forwarded-header parser: {parsers}"
 
 
 # ---------------------------------------------------------------- provider facts

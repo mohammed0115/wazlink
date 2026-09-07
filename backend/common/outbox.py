@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .logging import redact_mapping
 from .ports import ports
 
 PII_KEYS = frozenset(
@@ -16,8 +17,15 @@ PII_KEYS = frozenset(
 
 
 def _safe_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """Contact PII never enters an event payload."""
-    return {k: v for k, v in payload.items() if k.lower() not in PII_KEYS}
+    """Contact PII never enters an event payload, and neither does a secret.
+
+    An outbox row is read by workers, replayed by operators and inspected in
+    the admin, so it is an outbound sink in the sense `B13_LOGGING_REDACTION`
+    means. Dropping PII keys alone left a credential pasted into any other
+    field intact.
+    """
+    without_pii = {k: v for k, v in payload.items() if k.lower() not in PII_KEYS}
+    return redact_mapping(without_pii)
 
 
 def publish_event(

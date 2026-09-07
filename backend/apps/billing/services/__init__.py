@@ -241,7 +241,9 @@ def start_checkout(*, context, plan_code: str, quote: UpgradeQuote | None = None
     except ProviderUnknownOutcome:
         # B12-D-A020: never retried. A human decides.
         _settle_attempt(attempt, "unknown")
-        _open_case("payment_unknown_outcome", payment)
+        # `P-1` — a provider attempt whose outcome is unknown. The frozen
+        # remedy is a READ-ONLY status lookup, never a mutating repeat.
+        _open_case("P-1", payment, detail={"reason": "charge outcome unknown"})
         payment.requires_reconciliation = True
         payment.status = PAYMENT_PENDING
         payment.save(update_fields=["requires_reconciliation", "status", "updated_at"])
@@ -358,13 +360,19 @@ def process_payment_webhook(*, event) -> Payment | None:
         )
         if payment is None:
             # Zero matches: quarantined and alerted, never guessed.
-            _open_case("payment_webhook_unresolved", None, detail={"ref": event.provider_payment_ref})
+            # `P-7` — a receipt whose binding resolved to zero workspaces.
+            # Quarantined and reported, never guessed.
+            _open_case(
+                "P-7", None, detail={"reason": "no payment matches this provider reference"}
+            )
             return None
 
         if event.requires_reconciliation:
             payment.requires_reconciliation = True
             payment.save(update_fields=["requires_reconciliation", "updated_at"])
-            _open_case("payment_status_unmapped", payment)
+            # `P-1` again: an unmapped provider status is an unknown
+            # outcome, and it awaits a lookup rather than a guess.
+            _open_case("P-1", payment, detail={"reason": "provider status not mapped"})
             return payment
 
         current = payment.status
@@ -376,17 +384,19 @@ def process_payment_webhook(*, event) -> Payment | None:
                 "failed",
                 "cancelled",
             ):
-                _open_case("payment_reconciliation_mismatch", payment)
+                # `P-6` — the same identity reporting a DIFFERENT terminal
+                # outcome. Report only; the domain application is withheld
+                # rather than overwriting a terminal state.
+                _open_case(
+                    "P-6",
+                    payment,
+                    detail={"reason": "conflicting terminal outcome", "reported": event.status},
+                )
             return payment  # discarded, never applied backwards
 
         payment.status = event.status
         payment.save(update_fields=["status", "updated_at"])
-        PaymentAttempt.objects.create(
-            payment=payment,
-            attempt_number=payment.attempts.count() + 1,
-            kind="reconciliation_query",
-            outcome_status=event.status,
-        )
+        _settle_attempt(_next_attempt(payment, "reconciliation_query"), event.status)
 
     if payment.status == PAYMENT_CAPTURED:
         _apply_capture(payment)
@@ -502,11 +512,7 @@ def reconcile_payment(*, payment: Payment) -> Payment:
     the structural reason reconciliation is not optional insurance.
     """
     adapter = _payment_adapter()
-    attempt = PaymentAttempt.objects.create(
-        payment=payment,
-        attempt_number=payment.attempts.count() + 1,
-        kind="reconciliation_query",
-    )
+    attempt = _next_attempt(payment, "reconciliation_query")
     try:
         result = adapter.retrieve_charge(payment.provider_payment_ref)
     except ProviderError as exc:
@@ -673,6 +679,31 @@ def refund_payment(*, context, payment: Payment, amount, reason: str = "requeste
 # --------------------------------------------------------------------------
 def _payment_adapter():
     return providers.require("payments")
+
+
+def _next_attempt(payment: Payment, kind: str) -> PaymentAttempt:
+    """Append an attempt row, tolerating a concurrent appender.
+
+    `uq_payment_attempt_number` is the guard against two workers claiming the
+    same ordinal. Counting and inserting is a read-then-write race, so the
+    loser retries against the freshly-committed maximum rather than failing a
+    reconciliation that was otherwise fine.
+    """
+    from django.db.models import Max
+
+    for _ in range(5):
+        current = (
+            PaymentAttempt.objects.filter(payment=payment).aggregate(top=Max("attempt_number"))["top"]
+            or 0
+        )
+        try:
+            with transaction.atomic():
+                return PaymentAttempt.objects.create(
+                    payment=payment, attempt_number=current + 1, kind=kind
+                )
+        except IntegrityError:
+            continue
+    raise DomainConflict("Could not record a payment attempt.")
 
 
 def _settle_attempt(attempt: PaymentAttempt, outcome: str, *, provider_request_ref: str = "") -> None:

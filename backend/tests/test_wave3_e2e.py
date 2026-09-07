@@ -40,13 +40,13 @@ def _tap_callback(charge_id: str, status: str = "CAPTURED") -> bytes:
 # ==========================================================================
 @pytest.mark.e2e
 def test_e2e_c_billing_journey_to_a_changed_entitlement(actor, client, auth_client):
+    from adapters.tap import StubTapAdapter
     from apps.billing.models import Invoice, Payment, Subscription, UpgradeQuote
     from apps.billing.services import subscription_for
     from apps.billing.tasks import process_payment_webhook_task
     from apps.entitlements.models import WorkspacePlanAssignment
     from apps.entitlements.selectors import evaluate_entitlement
     from apps.platform_async.models import WebhookReceipt
-    from adapters.tap import StubTapAdapter
 
     a = actor()
     api = auth_client(a)
@@ -213,9 +213,9 @@ def test_e2e_e_an_uncertain_provider_outcome_is_never_blindly_retried(actor):
     assert payment.status == "pending"
     assert payment.requires_reconciliation is True
     # A case exists for a human.
-    assert PlatformReconciliationCase.objects.filter(
-        case_class="payment_unknown_outcome", status="open"
-    ).exists()
+    # `P-1` is the frozen class for an unknown provider outcome — its
+    # remedy is a read-only lookup, never a mutating repeat.
+    assert PlatformReconciliationCase.objects.filter(case_class="P-1", status="open").exists()
     # Exactly one attempt was made. Nothing retried.
     assert PaymentAttempt.objects.filter(payment=payment).count() == 1
     assert len(tap.charges) == 0

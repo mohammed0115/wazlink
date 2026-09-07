@@ -14,7 +14,15 @@ SENSITIVE_KEY_PATTERN = re.compile(
 # Value-shaped redaction: bearer tokens, long opaque keys, emails, phone numbers.
 VALUE_PATTERNS = [
     (re.compile(r"Bearer\s+[A-Za-z0-9._\-]+", re.IGNORECASE), "Bearer [REDACTED]"),
-    (re.compile(r"\bsk-[A-Za-z0-9]{16,}\b"), "[REDACTED]"),
+    # Real provider keys carry INTERNAL SEPARATORS — `sk_live_…`, `sk_test_…`,
+    # `sk-proj-…`. A character class of `[A-Za-z0-9]` only stops at the first
+    # underscore and lets the rest of the key through, which is how a live
+    # secret reached an audit row before this was widened.
+    (re.compile(r"\bsk[-_][A-Za-z0-9_\-]{12,}"), "[REDACTED]"),
+    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[REDACTED]"),
+    (re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}", re.IGNORECASE), "[REDACTED]"),
+    (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----"),
+     "[REDACTED]"),
     (re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.]+\b"), "[REDACTED_EMAIL]"),
     (re.compile(r"\b\+?\d[\d\s\-()]{8,}\d\b"), "[REDACTED_PHONE]"),
 ]
