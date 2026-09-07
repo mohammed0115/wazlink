@@ -49,7 +49,7 @@ const capabilityByRoute: Partial<Record<string, { capability: CapabilityId; usag
 const activeMatches: Record<string, string[]> = {
   dashboard: ["dashboard"],
   discovery: ["discovery", "discovery/jobs", "discovery/results"],
-  crm: ["crm", "leads"],
+  crm: ["crm", "leads", "crm/customers", "customers", "crm/contacts", "contacts", "crm/import", "imports", "tasks"],
   pipeline: ["pipeline", "deals"],
   inbox: ["inbox"],
   copilot: ["copilot"],
