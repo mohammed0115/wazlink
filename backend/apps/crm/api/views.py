@@ -3,11 +3,17 @@
 
 from __future__ import annotations
 
+from django.db import transaction
 from rest_framework.response import Response
 
 from common.authz import enforce_object_condition, resolve_in_workspace
 from common.concurrency import parse_if_match
-from common.errors import EntityNotFound, ValidationFailed
+from common.errors import (
+    EntityNotFound,
+    PermissionDeniedError,
+    StaleVersion,
+    ValidationFailed,
+)
 from common.pagination import paginate
 from common.views import WazlinkAPIView
 
@@ -18,6 +24,7 @@ from ..services import (
     add_note,
     add_tag,
     archive_lead,
+    assign_lead_owner,
     complete_task,
     convert_business_to_lead,
     create_appointment,
@@ -89,6 +96,80 @@ class LeadPriorityView(WazlinkAPIView):
             priority=(request.data or {}).get("priority", ""),
             expected_version=parse_if_match(request),
         )
+        return Response(lead_list_item(lead, role=context.role))
+
+
+class LeadUpdateView(WazlinkAPIView):
+    """`PATCH /leads/{ref}` — the frozen `LeadUpdate` operation.
+
+    `LeadUpdate` carries three optional fields governed by TWO permissions:
+    `status`/`priority` need `lead.update`, `owner_ref` needs `lead.assign`
+    (`B2_API_DTO_CONTRACTS.md` §2). So there is no single class-level
+    permission here; the gate is per-field and is applied to EVERY requested
+    field before anything is written.
+
+    That ordering is `AT-OWN-7`, and it is the whole point: a caller holding
+    `lead.update` but not `lead.assign` who PATCHes `{status, owner_ref}` gets
+    `403` and **the status change is not applied either**. The request is one
+    atomic unit, so a refusal on the last field also undoes the first.
+
+    The view stays thin: it validates the DTO's shape, resolves the actor's
+    authority, and delegates each field to its own frozen command.
+    """
+
+    def patch(self, request, lead_ref: str):
+        data = request.data or {}
+        status_value = data.get("status")
+        priority = data.get("priority")
+        owner_ref = data.get("owner_ref")
+
+        if status_value is None and priority is None and owner_ref is None:
+            raise ValidationFailed(
+                "Provide at least one of status, priority or owner_ref.",
+                {"field": "status|priority|owner_ref"},
+            )
+
+        context = self.context(request)
+
+        # --- every requested field's permission, BEFORE any mutation ---
+        if owner_ref is not None and not context.has("lead.assign"):
+            raise PermissionDeniedError(
+                "This operation is not permitted.", {"permission": "lead.assign"}
+            )
+        if (status_value is not None or priority is not None) and not context.has("lead.update"):
+            raise PermissionDeniedError(
+                "This operation is not permitted.", {"permission": "lead.update"}
+            )
+
+        # The frozen DTO carries `version`; the house transport for it is the
+        # `If-Match` header (every sibling command uses it). Accept the header
+        # first and fall back to the body field so both spellings work.
+        expected = parse_if_match(request)
+        if expected is None and data.get("version") is not None:
+            try:
+                expected = int(data["version"])
+            except (TypeError, ValueError):
+                raise StaleVersion("The version field is not a valid version.") from None
+
+        with transaction.atomic():
+            lead = resolve_in_workspace(Lead.objects.all(), context, public_id=lead_ref)
+            # Each command bumps the version, so a multi-field PATCH hands the
+            # next command the version its predecessor just produced.
+            if status_value is not None:
+                lead = set_lead_status(
+                    context=context, lead=lead, status=status_value, expected_version=expected
+                )
+                expected = lead.version
+            if priority is not None:
+                lead = set_lead_priority(
+                    context=context, lead=lead, priority=priority, expected_version=expected
+                )
+                expected = lead.version
+            if owner_ref is not None:
+                lead = assign_lead_owner(
+                    context=context, lead=lead, owner_ref=owner_ref, expected_version=expected
+                )
+
         return Response(lead_list_item(lead, role=context.role))
 
 
@@ -301,6 +382,7 @@ class BusinessConvertView(WazlinkAPIView):
 __all__ = [
     "BusinessConvertView",
     "LeadListCreateView",
+    "LeadUpdateView",
     "LeadStatusView",
     "LeadPriorityView",
     "LeadArchiveView",

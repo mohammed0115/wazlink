@@ -48,6 +48,7 @@ from apps.crm.api.views import (
     LeadPriorityView,
     LeadStatusView,
     LeadTagView,
+    LeadUpdateView,
     TaskDetailView,
     TaskListCreateView,
 )
@@ -164,6 +165,29 @@ from apps.workspaces.api.views import (
     WorkspaceSwitchView,
 )
 
+
+def lead_detail_route(request, lead_ref):
+    """`/leads/{ref}` is one path with two owners.
+
+    The READ is the composed Lead 360, owned by analytics; the WRITE is the
+    frozen `LeadUpdate`, owned by crm. Neither module may import the other, so
+    the method split is resolved HERE — the composition root is the one place
+    permitted to wire across layers, and doing it in the URLconf keeps both
+    domain views unaware that the other exists.
+
+    The plain Django request is handed straight to the chosen DRF view, so the
+    body is parsed exactly once. An unsupported method falls through to the
+    composer, which answers `405` for anything but `GET`.
+    """
+    if request.method == "PATCH":
+        return _lead_update_view(request, lead_ref=lead_ref)
+    return _lead_360_view(request, lead_ref=lead_ref)
+
+
+_lead_360_view = Lead360View.as_view()
+_lead_update_view = LeadUpdateView.as_view()
+
+
 urlpatterns = [
     # --- I1: auth, workspaces, members ---
     path("auth/register", RegisterView.as_view()),
@@ -183,7 +207,8 @@ urlpatterns = [
     path("entitlements", EntitlementView.as_view()),
     # --- I2: CRM. Lead 360 and the timeline are served by the COMPOSER. ---
     path("leads", LeadListCreateView.as_view()),
-    path("leads/<str:lead_ref>", Lead360View.as_view()),
+    # GET = composed Lead 360 (analytics); PATCH = frozen LeadUpdate (crm).
+    path("leads/<str:lead_ref>", lead_detail_route),
     path("leads/<str:lead_ref>/timeline", LeadTimelineView.as_view()),
     path("leads/<str:lead_ref>/status", LeadStatusView.as_view()),
     path("leads/<str:lead_ref>/priority", LeadPriorityView.as_view()),

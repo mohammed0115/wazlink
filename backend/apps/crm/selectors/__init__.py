@@ -84,6 +84,12 @@ def lead_list_item(lead: Lead, *, role: str = "") -> dict[str, Any]:
         "priority": lead.priority,
         "origin_type": lead.origin_type,
         "owner_ref": lead.owner_membership.public_id,
+        # AT-OWN-4: a Lead whose owner Membership is no longer `active` keeps
+        # that owner — it is never silently reassigned — and says so, because
+        # the list is the only surface where "these need a new owner" is
+        # visible. `owner_membership` is already select_related, so this costs
+        # no extra query.
+        "owner_inactive": lead.owner_membership.status != "active",
         "last_activity_at": lead.last_activity_at,
         "version": lead.version,
         "archived": lead.is_archived,

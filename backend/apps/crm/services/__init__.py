@@ -275,6 +275,86 @@ def set_lead_priority(*, context, lead: Lead, priority: str, expected_version: i
 
 
 @transaction.atomic
+def assign_lead_owner(*, context, lead: Lead, owner_ref: str, expected_version: int | None) -> Lead:
+    """`AssignLeadOwner` — frozen B2 command.
+
+    Guard order is the contract, not a preference (`B2_STATE_MACHINES.md` §1.2):
+    `If-Match` -> not archived -> target Membership `active` in this workspace
+    -> `to <> from`. Locking first is what makes `archived_at` and the current
+    owner read committed truth rather than the snapshot the request opened with.
+
+    The two rejection shapes are deliberately DIFFERENT and must not be merged:
+    a Membership in another workspace is `404 ENTITY_NOT_FOUND` (`AT-OWN-3` —
+    a `409` would confirm it exists), while a Membership that is in THIS
+    workspace but not `active` is `409 CONFLICT`·`owner_membership_inactive`
+    (`AT-OWN-2`). Collapsing them would leak cross-tenant existence.
+    """
+    from apps.workspaces.models import Membership
+
+    require_version(lead, expected_version)
+    _guard_not_archived(lead)
+
+    # Workspace scope FIRST, status second — see the docstring.
+    target = Membership.objects.filter(
+        workspace=context.workspace, public_id=(owner_ref or "").strip()
+    ).first()
+    if target is None:
+        raise EntityNotFound("The requested resource was not found.")
+    if target.status != "active":
+        raise DomainConflict(
+            "That member is not active in this workspace.",
+            {"reason": "owner_membership_inactive"},
+        )
+
+    before = lead.owner_membership
+    if before is not None and before.id == target.id:
+        # `to == from` is 400, never a silent 200: a silent success would emit
+        # an event and bump a version for a change that did not happen,
+        # corrupting the timeline and every `If-Match` a concurrent client
+        # holds (`B2_STATE_MACHINES.md` §1.2).
+        raise ValidationFailed(
+            "That member already owns this lead.", {"field": "owner_ref"}
+        )
+
+    before_ref = before.public_id if before is not None else None
+    lead.owner_membership = target
+    bump_version(lead)
+    lead.save(update_fields=["owner_membership", "version", "updated_at"])
+
+    record_activity(
+        workspace=context.workspace,
+        lead=lead,
+        activity_type="LeadOwnerChanged",
+        actor_membership=context.membership,
+        # Frozen activity summary shape (`B2_CRM_ACTIVITY_VOCABULARY.md` §1).
+        summary=f"owner:{before_ref}→{target.public_id}",
+        change={"before": before_ref, "after": target.public_id},
+    )
+    write_audit(
+        workspace=context.workspace,
+        actor_membership=context.membership,
+        action="lead.owner_changed",
+        target_type="lead",
+        target_ref=lead.public_id,
+        changed_fields=["owner_membership"],
+        metadata={"before": before_ref, "after": target.public_id},
+    )
+    publish_event(
+        workspace=context.workspace,
+        event_type="LeadOwnerChanged",
+        aggregate_type="lead",
+        aggregate_ref=lead.public_id,
+        # Frozen payload: refs only, no PII.
+        payload={
+            "lead_ref": lead.public_id,
+            "from_owner_ref": before_ref,
+            "to_owner_ref": target.public_id,
+        },
+    )
+    return lead
+
+
+@transaction.atomic
 def archive_lead(*, context, lead: Lead, expected_version: int | None) -> Lead:
     """Archive. No cascade: contacts, tasks, notes and activities are retained."""
     require_version(lead, expected_version)
@@ -469,6 +549,7 @@ __all__ = [
     "convert_business_to_lead",
     "set_lead_status",
     "set_lead_priority",
+    "assign_lead_owner",
     "archive_lead",
     "add_contact_to_lead",
     "create_task",

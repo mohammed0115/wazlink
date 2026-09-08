@@ -570,10 +570,14 @@ def _dispatch(*, context, run: AutomationRun, action) -> str:
         return ticket.public_id
 
     if kind in ("change_lead_status", "change_lead_priority", "assign_lead_owner"):
-        if not context.has("lead.update"):
+        # Each action carries the permission ITS OWN command requires: B2 gates
+        # ownership behind `lead.assign`, which is strictly narrower than
+        # `lead.update`. Automation lends no authority it does not hold.
+        required = "lead.assign" if kind == "assign_lead_owner" else "lead.update"
+        if not context.has(required):
             raise PermissionDeniedError("This operation is not permitted.")
         from apps.crm.models import Lead
-        from apps.crm.services import set_lead_priority, set_lead_status
+        from apps.crm.services import assign_lead_owner, set_lead_priority, set_lead_status
 
         lead = Lead.objects.filter(
             workspace=run.workspace, public_id=params.get("lead_ref") or payload.get("entity_ref", "")
@@ -593,7 +597,16 @@ def _dispatch(*, context, run: AutomationRun, action) -> str:
                 expected_version=lead.version,
             )
         else:
-            raise ValidationFailed(FAILURE_UNSUPPORTED)
+            # B2 names `AssignLeadOwner` among the commands Automation may
+            # invoke "through the application-service boundary". It runs the
+            # SAME command a human PATCH runs, so the active-membership,
+            # workspace, archived and `to <> from` guards are re-enforced there
+            # rather than restated here. The action stays `approval_required`
+            # in the frozen catalogue; delegating does not lower its tier.
+            assign_lead_owner(
+                context=context, lead=lead, owner_ref=params.get("owner_ref", ""),
+                expected_version=lead.version,
+            )
         return lead.public_id
 
     if kind == "move_deal_stage":
