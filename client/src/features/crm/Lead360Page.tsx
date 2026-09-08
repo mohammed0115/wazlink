@@ -16,11 +16,13 @@
  */
 import { useState } from "react";
 import {
+  authApi,
   leadsApi,
   newIdempotencyKey,
   tasksApi,
   type LeadPriority,
   type LeadStatus,
+  type MemberPayload,
   type Party360,
 } from "../../api";
 import { useApiAction, useApiResource } from "../../api/hooks";
@@ -75,6 +77,16 @@ export function Lead360Page({ leadRef }: { leadRef: string }) {
   const addContact = useApiAction(() =>
     leadsApi.addContact(leadRef, { name: contactName, phone: contactPhone }),
   );
+  // Owner options are the workspace's REAL memberships. Nothing here invents a
+  // person, and the list is only fetched by an actor allowed to read it.
+  const members = useApiResource<{ items: MemberPayload[] }>(
+    (signal) => authApi.members(signal),
+    [],
+    { enabled: can("member.view") },
+  );
+  const assignOwner = useApiAction((ownerRef: string) =>
+    leadsApi.assignOwner(leadRef, ownerRef, version),
+  );
   const convert = useApiAction((partyKind: "organization" | "person") =>
     leadsApi.convertToCustomer(leadRef, partyKind, version, newIdempotencyKey()),
   );
@@ -97,6 +109,20 @@ export function Lead360Page({ leadRef }: { leadRef: string }) {
 
   const sections = view.data;
   const displayName = lead?.display_name || leadRef;
+
+  // Only ACTIVE members are offered — assigning an inactive one is a server
+  // 409. The CURRENT owner is kept in the list even after being deactivated,
+  // because the Lead still belongs to them and the select has to be able to
+  // render its own value rather than silently showing someone else.
+  const allMembers = members.data?.items ?? [];
+  const ownerOptions = allMembers.some((m) => m.membership_ref === lead?.owner_ref)
+    ? allMembers.filter((m) => m.status === "active" || m.membership_ref === lead?.owner_ref)
+    : [
+        ...(lead?.owner_ref
+          ? [{ membership_ref: lead.owner_ref, role: "", status: "unknown" } as MemberPayload]
+          : []),
+        ...allMembers.filter((m) => m.status === "active"),
+      ];
 
   const runAndReload = async (promise: Promise<unknown>, message: string) => {
     const result = await promise;
@@ -175,13 +201,42 @@ export function Lead360Page({ leadRef }: { leadRef: string }) {
             )}
           </div>
           <div>
+            <span>المسؤول</span>
+            {can("lead.assign") && can("member.view") ? (
+              <select
+                id="leadOwner"
+                value={lead?.owner_ref || ""}
+                disabled={assignOwner.pending}
+                onChange={(event) =>
+                  runAndReload(assignOwner.run(event.target.value), "تم تحديث المسؤول.")
+                }
+              >
+                {ownerOptions.map((member) => (
+                  <option value={member.membership_ref} key={member.membership_ref}>
+                    {member.email || member.membership_ref}
+                    {member.status !== "active" ? " (غير نشط)" : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <b>
+                <Mono>{lead?.owner_ref || "—"}</Mono>
+              </b>
+            )}
+            {lead?.owner_inactive ? (
+              <small className="status warning">المسؤول الحالي غير نشط — أعد الإسناد</small>
+            ) : null}
+          </div>
+          <div>
             <span>آخر نشاط</span>
             <b>{formatIso(lead?.last_activity_at)}</b>
           </div>
         </div>
       </section>
 
-      <FormError error={setStatus.error || setPriority.error || convert.error} />
+      <FormError
+        error={setStatus.error || setPriority.error || assignOwner.error || convert.error}
+      />
 
       {can("customer.create") && lead && !lead.converted_at ? (
         <section className="card crm-create-panel">

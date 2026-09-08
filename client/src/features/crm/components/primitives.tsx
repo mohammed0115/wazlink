@@ -120,7 +120,13 @@ export function LeadIdentity({ lead, onOpen }: { lead: LeadListItem; onOpen: () 
     <button type="button" className="row-link company-cell" onClick={onOpen}>
       <i className="company-mark">{initial}</i>
       <span>
-        <b>{lead.display_name || "بدون اسم"}</b>
+        <b>
+          {lead.display_name || "بدون اسم"}
+          {/* The owner Membership went inactive. The Lead keeps its owner —
+              nothing is silently reassigned — so the list is where a manager
+              is told it needs one. */}
+          {lead.owner_inactive ? <em className="origin-chip manual"> مسؤول غير نشط</em> : null}
+        </b>
         <small>
           <Mono>{lead.lead_ref}</Mono>
           {lead.display_subtitle ? ` · ${lead.display_subtitle}` : ""}

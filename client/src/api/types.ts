@@ -24,6 +24,12 @@ export interface LeadListItem {
   priority: LeadPriority;
   origin_type: LeadOrigin;
   owner_ref: string;
+  /**
+   * The owner Membership is no longer active in this workspace. The Lead is
+   * never silently reassigned, so this is how a manager finds the ones that
+   * need a new owner.
+   */
+  owner_inactive: boolean;
   last_activity_at: string | null;
   version: number;
   archived: boolean;

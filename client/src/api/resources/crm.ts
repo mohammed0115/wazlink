@@ -81,6 +81,23 @@ export const leadsApi = {
       ifMatch: version,
     }),
 
+  /**
+   * `AssignLeadOwner`, through the frozen `PATCH /leads/{id}`.
+   *
+   * The owner is a workspace Membership (`MEM-*`) read from
+   * `/workspaces/members` — never a name typed by a human and never a local
+   * list. The server decides everything that matters: a member of another
+   * workspace is `404` (it must not confirm the membership exists), a member
+   * of THIS workspace who is not active is `409 owner_membership_inactive`,
+   * and assigning the current owner again is a `422` rather than a silent
+   * success that would bump the version for nothing.
+   */
+  assignOwner: (leadRef: string, ownerRef: string, version: number) =>
+    api.patch<LeadListItem>(`/leads/${encodeURIComponent(leadRef)}`, {
+      body: { owner_ref: ownerRef },
+      ifMatch: version,
+    }),
+
   archive: (leadRef: string, version: number) =>
     api.post<LeadListItem>(`/leads/${encodeURIComponent(leadRef)}/archive`, { ifMatch: version }),
 

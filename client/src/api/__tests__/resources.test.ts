@@ -100,6 +100,31 @@ describe("the AI agent client cannot send to a customer", () => {
   });
 });
 
+describe("lead owner assignment goes through the frozen PATCH", () => {
+  it("PATCHes the lead resource with owner_ref and an If-Match version", async () => {
+    const { leadsApi } = await import("../resources/crm");
+    await leadsApi.assignOwner("LEAD-1", "MEM-2", 7);
+
+    const init = fetchMock.mock.calls.at(-1)?.[1];
+    expect(lastUrl()).toBe("/api/v1/leads/LEAD-1");
+    expect(init.method).toBe("PATCH");
+    expect(lastBody()).toEqual({ owner_ref: "MEM-2" });
+    // Optimistic concurrency is the contract, not an optimisation: without it
+    // two managers reassigning the same Lead would both appear to succeed.
+    expect(init.headers["If-Match"]).toBe("7");
+  });
+
+  it("never invents an owner endpoint of its own", async () => {
+    const { leadsApi } = await import("../resources/crm");
+    await leadsApi.assignOwner("LEAD-1", "MEM-2", 1);
+
+    for (const call of fetchMock.mock.calls) {
+      expect(call[0]).not.toContain("/assign");
+      expect(call[0]).not.toContain("/owner");
+    }
+  });
+});
+
 describe("deals never touch the revenue boundary", () => {
   it("closing a deal Won posts to the deal resource only", async () => {
     const { dealsApi } = await import("../resources/sales");
