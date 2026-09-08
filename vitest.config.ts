@@ -20,7 +20,15 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["client/src/**/*.test.ts", "client/src/**/*.test.tsx"],
+    // `scripts/` is included so the architecture guards are themselves tested.
+    // A guard nobody proves can fail is indistinguishable from one that never
+    // fires — which is exactly how the stale "no network in the UI" rule
+    // survived until the API boundary made it fail for the wrong reason.
+    include: [
+      "client/src/**/*.test.ts",
+      "client/src/**/*.test.tsx",
+      "scripts/**/*.test.mjs",
+    ],
     passWithNoTests: false,
   },
 });

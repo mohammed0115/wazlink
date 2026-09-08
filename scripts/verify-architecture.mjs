@@ -7,6 +7,8 @@
  */
 import { readFile, readdir, stat } from "node:fs/promises";
 
+import { evaluateNetworkBoundary } from "./lib/network-boundary.mjs";
+
 const ROOT = new URL("../", import.meta.url);
 const SRC = new URL("client/src/", ROOT);
 const DOMAIN = new URL("domain/", SRC);
@@ -52,7 +54,10 @@ check(
   "U3 لا استخدام لـdangerouslySetInnerHTML خارج أيقونات SVG",
   uiSources.filter((s) => s.includes("dangerouslySetInnerHTML")).every((s) => s.includes("navIconPaths")),
 );
-check("U4 لا نداءات شبكة في الواجهة", !/fetch\s*\(|XMLHttpRequest|WebSocket/.test(uiText.replace(/\/\*[\s\S]*?\*\//g, " ")));
+const networkBoundary = evaluateNetworkBoundary(
+  uiFiles.map((url, index) => ({ path: url.pathname, source: uiSources[index] })),
+);
+check("U4 الشبكة محصورة في حدود API", networkBoundary.pass, networkBoundary.detail);
 check("U5 لا تخزين دائم", !/localStorage|sessionStorage|indexedDB/.test(uiText));
 
 // ── 3. عزل الميزات ────────────────────────────────────────────
