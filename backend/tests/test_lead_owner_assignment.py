@@ -475,6 +475,59 @@ def test_a_refused_owner_rolls_back_the_status_applied_earlier_in_the_same_patch
 
 
 # --------------------------------------------------------------------------
+# The route itself, as a BROWSER reaches it
+# --------------------------------------------------------------------------
+def test_the_patch_route_behaves_for_a_client_that_sends_no_csrf_token(actor, make_user):
+    """`/leads/{ref}` is dispatched by a plain function, not `as_view()`, so it
+    carries its own CSRF posture rather than inheriting DRF's.
+
+    The default test client never sends a CSRF token and never checks for one,
+    so it cannot see the difference — a browser can, and did: every PATCH came
+    back `403 CSRF cookie not set` while this suite was green. Enforcing the
+    check here is what keeps the dispatcher transparent instead of quietly
+    applying a rule no sibling endpoint applies.
+    """
+    from rest_framework.test import APIClient
+
+    a = actor()
+    lead = _lead(a.context)
+    target = _member(a.workspace, "csrf@example.test", make_user=make_user)
+
+    strict = APIClient(enforce_csrf_checks=True)
+    strict.credentials(HTTP_X_SESSION_TOKEN=a.token)
+    response = strict.patch(
+        f"/api/v1/leads/{lead.public_id}",
+        {"owner_ref": target.public_id},
+        format="json",
+        HTTP_IF_MATCH=str(lead.version),
+    )
+
+    assert response.status_code == 200, response.data
+    lead.refresh_from_db()
+    assert lead.owner_membership_id == target.id
+
+
+def test_the_get_on_the_same_path_still_serves_the_composed_360(actor, auth_client):
+    """Multiplexing the path must not cost the read that already lived there."""
+    a = actor()
+    lead = _lead(a.context)
+
+    response = auth_client(a).get(f"/api/v1/leads/{lead.public_id}")
+
+    assert response.status_code == 200
+    assert response.data["lead"]["lead_ref"] == lead.public_id
+    assert "contacts" in response.data
+    assert "activities" in response.data
+
+
+def test_an_unsupported_method_on_the_path_is_405(actor, auth_client):
+    a = actor()
+    lead = _lead(a.context)
+
+    assert auth_client(a).delete(f"/api/v1/leads/{lead.public_id}").status_code == 405
+
+
+# --------------------------------------------------------------------------
 # The service is the single write path — Automation runs the SAME command
 # --------------------------------------------------------------------------
 def test_the_service_enforces_the_same_guards_when_automation_is_the_caller(

@@ -2,6 +2,7 @@
 analytics, and everything else to its owning domain."""
 
 from django.urls import path
+from django.views.decorators.csrf import csrf_exempt
 
 from apps.accounts.api.views import ChangePasswordView, RegisterView, VerifyEmailView
 from apps.aiagent.api.views import (
@@ -166,6 +167,7 @@ from apps.workspaces.api.views import (
 )
 
 
+@csrf_exempt
 def lead_detail_route(request, lead_ref):
     """`/leads/{ref}` is one path with two owners.
 
@@ -178,6 +180,15 @@ def lead_detail_route(request, lead_ref):
     The plain Django request is handed straight to the chosen DRF view, so the
     body is parsed exactly once. An unsupported method falls through to the
     composer, which answers `405` for anything but `GET`.
+
+    `csrf_exempt` is what makes this dispatcher TRANSPARENT rather than a new
+    policy. Django's CSRF middleware inspects the view the URL resolver
+    returned, which is this function — not the DRF view it delegates to — and
+    `APIView.as_view()` carries that exemption on every other endpoint in this
+    file. Without it this one path would enforce a rule no sibling does, and
+    every browser PATCH would 403 while the test client (which does not send
+    CSRF) passed. Authentication is unchanged and still the session the
+    delegate resolves.
     """
     if request.method == "PATCH":
         return _lead_update_view(request, lead_ref=lead_ref)
