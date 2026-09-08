@@ -38,9 +38,19 @@ def register_party360_sections() -> None:
     section_registry.register(FilesSectionProvider())
 
     # I5 — customers, customfields.
-    from apps.customers.party360 import CustomerProfileSectionProvider
+    from apps.customers.party360 import (
+        CustomerContactsSectionProvider,
+        CustomerProfileSectionProvider,
+    )
 
     section_registry.register(CustomerProfileSectionProvider())
+    # The Customer's Contacts section. Customer 360 GENERALIZES Lead 360
+    # (gap plan §10), so the party that owns contacts must contribute them for
+    # `customer` subjects exactly as crm does for `lead` ones. It matters most
+    # for a `party_kind='person'` Customer: that row deliberately holds no
+    # phone or email, so its linked Contact is the ONLY place its contactable
+    # identity exists, and an unregistered provider hides it completely.
+    section_registry.register(CustomerContactsSectionProvider())
     section_registry.register(CustomFieldsSectionProvider())
 
     # I7 — pipeline. The `deals` section flips unavailable -> present HERE and
